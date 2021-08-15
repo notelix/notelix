@@ -1,0 +1,4 @@
+POST http://127.0.0.1:3000/users/signup
+Content-Type: application/json
+
+{"username": "A", "password": "a", "enableClientSideEncryption": false}
