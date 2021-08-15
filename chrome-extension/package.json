@@ -1,0 +1,42 @@
+{
+  "name": "notelix",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "build:content-script": "webpack --config ./webpack.content-script.config.js",
+    "build:popup": "webpack --config ./webpack.popup.config.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@babel/plugin-transform-runtime": "^7.15.0",
+    "@babel/preset-react": "^7.14.5",
+    "@babel/runtime": "^7.15.3",
+    "@notelix/web-marker": "^1.0.4",
+    "axios": "^0.19.2",
+    "babel-polyfill": "^6.26.0",
+    "crypto-js": "^4.1.1",
+    "lodash": "^4.17.21",
+    "milligram": "^1.4.1",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-router-dom": "^5.2.0",
+    "toastr": "^2.1.4"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "GPLv3",
+  "devDependencies": {
+    "@babel/core": "^7.9.6",
+    "@babel/preset-env": "^7.9.6",
+    "babel-loader": "^8.1.0",
+    "css-loader": "^3.5.3",
+    "install": "^0.13.0",
+    "less-loader": "^6.1.0",
+    "npm": "^6.14.5",
+    "style-loader": "^1.2.1",
+    "svg-inline-loader": "^0.8.2",
+    "webpack": "^4",
+    "webpack-cli": "^3",
+    "webpack-dev-server": "^3"
+  }
+}

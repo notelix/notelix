@@ -1,0 +1,28 @@
+{
+  "name": "notelix",
+  "version": "0.0.1",
+  "description": "",
+  "manifest_version": 2,
+  "permissions": [
+    "activeTab",
+    "storage",
+    "<all_urls>"
+  ],
+  "browser_action": {
+    "default_title": "Options",
+    "default_popup": "extension-options.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*",
+        "file:///*/*.txt"
+      ],
+      "js": [
+        "/dist/content-script.dist.js"
+      ],
+      "run_at": "document_end"
+    }
+  ]
+}
