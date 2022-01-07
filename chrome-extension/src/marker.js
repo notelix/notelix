@@ -1,11 +1,11 @@
-import WebMarker from "@notelix/web-marker";
+import { Marker } from "@notelix/web-marker";
 import { state } from "./state";
 import {
   showEditAnnotationPopover,
   updateSelectionRectAccordingToRange,
 } from "./dom";
 
-export const marker = new WebMarker.Marker({
+export const marker = new Marker({
   rootElement: document.body,
   eventHandler: {
     onHighlightClick: (context, element) => {
