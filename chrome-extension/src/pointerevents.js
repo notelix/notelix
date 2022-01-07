@@ -5,6 +5,17 @@ import {
   updateSelectionRectAccordingToRange,
 } from "./dom";
 
+function isRangeInContentEditable(range) {
+  let ptr = range.commonAncestorContainer;
+  while (ptr) {
+    if (ptr.isContentEditable) {
+      return true;
+    }
+    ptr = ptr.parentElement;
+  }
+  return false;
+}
+
 export function addPointerUpEventListeners() {
   window.addEventListener("pointerup", (e) => {
     setTimeout(() => {
@@ -18,7 +29,8 @@ export function addPointerUpEventListeners() {
         !selection.toString() ||
         !selection.rangeCount ||
         selection.isCollapsed ||
-        !range
+        !range ||
+        isRangeInContentEditable(range)
       ) {
         hideAnnotatePopover(e);
         hideEditAnnotationPopover();
