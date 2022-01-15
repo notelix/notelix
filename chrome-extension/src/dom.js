@@ -45,7 +45,7 @@ function prepareEditAnnotationPopoverDom() {
   document.getElementById("notelix-button-comment").onpointerdown =
     document.getElementById("notelix-annotation-comments").onpointerdown =
       () => {
-        const annotation = state.annotations[state.selectedAnnotationId];
+        let annotation = state.annotations[state.selectedAnnotationId];
 
         const comments = annotation.notes || "";
         const value = prompt("write comments", comments);
@@ -53,12 +53,15 @@ function prepareEditAnnotationPopoverDom() {
           return;
         }
 
-        doSaveAnnotation({
-          ...annotation,
-          notes: value,
-        }).then(() => {
-          marker.unpaint(annotation);
-          marker.paint(annotation);
+        const backup = state.annotations[annotation.uid];
+        annotation = {...annotation, notes: value}
+        state.annotations[annotation.uid] = annotation;
+        marker.unpaint(state.annotations[annotation.uid]);
+        marker.paint(state.annotations[annotation.uid]);
+        doSaveAnnotation(annotation).catch(() => {
+          state.annotations[annotation.uid] = backup;
+          marker.unpaint(state.annotations[annotation.uid]);
+          marker.paint(state.annotations[annotation.uid]);
         });
 
         hideEditAnnotationPopover();
@@ -115,12 +118,15 @@ export function onDeleteAnnotationElementClick() {
     }
   }
 
+  marker.unpaint(annotation);
+  const backup = state.annotations[state.selectedAnnotationId];
+  delete state.annotations[state.selectedAnnotationId];
   deleteAnnotation({
     url: getNormalizedUrl(),
     uid: state.selectedAnnotationId,
-  }).then(() => {
-    marker.unpaint(annotation);
-    delete state.annotations[state.selectedAnnotationId];
+  }).catch(() => {
+    state.annotations[state.selectedAnnotationId] = backup;
+    marker.paint(annotation);
   });
 
   hideEditAnnotationPopover();
@@ -129,7 +135,7 @@ export function onDeleteAnnotationElementClick() {
 export function onHighlightElementClick(color) {
   const selection = document.getSelection();
   const range = selection.getRangeAt(0);
-  const annotation = marker.serializeRange(range, {
+  let annotation = marker.serializeRange(range, {
     charsToKeepForTextBeforeAndTextAfter: 32,
     uid: makeid(),
   });
@@ -137,12 +143,12 @@ export function onHighlightElementClick(color) {
     return;
   }
 
-  doSaveAnnotation({
-    ...annotation,
-    color,
-    range,
-  }).then(() => {
-    marker.paint(annotation);
+  annotation = {...annotation, color, range};
+  state.annotations[annotation.uid] = annotation;
+  marker.paint(annotation);
+  doSaveAnnotation(annotation).catch(() => {
+    marker.unpaint(annotation);
+    delete state.annotations[annotation.uid];
   });
 }
 

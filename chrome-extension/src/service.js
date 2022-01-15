@@ -37,8 +37,6 @@ export function doSaveAnnotation(annotation) {
     url: getNormalizedUrl(),
     notes: annotation.notes || "",
     range: undefined,
-  }).then(() => {
-    state.annotations[annotation.uid] = annotation;
   });
 }
 
