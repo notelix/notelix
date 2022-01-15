@@ -63,14 +63,3 @@ If you would like to try this plugin, you can use this `Server`:
 ```
 https://dev.notelix.com
 ```
-
-# TODO
-* [ ] support docker compose; publish docker image
-* [ ] automated data backup script
-* [ ] front end dashboard, supporting search, etc. (if clientside search is enabled, search feature might be limited)
-* [ ] add user docs, screenshots, etc.
-* [ ] add installation guide
-* [ ] free public server
-* [ ] chrome web store
-* [ ] context menu to temporarily disable highlighter
-* [ ] refactor code
