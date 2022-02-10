@@ -7,6 +7,7 @@
 * [ ] chrome web store
 * [ ] context menu to temporarily disable highlighter
 * [ ] support adding multiple comments to one annotation
+* [ ] shortcut to jump to the previous / next annotation
 * [ ] refactor code
 * [ ] re-implement client-side encryption in a way that can support every feature including dashboard and search. To
   achieve this, the user will be asked to use docker-compose to run notelix backend services (e.g. MeiliSearch) locally.
