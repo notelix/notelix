@@ -39,4 +39,15 @@ export class AnnotationChangeHistory extends BaseEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updated_at: Date;
+
+  public static async getLatestIdForUser(user: User) {
+    return (
+      await AnnotationChangeHistory.getRepository()
+        .createQueryBuilder()
+        .where({ user: user })
+        .orderBy('id', 'DESC')
+        .select(['id'])
+        .getRawOne()
+    ).id;
+  }
 }
