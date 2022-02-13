@@ -116,4 +116,12 @@ export class AnnotationsController {
       });
     });
   }
+
+  @Post('/search')
+  async Search(): Promise<any> {
+    const user = await this.authenticationService.getAuthenticatedUser();
+    const q = this.request.body['q'];
+    //TODO: MeiliSearch
+    return null;
+  }
 }
