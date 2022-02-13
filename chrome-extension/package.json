@@ -24,7 +24,6 @@
   },
   "keywords": [],
   "author": "",
-  "license": "GPLv3",
   "devDependencies": {
     "@babel/core": "^7.9.6",
     "@babel/preset-env": "^7.9.6",
