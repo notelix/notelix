@@ -1,0 +1,34 @@
+version: "3.9"
+services:
+  backend:
+    image: notelix:edge
+    restart: always
+#    command: [ "sh", "-c", "sleep 3000" ]
+    ports:
+      - "18565:3000"
+    links:
+      - "postgres"
+    environment:
+      - RUN_MODE=EDGE
+    volumes:
+      - ./src:/app/src
+      - ./tools:/app/tools
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./tsconfig.build.json:/app/tsconfig.build.json
+      - ./env.edge.ts:/app/env.ts
+      - ./ormconfig.edge.js:/app/ormconfig.js
+      - ./.env.edge:/app/.env
+      - data:/data
+  postgres:
+    image: "postgres:14"
+    environment:
+      - POSTGRES_PASSWORD=$DB_PASSWORD
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "18566:5432"
+  meilisearch:
+    image: "getmeili/meilisearch:v0.25.2"
+volumes:
+  postgres-data:
+  data:

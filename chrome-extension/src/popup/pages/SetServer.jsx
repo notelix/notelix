@@ -2,6 +2,7 @@ import { useHistory } from "react-router-dom";
 import React, { useState } from "react";
 import axios from "axios";
 import { NotelixChromeStorageKey, NotelixDefaultServer } from "../consts";
+import { getMetaVersion } from "../../api/meta";
 
 export const SetServer = () => {
   const history = useHistory();
@@ -24,8 +25,7 @@ export const SetServer = () => {
             _server = _server.substr(0, _server.length - 1);
           }
 
-          axios
-            .get(`${_server}/meta/version`)
+          getMetaVersion(_server)
             .then((response) => {
               if (!response.data.notelix) {
                 throw "invalid server response";

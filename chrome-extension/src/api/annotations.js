@@ -1,12 +1,6 @@
 import axios from "axios";
 import { getEndpoint, wrapRequestApiRequireLoggedIn } from "./common";
-import {
-  decryptFields,
-  decryptKey,
-  encryptFields,
-  getKey,
-} from "../encryption";
-import { NotelixChromeStorageKey } from "../popup/consts";
+import { decryptFields, encryptFields, getKey } from "../encryption";
 import CryptoJS from "crypto-js";
 
 // TODO: add typescript support and use typescript annotations to mark which field should be encrypted

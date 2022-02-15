@@ -1,28 +1,27 @@
 import {
   Controller,
-  Inject,
   NotFoundException,
   Post,
+  Req,
   Request,
 } from '@nestjs/common';
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { Annotation } from '../models/annotation.entity';
-import { REQUEST } from '@nestjs/core';
-import { TypeSenseClient } from '../typesense';
-import { getManager } from 'typeorm';
+import { getManager, MoreThan } from 'typeorm';
 import { AnnotationChangeHistory } from '../models/annotationChangeHistory.entity';
+import AnnotationChangeHistoryService from '../services/annotationChangeHistory';
 
 @Controller('annotations')
 export class AnnotationsController {
   constructor(
-    @Inject(REQUEST) private request: Request,
     private authenticationService: AuthenticationService,
+    private annotationChangeHistoryService: AnnotationChangeHistoryService,
   ) {}
 
   @Post('/save')
-  async Save(): Promise<any> {
+  async Save(@Req() request: Request): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const uid = this.request.body['uid'];
+    const uid = request.body['uid'];
 
     let annotation = await Annotation.findOne({
       user,
@@ -33,44 +32,51 @@ export class AnnotationsController {
       annotation = new Annotation();
     }
     annotation.user = user;
-    annotation.data = { ...this.request.body };
+    annotation.data = { ...request.body };
     annotation.uid = uid;
-    annotation.url = this.request.body['url'] || '';
+    annotation.url = request.body['url'] || '';
     delete annotation.data.uid;
     delete annotation.data.url;
-    await annotation.save();
+    annotation = await annotation.save();
 
     setTimeout(() => {
-      TypeSenseClient.indexAnnotation(user, annotation);
+      this.annotationChangeHistoryService.handleSave(annotation);
+      // TypeSenseClient.indexAnnotation(user, annotation);
     });
     return {};
   }
 
   @Post('/delete')
-  async Delete(): Promise<any> {
+  async Delete(@Req() request: Request): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
     const annotation = await Annotation.findOne({
       user: user,
-      uid: this.request.body['uid'],
+      uid: request.body['uid'],
     });
 
     if (!annotation) {
       throw new NotFoundException();
     }
 
+    const annotationId = annotation.id;
     await annotation.remove();
     setTimeout(() => {
-      TypeSenseClient.deleteAnnotation(annotation);
+      this.annotationChangeHistoryService.handleDelete({
+        ...annotation,
+        user: user,
+        id: annotationId,
+      } as any);
+      // TypeSenseClient.deleteAnnotation(annotation);
     });
     return {};
   }
 
   @Post('/queryByUrl')
-  async QueryByUrl(): Promise<any> {
+  async QueryByUrl(@Req() request: Request): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
     const list = await Annotation.find({
       user: user,
-      url: this.request.body['url'],
+      url: request.body['url'],
     });
 
     return { list };
@@ -93,34 +99,60 @@ export class AnnotationsController {
     });
   }
 
-  @Post('/watch')
-  async Watch(): Promise<any> {
+  @Post('/listDiff')
+  async ListDiff(@Req() request: Request): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const fromId = this.request.body['fromId'];
+    const sinceId = request.body['sinceId'];
+    const cachedSinceId =
+      this.annotationChangeHistoryService.getCachedAnnotationChangeHistoryLatestId(
+        user.id,
+      );
+
+    if (cachedSinceId === sinceId) {
+      return Promise.resolve({ ok: true, diff: [] });
+    }
 
     return await new Promise(async (resolve) => {
       await getManager().transaction(async () => {
-        const annotation = await AnnotationChangeHistory.findOne({
-          id: fromId,
-          user,
-        });
-        if (!annotation) {
-          // already pruned
-          resolve({ ok: false });
-          return;
+        let diff = [];
+        if (sinceId !== 0) {
+          const history = await AnnotationChangeHistory.findOne({
+            id: sinceId,
+            user,
+          });
+          if (!history) {
+            // already pruned
+            resolve({ ok: false });
+            return;
+          }
         }
 
-        // 1. send all AnnotationChangeHistory larger than `fromId` immediately
-        // 2. establish WATCH connection, register callback
-        resolve({ ok: true });
+        diff = await AnnotationChangeHistory.find({
+          id: MoreThan(sinceId),
+          user: user,
+        });
+
+        if (diff.length > 0) {
+          const annotationChangeHistoryLatestId = diff[diff.length - 1].id;
+          this.annotationChangeHistoryService.rememberAnnotationChangeHistoryLatestId(
+            user.id,
+            annotationChangeHistoryLatestId,
+          );
+        } else {
+          this.annotationChangeHistoryService.rememberAnnotationChangeHistoryLatestId(
+            user.id,
+            await AnnotationChangeHistory.getLatestIdForUser(user),
+          );
+        }
+        resolve({ ok: true, diff: diff });
       });
     });
   }
 
   @Post('/search')
-  async Search(): Promise<any> {
+  async Search(@Req() request: Request): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const q = this.request.body['q'];
+    const q = request.body['q'];
     //TODO: MeiliSearch
     return null;
   }

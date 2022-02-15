@@ -3,12 +3,11 @@ import {
   Controller,
   ForbiddenException,
   Get,
-  Inject,
   Post,
+  Req,
   Request,
 } from '@nestjs/common';
 import { AuthenticationService } from '../authenticators/authentication.service';
-import { REQUEST } from '@nestjs/core';
 import { User } from '../models/user.entity';
 import * as bcrypt from 'bcrypt';
 import makeid from '../utils/makeid';
@@ -17,7 +16,6 @@ import JwtService from '../services/jwt';
 @Controller('users')
 export class UsersController {
   constructor(
-    @Inject(REQUEST) private request: Request,
     private jwtService: JwtService,
     private authenticationService: AuthenticationService,
   ) {}
@@ -28,11 +26,11 @@ export class UsersController {
   }
 
   @Post('/signup')
-  async SignUp(): Promise<any> {
-    const username = this.request.body['username'];
-    const password = bcrypt.hashSync(this.request.body['password'], 10);
+  async SignUp(@Req() request: Request): Promise<any> {
+    const username = request.body['username'];
+    const password = bcrypt.hashSync(request.body['password'], 10);
     const enableClientSideEncryption =
-      this.request.body['enableClientSideEncryption'];
+      request.body['enableClientSideEncryption'];
 
     let existingUser = await User.findOne({ name: username });
     if (existingUser) {
@@ -44,7 +42,7 @@ export class UsersController {
     user.password = password;
     user.bearer_token = '';
     if (enableClientSideEncryption) {
-      user.client_side_encryption = this.request.body['client_side_encryption'];
+      user.client_side_encryption = request.body['client_side_encryption'];
     } else {
       user.client_side_encryption = '';
     }
@@ -54,9 +52,9 @@ export class UsersController {
   }
 
   @Post('/login')
-  async Login(): Promise<any> {
-    const username = this.request.body['username'];
-    const password = this.request.body['password'];
+  async Login(@Req() request: Request): Promise<any> {
+    const username = request.body['username'];
+    const password = request.body['password'];
 
     let user = await User.findOne({ name: username });
     if (!user) {
@@ -74,11 +72,11 @@ export class UsersController {
   }
 
   @Post('/change-password')
-  async ChangePassword(): Promise<any> {
+  async ChangePassword(@Req() request: Request): Promise<any> {
     const newClientSideEncryptionParams =
-      this.request.body['newClientSideEncryptionParams'];
-    const oldPassword = this.request.body['oldPassword'];
-    const newPassword = this.request.body['newPassword'];
+      request.body['newClientSideEncryptionParams'];
+    const oldPassword = request.body['oldPassword'];
+    const newPassword = request.body['newPassword'];
     const user = await this.authenticationService.getAuthenticatedUser();
 
     if (!bcrypt.compareSync(oldPassword, user.password)) {

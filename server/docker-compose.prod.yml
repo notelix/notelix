@@ -1,0 +1,27 @@
+version: "3.9"
+services:
+  backend:
+    image: notelix:prod
+    restart: always
+    ports:
+      - "18555:3000"
+    links:
+      - "postgres"
+    volumes:
+      - ./env.prod.ts:/app/env.ts
+      - ./ormconfig.prod.js:/app/ormconfig.js
+      - ./.env.prod:/app/.env
+      - data:/data
+  postgres:
+    image: "postgres:14"
+    environment:
+      - POSTGRES_PASSWORD=$DB_PASSWORD
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "18556:5432"
+  meilisearch:
+    image: "getmeili/meilisearch:v0.25.2"
+volumes:
+  postgres-data:
+  data:

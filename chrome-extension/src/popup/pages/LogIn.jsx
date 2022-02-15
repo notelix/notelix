@@ -4,6 +4,7 @@ import { NotelixChromeStorageKey } from "../consts";
 import { login } from "../../api/user";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
+import { trySetEdgeSyncParams } from "../../api/edge";
 
 export const LogIn = () => {
   const history = useHistory();
@@ -27,6 +28,7 @@ export const LogIn = () => {
           sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
           alert("Login successful");
           history.push("/");
+          trySetEdgeSyncParams();
         });
       });
     });

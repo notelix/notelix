@@ -10,8 +10,8 @@ import {
 } from 'typeorm';
 import { User } from './user.entity';
 
-const AnnotationChangeHistoryKindSave = 1;
-const AnnotationChangeHistoryKindDelete = 2;
+export const AnnotationChangeHistoryKindSave = 1;
+export const AnnotationChangeHistoryKindDelete = 2;
 
 @Entity()
 @Index(['user'])
@@ -25,7 +25,7 @@ export class AnnotationChangeHistory extends BaseEntity {
   @Column({ type: 'int' })
   annotationId: number;
 
-  @Column({ type: 'varchar', length: 64, unique: true })
+  @Column({ type: 'varchar', length: 64 })
   uid: string;
 
   @Column({ type: 'json' })
@@ -41,13 +41,16 @@ export class AnnotationChangeHistory extends BaseEntity {
   updated_at: Date;
 
   public static async getLatestIdForUser(user: User) {
-    return (
+    const latestAnnotationChangeHistory = (
       await AnnotationChangeHistory.getRepository()
         .createQueryBuilder()
-        .where({ user: user })
-        .orderBy('id', 'DESC')
-        .select(['id'])
+        .where({ user })
+        .select('MAX(id)', 'max')
         .getRawOne()
-    ).id;
+    ).max;
+    if (!latestAnnotationChangeHistory) {
+      return 0;
+    }
+    return latestAnnotationChangeHistory;
   }
 }

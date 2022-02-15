@@ -10,11 +10,10 @@ import {
   registerHotkeys,
 } from "./hotkeys";
 import { addPointerUpEventListeners } from "./pointerevents";
-import { COMMAND_REFRESH_ANNOTATIONS } from "./consts";
-import { NotelixChromeStorageKey } from "./popup/consts";
-import { state } from "./state";
+import { trySetEdgeSyncParams } from "./api/edge";
 
 setTimeout(() => {
+  trySetEdgeSyncParams();
   whenUrlChanges(() => {
     setTimeout(() => {
       loadAllAnnotationsData();

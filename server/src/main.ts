@@ -9,11 +9,24 @@ import { MetaController } from './controllers/meta.controller';
 import JwtService from './services/jwt';
 import JwtAuth from './authenticators/authenticators/jwtAuth';
 import BearerAuth from './authenticators/authenticators/bearerAuth';
+import AnnotationChangeHistoryService from './services/annotationChangeHistory';
+import { EdgeSyncController } from './controllers/edgesync.controller';
 
 @Module({
   imports: [],
-  controllers: [UsersController, AnnotationsController, MetaController],
-  providers: [AuthenticationService, JwtService, JwtAuth, BearerAuth],
+  controllers: [
+    UsersController,
+    AnnotationsController,
+    MetaController,
+    EdgeSyncController,
+  ],
+  providers: [
+    AuthenticationService,
+    JwtService,
+    JwtAuth,
+    BearerAuth,
+    AnnotationChangeHistoryService,
+  ],
 })
 class AppModule {}
 
