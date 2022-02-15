@@ -35,3 +35,5 @@ lerna-debug.log*
 
 env.ts
 ormconfig.js
+
+.env
