@@ -10,8 +10,8 @@ import BearerAuth from './authenticators/authenticators/bearerAuth';
 import AnnotationChangeHistoryService from './services/annotationChangeHistory';
 import { AgentSyncController } from './controllers/agentSyncController';
 import { createConnection } from 'typeorm';
-import { bootstrapMeiliSearch } from './meilisearch';
 import * as ormConfig from '../ormconfig';
+import { bootstrapMeiliSearch } from './meilisearch';
 
 @Module({
   imports: [],

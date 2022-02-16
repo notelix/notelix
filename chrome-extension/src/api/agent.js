@@ -1,6 +1,16 @@
 import { getKey } from "../encryption";
 import { NotelixChromeStorageKey } from "../popup/consts";
 import client from "./client";
+import sleep from "../utils/sleep";
+
+export function doTrySetAgentSyncParamsLoop() {
+  setTimeout(async () => {
+    while (true) {
+      await trySetAgentSyncParams();
+      await sleep(30000);
+    }
+  });
+}
 
 export async function trySetAgentSyncParams() {
   chrome.storage.sync.get(NotelixChromeStorageKey, async (value) => {

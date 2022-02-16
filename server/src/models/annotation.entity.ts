@@ -10,7 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
-import { meiliSearchIndexAnnotation } from '../meilisearch';
+import { meilisearchClient } from '../meilisearch';
 
 @Entity()
 @Index(['user', 'url'])
@@ -39,11 +39,9 @@ export class Annotation extends BaseEntity {
   updated_at: Date;
 
   // typeorm bug?.. if we just called save() to insert a record, value of `.id` is ignored, and id was set to auto-increment
-  static async persist(data) {
-    console.log('persisting', data);
+  static async agentSyncPersist(data) {
     setTimeout(async () => {
-      const ret = await meiliSearchIndexAnnotation(data);
-      console.log('@meiliSearchIndexAnnotation', ret);
+      await meilisearchClient.IndexAnnotation(data);
     });
 
     const existing = await Annotation.findOne({ id: data.id });

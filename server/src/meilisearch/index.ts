@@ -1,4 +1,5 @@
 import { MeiliSearch } from 'meilisearch';
+import { Annotation } from '../models/annotation.entity';
 
 const client = new MeiliSearch({
   host: 'http://meilisearch:7700',
@@ -7,8 +8,42 @@ const client = new MeiliSearch({
 
 const annotationIndex = client.index('annotations');
 
-export function bootstrapMeiliSearch() {}
-
-export function meiliSearchIndexAnnotation(annotation) {
-  return annotationIndex.addDocuments([annotation]);
+function toMeiliEntry(annotation: Annotation) {
+  return {
+    id: annotation.id,
+    originalText: annotation.data.originalText,
+    userId: annotation.user ? annotation.user.id : undefined,
+    url: annotation.url,
+  };
 }
+
+class MeilisearchClient {
+  IndexAnnotation(annotation) {
+    return annotationIndex.addDocuments([toMeiliEntry(annotation)]);
+  }
+
+  UnIndexAnnotation(annotation) {
+    return annotationIndex.deleteDocuments([annotation.id]);
+  }
+
+  UnIndexAllAnnotations() {
+    return annotationIndex.deleteAllDocuments();
+  }
+
+  queryAnnotations(q, userId) {
+    return annotationIndex.search(q, {
+      filter: userId ? `userId = ${userId}` : undefined,
+      attributesToHighlight: ['originalText'],
+    });
+  }
+}
+
+export function bootstrapMeiliSearch() {
+  return annotationIndex.updateSettings({
+    filterableAttributes: ['userId'],
+  });
+}
+
+const meilisearchClient = new MeilisearchClient();
+
+export { meilisearchClient };

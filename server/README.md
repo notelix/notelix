@@ -7,6 +7,12 @@ server
 DB_PASSWORD=123456
 ```
 
+# docker
+
+```
+docker network create notelix
+```
+
 # start prod
 
 ```
@@ -14,6 +20,8 @@ docker build . -f ./Dockerfile.prod -t notelix:prod
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod up -d 
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod down
 docker volume rm notelix-prod_postgres-data
+docker volume rm notelix-prod_meili
+docker volume rm notelix-prod_data
 ```
 
 # start dev
@@ -23,6 +31,8 @@ docker build . -f ./Dockerfile.dev -t notelix:dev
 docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev up -d 
 docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev down
 docker volume rm notelix-dev_postgres-data
+docker volume rm notelix-dev_meili
+docker volume rm notelix-dev_data
 ```
 
 # start agent
@@ -32,6 +42,8 @@ docker build . -f ./Dockerfile.agent -t notelix:agent
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent up -d 
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent down
 docker volume rm notelix-agent_postgres-data
+docker volume rm notelix-agent_meili
+docker volume rm notelix-agent_data
 ```
 
 # agent: sync from server

@@ -41,14 +41,6 @@ export function getServer() {
   });
 }
 
-export function getErrResponseMessage(err) {
-  try {
-    return err.response.data.message;
-  } catch (e) {
-    return "";
-  }
-}
-
 export function onRequestError(err) {
   setTimeout(() => {
     if (err.toString() === "Error: Extension context invalidated.") {
@@ -67,9 +59,7 @@ export function onRequestError(err) {
           });
         });
       } else {
-        toastr.error(
-          `notelix: ${err.toString()}: ${getErrResponseMessage(err)}`
-        );
+        toastr.error(`notelix: ${err.toString()}`);
       }
     }
   });

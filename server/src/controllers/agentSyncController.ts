@@ -17,6 +17,7 @@ import {
 import { Annotation } from '../models/annotation.entity';
 import { AnnotationEncryptedFields, decryptFields } from '../encryption';
 import * as CryptoJS from 'crypto-js';
+import { meilisearchClient } from '../meilisearch';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const fs = require('fs');
@@ -24,8 +25,12 @@ const fs = require('fs');
 const AnnotationChangeHistoryLatestIdSavePath =
   '/data/.annotation_change_history_latest_id';
 
+export function isRunModeAgent() {
+  return process.env.RUN_MODE === 'AGENT';
+}
+
 function assertRunModeAgent() {
-  if (process.env.RUN_MODE !== 'AGENT') {
+  if (!isRunModeAgent()) {
     throw new ForbiddenException('RUN_MODE=AGENT required');
   }
 }
@@ -59,10 +64,16 @@ export class AgentSyncController implements OnModuleInit {
   applyDiff = async (diff: any) => {
     switch (diff.kind) {
       case AnnotationChangeHistoryKindSave:
-        await Annotation.persist(await this.decryptAnnotation(diff.data));
+        await Annotation.agentSyncPersist(
+          await this.decryptAnnotation(diff.data),
+        );
         break;
       case AnnotationChangeHistoryKindDelete:
+        const id = diff.data.id;
         await Annotation.remove(diff.data);
+        setTimeout(() => {
+          meilisearchClient.UnIndexAnnotation({ ...diff.data, id });
+        });
         break;
     }
   };
@@ -77,6 +88,7 @@ export class AgentSyncController implements OnModuleInit {
     while (true) {
       await sleep(3000);
       if (!this.config.enabled) {
+        console.log('sync not enabled');
         continue;
       }
       try {
@@ -97,15 +109,22 @@ export class AgentSyncController implements OnModuleInit {
         this.config.clientSideEncryptionKey,
       );
     }
+    const urlOverride = process.env.AGENT_SYNC_URL_OVERRIDE;
+    if (urlOverride) {
+      this.config.url = urlOverride;
+    }
+
     return this.config;
   }
 
   private async sync() {
     const latestId = this.getAnnotationChangeHistoryLatestId();
+    console.log('SYNC latestId=', latestId);
     if (latestId === 0) {
       await this.resetData();
     }
     if (latestId === 0) {
+      console.log('fetching list');
       const resp = await fetch(`${this.config.url}/annotations/list`, {
         headers: {
           authorization: 'jwt ' + this.config.token,
@@ -117,8 +136,11 @@ export class AgentSyncController implements OnModuleInit {
         throw new Error('list failed ' + resp.status);
       }
       const data = await resp.json();
+      console.log('/list ok, persisting', data.list.length, 'items');
       for (const annotation of data.list) {
-        await Annotation.persist(await this.decryptAnnotation(annotation));
+        await Annotation.agentSyncPersist(
+          await this.decryptAnnotation(annotation),
+        );
       }
       this.saveAnnotationChangeHistoryLatestId(
         data.annotationChangeHistoryLatestId,
@@ -145,6 +167,7 @@ export class AgentSyncController implements OnModuleInit {
       return;
     }
 
+    console.log('found ', data.diff.length, 'diff');
     for (const diff of data.diff) {
       await this.applyDiff(diff);
       this.saveAnnotationChangeHistoryLatestId(diff.id);
@@ -152,10 +175,11 @@ export class AgentSyncController implements OnModuleInit {
   }
 
   private async resetData() {
+    console.log('resetData');
     await AnnotationChangeHistory.getRepository().clear();
     await Annotation.getRepository().clear();
     await this.clearAnnotationChangeHistoryLatestId();
-    // TODO: meili search truncate
+    await meilisearchClient.UnIndexAllAnnotations();
   }
 
   private saveAnnotationChangeHistoryLatestId(id) {

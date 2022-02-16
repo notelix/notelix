@@ -10,6 +10,8 @@ import { Annotation } from '../models/annotation.entity';
 import { getManager, MoreThan } from 'typeorm';
 import { AnnotationChangeHistory } from '../models/annotationChangeHistory.entity';
 import AnnotationChangeHistoryService from '../services/annotationChangeHistory';
+import { meilisearchClient } from '../meilisearch';
+import { isRunModeAgent } from './agentSyncController';
 
 @Controller('annotations')
 export class AnnotationsController {
@@ -40,8 +42,13 @@ export class AnnotationsController {
     annotation = await annotation.save();
 
     setTimeout(() => {
-      this.annotationChangeHistoryService.handleSave(annotation);
-      // TypeSenseClient.indexAnnotation(user, annotation);
+      this.annotationChangeHistoryService.createAnnotationChangeHistoryForSave(
+        annotation,
+      );
+
+      if (!user.client_side_encryption) {
+        meilisearchClient.IndexAnnotation(annotation);
+      }
     });
     return {};
   }
@@ -61,12 +68,17 @@ export class AnnotationsController {
     const annotationId = annotation.id;
     await annotation.remove();
     setTimeout(() => {
-      this.annotationChangeHistoryService.handleDelete({
+      const anno = {
         ...annotation,
         user: user,
         id: annotationId,
-      } as any);
-      // TypeSenseClient.deleteAnnotation(annotation);
+      } as any;
+
+      this.annotationChangeHistoryService.createAnnotationChangeHistoryForDelete(
+        anno,
+      );
+
+      meilisearchClient.UnIndexAnnotation(anno);
     });
     return {};
   }
@@ -151,9 +163,13 @@ export class AnnotationsController {
 
   @Post('/search')
   async Search(@Req() request: Request): Promise<any> {
-    const user = await this.authenticationService.getAuthenticatedUser();
+    let userId = 0;
+    if (!isRunModeAgent()) {
+      const user = await this.authenticationService.getAuthenticatedUser();
+      userId = user.id;
+    }
     const q = request.body['q'];
-    //TODO: MeiliSearch
-    return null;
+
+    return { results: await meilisearchClient.queryAnnotations(q, userId) };
   }
 }

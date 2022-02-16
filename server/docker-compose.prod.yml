@@ -32,3 +32,7 @@ volumes:
   postgres-data:
   data:
   meili:
+networks:
+  default:
+    external:
+      name: notelix

@@ -10,10 +10,9 @@ import {
   registerHotkeys,
 } from "./hotkeys";
 import { addPointerUpEventListeners } from "./pointerevents";
-import { trySetAgentSyncParams } from "./api/agent";
+import { doTrySetAgentSyncParamsLoop } from "./api/agent";
 
 setTimeout(() => {
-  trySetAgentSyncParams();
   whenUrlChanges(() => {
     setTimeout(() => {
       loadAllAnnotationsData();
@@ -24,4 +23,5 @@ setTimeout(() => {
   marker.addEventListeners();
   registerHotkeys();
   addPointerUpEventListeners();
+  doTrySetAgentSyncParamsLoop();
 });

@@ -13,6 +13,7 @@ services:
       - .env.agent
     environment:
       - RUN_MODE=AGENT
+      - AGENT_SYNC_URL_OVERRIDE=http://notelix-dev_backend_1:3000
     volumes:
       - ./src:/app/src
       - ./tools:/app/tools
@@ -39,3 +40,7 @@ volumes:
   postgres-data:
   data:
   meili:
+networks:
+  default:
+    external:
+      name: notelix

@@ -36,17 +36,6 @@ export default class AnnotationChangeHistoryService {
     );
   };
 
-  saveHandlers = [this.createAnnotationChangeHistoryForSave];
-  deleteHandlers = [this.createAnnotationChangeHistoryForDelete];
-
-  public handleSave(annotation: Annotation) {
-    this.saveHandlers.forEach((h) => h(annotation));
-  }
-
-  public handleDelete(annotation: Annotation) {
-    this.deleteHandlers.forEach((h) => h(annotation));
-  }
-
   userIdToAnnotationChangeHistoryLatestId = {};
 
   public rememberAnnotationChangeHistoryLatestId(

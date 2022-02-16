@@ -13,7 +13,7 @@ class ApiClient {
         { cmd: "apiCall", params: { method: method, url, data, headers } },
         function (response) {
           if (response.err) {
-            reject({ error: response.err });
+            reject(new RequestError(response.err));
           } else {
             if (response.status >= 400) {
               reject(
@@ -40,8 +40,28 @@ class HttpError {
     this.response = response;
   }
 
+  getErrResponseMessage() {
+    try {
+      return " " + this.response.data.message;
+    } catch (e) {
+      return "";
+    }
+  }
+
   toString() {
-    return `HttpError ${this.statusCode}`;
+    return `${this.statusCode}${this.getErrResponseMessage()}`;
+  }
+}
+
+class RequestError {
+  message;
+
+  constructor(message) {
+    this.message = message;
+  }
+
+  toString() {
+    return `RequestError ${this.message}`;
   }
 }
 
