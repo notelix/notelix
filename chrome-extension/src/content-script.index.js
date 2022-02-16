@@ -10,10 +10,10 @@ import {
   registerHotkeys,
 } from "./hotkeys";
 import { addPointerUpEventListeners } from "./pointerevents";
-import { trySetEdgeSyncParams } from "./api/edge";
+import { trySetAgentSyncParams } from "./api/agent";
 
 setTimeout(() => {
-  trySetEdgeSyncParams();
+  trySetAgentSyncParams();
   whenUrlChanges(() => {
     setTimeout(() => {
       loadAllAnnotationsData();

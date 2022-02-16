@@ -47,14 +47,19 @@ function prepareEditAnnotationPopoverDom() {
       () => {
         let annotation = state.annotations[state.selectedAnnotationId];
 
-        const comments = annotation.notes || "";
-        const value = prompt("write comments", comments);
+        const value = prompt(
+          "write comments",
+          annotation.notes ? JSON.parse(annotation.notes)[0].text : ""
+        );
         if (value === null) {
           return;
         }
 
         const backup = state.annotations[annotation.uid];
-        annotation = {...annotation, notes: value}
+        annotation = {
+          ...annotation,
+          notes: value ? JSON.stringify([{ text: value }]) : "",
+        };
         state.annotations[annotation.uid] = annotation;
         marker.unpaint(state.annotations[annotation.uid]);
         marker.paint(state.annotations[annotation.uid]);
@@ -96,7 +101,9 @@ export function showEditAnnotationPopover() {
   const source = state.annotations[state.selectedAnnotationId];
   const commentsDom = document.getElementById("notelix-annotation-comments");
   if (source && source.notes) {
-    commentsDom.innerText = source.notes;
+    commentsDom.innerHTML = JSON.parse(source.notes).map(
+      (note) => `<div class="note-item">${note.text}</div>`
+    );
     commentsDom.style.display = "block";
   } else {
     commentsDom.innerText = "";
@@ -143,7 +150,7 @@ export function onHighlightElementClick(color) {
     return;
   }
 
-  annotation = {...annotation, color, range};
+  annotation = { ...annotation, color, range };
   state.annotations[annotation.uid] = annotation;
   marker.paint(annotation);
   doSaveAnnotation(annotation).catch(() => {

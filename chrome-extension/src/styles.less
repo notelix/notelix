@@ -1,20 +1,19 @@
 .notelix-popup-base-style {
   line-height: 1;
   padding: 4px;
-  background: rgba(240, 240, 240, 0.5);
-  border-radius: 2px;
+  background: rgba(240, 240, 240, 0.8);
+  border-radius: 6px;
   box-shadow: 0 0 0px rgba(200, 200, 200, 1);
-  transform: scale(0.8) translateX(-50%) translateY(-125%);
+  transform: scale(0.55);
   transform-origin: left bottom;
   z-index: 100000;
-  opacity: 0.7;
+  opacity: 0.9;
 
-  transition: all 0.1s ease-out;
+  transition: all 0.05s ease-out;
 
   &:hover {
     box-shadow: 0 0 4px rgba(200, 200, 200, 1);
-    background: rgba(255, 255, 255, 0.9);
-    transform: scale(1) translateX(-50%) translateY(-100%);
+    background: rgba(255, 255, 255, 1);
     opacity: 1;
   }
 
@@ -30,7 +29,7 @@
   display: none;
   position: absolute;
   font-size: 0;
-  padding: 6px 8px;
+  padding: 6px 4px;
 
   .color {
     width: 26px;

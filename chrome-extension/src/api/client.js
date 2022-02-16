@@ -13,13 +13,35 @@ class ApiClient {
         { cmd: "apiCall", params: { method: method, url, data, headers } },
         function (response) {
           if (response.err) {
-            reject(response.err);
+            reject({ error: response.err });
           } else {
-            resolve({ data: response.body });
+            if (response.status >= 400) {
+              reject(
+                new HttpError(response.status, {
+                  data: response.body,
+                })
+              );
+            } else {
+              resolve({ data: response.body, statusCode: response.status });
+            }
           }
         }
       );
     });
+  }
+}
+
+class HttpError {
+  statusCode;
+  response;
+
+  constructor(statusCode, response) {
+    this.statusCode = statusCode;
+    this.response = response;
+  }
+
+  toString() {
+    return `HttpError ${this.statusCode}`;
   }
 }
 

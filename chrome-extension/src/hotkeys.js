@@ -39,7 +39,7 @@ export function registerHotkeys() {
         return;
       }
       const key = +e.code.replace("Digit", "");
-      if (key > 5) {
+      if (key > 6) {
         return;
       }
       onHighlightElementClick(highlighterColors[+key - 1]);

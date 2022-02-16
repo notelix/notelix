@@ -1,4 +1,3 @@
-* [ ] encryption: zero IV, is it insecure?
 * [ ] automated data backup script
 * [ ] front end dashboard, supporting search, annotation management, etc
 * [ ] add user docs, screenshots, etc.

@@ -23,9 +23,10 @@ function darkenColor(color) {
 const highlighterColors = [
   "#ff6797",
   "#ffb801",
+  "#eeff00",
   "#7ae400",
   "#02b5e1",
-  "#941fff",
+  "#812dff",
 ];
 
 export { darkenColor, highlighterColors };

@@ -1,23 +1,25 @@
 version: "3.9"
 services:
   backend:
-    image: notelix:edge
+    image: notelix:agent
     restart: always
 #    command: [ "sh", "-c", "sleep 3000" ]
     ports:
       - "18565:3000"
     links:
       - "postgres"
+      - "meilisearch"
+    env_file:
+      - .env.agent
     environment:
-      - RUN_MODE=EDGE
+      - RUN_MODE=AGENT
     volumes:
       - ./src:/app/src
       - ./tools:/app/tools
       - ./tsconfig.json:/app/tsconfig.json
       - ./tsconfig.build.json:/app/tsconfig.build.json
-      - ./env.edge.ts:/app/env.ts
-      - ./ormconfig.edge.js:/app/ormconfig.js
-      - ./.env.edge:/app/.env
+      - ./ormconfig.js:/app/ormconfig.js
+      - ./.env.agent:/app/.env
       - data:/data
   postgres:
     image: "postgres:14"
@@ -29,6 +31,11 @@ services:
       - "18566:5432"
   meilisearch:
     image: "getmeili/meilisearch:v0.25.2"
+    volumes:
+      - meili:/data.ms
+    ports:
+      - "18567:7700"
 volumes:
   postgres-data:
   data:
+  meili:

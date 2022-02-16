@@ -24,14 +24,14 @@ const fs = require('fs');
 const AnnotationChangeHistoryLatestIdSavePath =
   '/data/.annotation_change_history_latest_id';
 
-function assertRunModeEdge() {
-  if (process.env.RUN_MODE !== 'EDGE') {
-    throw new ForbiddenException('RUN_MODE=EDGE required');
+function assertRunModeAgent() {
+  if (process.env.RUN_MODE !== 'AGENT') {
+    throw new ForbiddenException('RUN_MODE=AGENT required');
   }
 }
 
-@Controller('edgesync')
-export class EdgeSyncController implements OnModuleInit {
+@Controller('agentsync')
+export class AgentSyncController implements OnModuleInit {
   config = {
     enabled: false,
     decodedJwt: null as any,
@@ -89,7 +89,7 @@ export class EdgeSyncController implements OnModuleInit {
 
   @Post('/set')
   async Set(@Req() request: Request): Promise<any> {
-    assertRunModeEdge();
+    assertRunModeAgent();
     this.config = request.body['config'] || {};
     this.config.decodedJwt = jwt.decode(this.config.token || '', {});
     if (this.config.clientSideEncryptionKey) {
