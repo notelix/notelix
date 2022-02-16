@@ -40,7 +40,7 @@ export const SetServer = () => {
                 });
               });
             })
-            .catch((ex) => {
+            .catch(() => {
               alert("Failed to connect to server");
             });
         }}

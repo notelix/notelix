@@ -12,6 +12,12 @@
     "default_title": "Options",
     "default_popup": "extension-options.html"
   },
+  "background": {
+    "scripts": [
+      "/dist/background.dist.js"
+    ],
+    "persistent": false
+  },
   "content_scripts": [
     {
       "matches": [

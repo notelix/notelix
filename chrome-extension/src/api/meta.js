@@ -1,7 +1,7 @@
-import axios from "axios";
+import client from "./client";
 
 const getMetaVersion = (server) => {
-  return axios.get(`${server}/meta/version`);
+  return client.get(`${server}/meta/version`);
 };
 
 export { getMetaVersion };

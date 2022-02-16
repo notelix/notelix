@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "build:content-script": "webpack --config ./webpack.content-script.config.js",
+    "build:background": "webpack --config ./webpack.background.config.js",
     "build:popup": "webpack --config ./webpack.popup.config.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

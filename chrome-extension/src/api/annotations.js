@@ -1,7 +1,7 @@
-import axios from "axios";
 import { getEndpoint, wrapRequestApiRequireLoggedIn } from "./common";
 import { decryptFields, encryptFields, getKey } from "../encryption";
 import CryptoJS from "crypto-js";
+import client from "./client";
 
 // TODO: add typescript support and use typescript annotations to mark which field should be encrypted
 
@@ -18,7 +18,7 @@ const saveAnnotation = (data) => {
   return wrapRequestApiRequireLoggedIn(({ headers }) =>
     getEndpoint("annotations/save").then((endpoint) =>
       encryptFields(data, AnnotationEncryptedFields).then((data) =>
-        axios.post(endpoint, data, { headers: headers })
+        client.post(endpoint, data, { headers: headers })
       )
     )
   );
@@ -27,7 +27,7 @@ const saveAnnotation = (data) => {
 const deleteAnnotation = ({ url, uid }) => {
   return wrapRequestApiRequireLoggedIn(({ headers }) =>
     getEndpoint("annotations/delete").then((endpoint) =>
-      axios.post(
+      client.post(
         endpoint,
         {
           url,
@@ -44,7 +44,7 @@ const queryAnnotationsByUrl = (url, { onDataReceivedCallback }) => {
     getEndpoint("annotations/queryByUrl").then((endpoint) => {
       onDataReceivedCallback();
       return encryptFields({ url }, AnnotationEncryptedFields).then(({ url }) =>
-        axios
+        client
           .post(
             endpoint,
             {

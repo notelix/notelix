@@ -1,6 +1,4 @@
 * [ ] encryption: zero IV, is it insecure?
-* [ ] migrate to background script to bypass https issues
-
 * [ ] automated data backup script
 * [ ] front end dashboard, supporting search, annotation management, etc
 * [ ] add user docs, screenshots, etc.
