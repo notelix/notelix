@@ -7,9 +7,10 @@ services:
       - "18555:3000"
     links:
       - "postgres"
+    env_file:
+      - .env.prod
     volumes:
-      - ./env.prod.ts:/app/env.ts
-      - ./ormconfig.prod.js:/app/ormconfig.js
+      - ./ormconfig.js:/app/ormconfig.js
       - ./.env.prod:/app/.env
       - data:/data
   postgres:
@@ -22,6 +23,11 @@ services:
       - "18556:5432"
   meilisearch:
     image: "getmeili/meilisearch:v0.25.2"
+    volumes:
+      - meili:/data.ms
+    ports:
+      - "18557:7700"
 volumes:
   postgres-data:
   data:
+  meili:

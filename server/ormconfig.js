@@ -3,7 +3,7 @@ module.exports = {
   host: 'postgres',
   port: 5432,
   username: 'postgres',
-  password: '123456',
+  password: process.env.DB_PASSWORD,
   database: 'notelix',
-  entities: ['./dist/src/models/**/*.entity.js'],
+  entities: ['/app/dist/models/*.entity.js'],
 };

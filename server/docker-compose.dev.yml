@@ -3,18 +3,19 @@ services:
   backend:
     image: notelix:dev
     restart: always
-#    command: [ "sh", "-c", "sleep 3000" ]
+    #    command: [ "sh", "-c", "sleep 3000" ]
     ports:
       - "18555:3000"
     links:
       - "postgres"
+    env_file:
+      - .env.dev
     volumes:
       - ./src:/app/src
       - ./tools:/app/tools
       - ./tsconfig.json:/app/tsconfig.json
       - ./tsconfig.build.json:/app/tsconfig.build.json
-      - ./env.dev.ts:/app/env.ts
-      - ./ormconfig.dev.js:/app/ormconfig.js
+      - ./ormconfig.js:/app/ormconfig.js
       - ./.env.dev:/app/.env
       - data:/data
   postgres:
@@ -27,6 +28,11 @@ services:
       - "18556:5432"
   meilisearch:
     image: "getmeili/meilisearch:v0.25.2"
+    volumes:
+      - meili:/data.ms
+    ports:
+      - "18557:7700"
 volumes:
   postgres-data:
   data:
+  meili:

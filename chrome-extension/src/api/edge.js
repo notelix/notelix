@@ -8,17 +8,24 @@ export async function trySetEdgeSyncParams() {
 
     const serverUrl = server.replace(/\/$/, "");
     const clientSideEncryptionKey = await getKey();
-    client.post(
-      "http://127.0.0.1:18565/edgesync/set",
-      {
-        config: {
-          enabled: true,
-          url: serverUrl,
-          token: value[NotelixChromeStorageKey].notelixUser.jwt,
-          clientSideEncryptionKey: clientSideEncryptionKey,
+    client
+      .post(
+        "http://127.0.0.1:18565/edgesync/set",
+        {
+          config: {
+            enabled: true,
+            url: serverUrl,
+            token: value[NotelixChromeStorageKey].notelixUser.jwt,
+            clientSideEncryptionKey: clientSideEncryptionKey,
+          },
         },
-      },
-      {}
-    );
+        {}
+      )
+      .catch((ex) => {
+        console.log(
+          "(okay if not using notelix-edge) trySetEdgeSyncParams failed ",
+          ex
+        );
+      });
   });
 }

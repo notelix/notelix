@@ -8,6 +8,8 @@ services:
       - "18565:3000"
     links:
       - "postgres"
+    env_file:
+      - .env.edge
     environment:
       - RUN_MODE=EDGE
     volumes:
@@ -15,8 +17,7 @@ services:
       - ./tools:/app/tools
       - ./tsconfig.json:/app/tsconfig.json
       - ./tsconfig.build.json:/app/tsconfig.build.json
-      - ./env.edge.ts:/app/env.ts
-      - ./ormconfig.edge.js:/app/ormconfig.js
+      - ./ormconfig.js:/app/ormconfig.js
       - ./.env.edge:/app/.env
       - data:/data
   postgres:
@@ -29,6 +30,11 @@ services:
       - "18566:5432"
   meilisearch:
     image: "getmeili/meilisearch:v0.25.2"
+    volumes:
+      - meili:/data.ms
+    ports:
+      - "18567:7700"
 volumes:
   postgres-data:
   data:
+  meili:
