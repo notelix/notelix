@@ -4,7 +4,6 @@ const { AES } = CryptoJS;
 // TODO: refactor code so both chrome-extension and server can share the same consts
 export const AnnotationEncryptedFields = [
   'notes',
-  'originalText',
   'text',
   'textAfter',
   'textBefore',

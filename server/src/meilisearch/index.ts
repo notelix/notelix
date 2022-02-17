@@ -11,7 +11,10 @@ const annotationIndex = client.index('annotations');
 function toMeiliEntry(annotation: Annotation) {
   return {
     id: annotation.id,
-    originalText: annotation.data.originalText,
+    text: annotation.data.text,
+    textBefore: annotation.data.textBefore,
+    textAfter: annotation.data.textAfter,
+    color: annotation.data.color,
     userId: annotation.user ? annotation.user.id : undefined,
     url: annotation.url,
   };
@@ -33,7 +36,7 @@ class MeilisearchClient {
   queryAnnotations(q, userId) {
     return annotationIndex.search(q, {
       filter: userId ? `userId = ${userId}` : undefined,
-      attributesToHighlight: ['originalText'],
+      attributesToHighlight: ['text'],
     });
   }
 }

@@ -8,7 +8,7 @@ export const SignUp = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [enableClientSideEncryption, setEnableClientSideEncryption] =
-    useState(true);
+    useState(false);
   const [repeatPassword, setRepeatPassword] = useState("");
 
   let submit = () => {
@@ -22,6 +22,14 @@ export const SignUp = () => {
       if (
         !confirm(
           "client-side encryption is enabled, you must remember your password, or else nobody will be able to access your data!"
+        )
+      ) {
+        return;
+      }
+
+      if (
+        !confirm(
+          "With client-side encryption enabled, if you wish to use advanced features such as searching, you will need to run a local agent! (using docker-compose)"
         )
       ) {
         return;

@@ -24,6 +24,10 @@ export const UserInfo = () => {
     history.push("/change-password");
   };
 
+  const showApp = () => {
+    window.open("/app.html");
+  };
+
   const logout = () => {
     if (!confirm("Do you want to logout?")) {
       return;
@@ -46,7 +50,10 @@ export const UserInfo = () => {
       </div>
 
       <div style={{ marginTop: 6 }}>
-        <a onClick={changePassword}>Change Password</a>
+        <a onClick={showApp}>App</a>
+        <a style={{ marginLeft: 20 }} onClick={changePassword}>
+          Change Password
+        </a>
         <a style={{ marginLeft: 20 }} onClick={logout}>
           Logout
         </a>

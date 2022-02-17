@@ -16,6 +16,7 @@ services:
       - data:/data
   postgres:
     image: "postgres:14"
+    restart: always
     environment:
       - POSTGRES_PASSWORD=$DB_PASSWORD
     volumes:
@@ -24,6 +25,7 @@ services:
       - "18556:5432"
   meilisearch:
     image: "getmeili/meilisearch:v0.25.2"
+    restart: always
     volumes:
       - meili:/data.ms
     ports:

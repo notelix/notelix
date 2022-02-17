@@ -3,8 +3,23 @@ import { NotelixChromeStorageKey } from "../popup/consts";
 import { get } from "lodash";
 import { sendChromeCommandToEveryTab } from "../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../consts";
+import { clientSideEncryptionEnabled } from "../encryption";
 
-export function getEndpoint(path) {
+export async function getEndpoint(
+  path,
+  { involvesClientSideEncryption = false } = {
+    involvesClientSideEncryption: false,
+  }
+) {
+  if (involvesClientSideEncryption) {
+    const enabled = await clientSideEncryptionEnabled();
+    if (enabled) {
+      return new Promise((resolve) => {
+        resolve(`http://127.0.0.1:18565/${path}`);
+      });
+    }
+  }
+
   return new Promise((resolve) => {
     getServer().then((server) => {
       resolve(`${server.replace(/\/$/, "")}/${path}`);

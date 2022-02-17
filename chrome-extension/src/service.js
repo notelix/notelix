@@ -3,6 +3,38 @@ import { state } from "./state";
 import { marker } from "./marker";
 import { queryAnnotationsByUrl, saveAnnotation } from "./api/annotations";
 
+function scrollToAnnotationIfNeeded() {
+  const match = (window.location.hash || "").match(
+    /#notelix:scroll:annotation_id:(\d+)/
+  );
+  if (!match) {
+    return;
+  }
+
+  const annotationId = +match[1];
+  const annotationUid = Object.keys(state.annotations).filter(
+    (x) => state.annotations[x].id === annotationId
+  )[0];
+  if (!annotationUid) {
+    return;
+  }
+
+  const element = Array.from(
+    document.getElementsByTagName("web-marker-highlight")
+  ).filter(
+    (element) => element.getAttribute("highlight-id") === annotationUid
+  )[0];
+  if (!element) {
+    return;
+  }
+
+  window.scrollTo({
+    top: element.getBoundingClientRect().y + window.scrollY - 60,
+    left: 0,
+    behavior: "smooth",
+  });
+}
+
 export function loadAllAnnotationsData() {
   let startTime = 0;
   let failureCount = 0;
@@ -28,6 +60,7 @@ export function loadAllAnnotationsData() {
         endTime - startTime
       }ms, ${failureCount} failed`
     );
+    scrollToAnnotationIfNeeded();
   });
 }
 

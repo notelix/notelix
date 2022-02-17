@@ -143,13 +143,13 @@ export function onHighlightElementClick(color) {
   const selection = document.getSelection();
   const range = selection.getRangeAt(0);
   let annotation = marker.serializeRange(range, {
-    charsToKeepForTextBeforeAndTextAfter: 32,
+    charsToKeepForTextBeforeAndTextAfter: 128,
     uid: makeid(),
   });
   if (!annotation) {
     return;
   }
-
+  console.log("@@@", annotation);
   annotation = { ...annotation, color, range };
   state.annotations[annotation.uid] = annotation;
   marker.paint(annotation);

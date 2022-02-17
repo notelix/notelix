@@ -4,11 +4,9 @@
   background: rgba(240, 240, 240, 0.8);
   border-radius: 6px;
   box-shadow: 0 0 0px rgba(200, 200, 200, 1);
-  transform: scale(0.55);
-  transform-origin: left bottom;
   z-index: 100000;
   opacity: 0.9;
-
+  transform: translateX(-50%) translateY(-20px);
   transition: all 0.05s ease-out;
 
   &:hover {
@@ -29,19 +27,22 @@
   display: none;
   position: absolute;
   font-size: 0;
-  padding: 6px 4px;
+  padding: 3px 2px;
 
   .color {
-    width: 26px;
-    height: 26px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     display: inline-block;
     margin: 0 4px;
     cursor: pointer;
-    box-shadow: 0 0 2px #888;
+    box-shadow: 0 0 1px #888;
+    transform: scale(1.0);
+    transform-origin: center center;
 
     &:hover {
       filter: brightness(1.05);
+      transform: scale(1.1);
     }
   }
 }
@@ -49,11 +50,12 @@
 #notelix-edit-annotation-popover {
   display: none;
   position: absolute;
+  margin-top: -10px;
 
   #notelix-annotation-comments {
-    font-size: 18px;
+    font-size: 12px;
     vertical-align: top;
-    padding: 6px;
+    padding: 3px;
     width: 450px;
     height: 120px;
     overflow-y: auto;
@@ -71,20 +73,26 @@
     display: inline-block;
     position: relative;
     cursor: pointer;
-    width: 36px;
-    height: 32px;
+    width: 28px;
+    height: 20px;
 
     &:hover {
       background: rgba(255, 255, 255, 0.8);
     }
 
     svg {
-      width: 20px;
-      padding: 0 4px;
+      width: 16px;
+      padding: 0 2px;
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%) scale(1.0);
+      transform-origin: center center;
+      transition: 0.1s all;
+
+      &:hover {
+        transform: translate(-50%, -50%) scale(1.1);
+      }
     }
   }
 

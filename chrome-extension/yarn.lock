@@ -961,10 +961,10 @@
     update-notifier "^2.2.0"
     yargs "^8.0.2"
 
-"@notelix/web-marker@^1.0.4":
-  version "1.0.14"
-  resolved "https://registry.yarnpkg.com/@notelix/web-marker/-/web-marker-1.0.14.tgz#85ac88151d3760b2d47075be55573a14800f0b6e"
-  integrity sha512-mDhnZIRvDWfJGE9+GauBY0q+wdFuTOKY8wzQTVo0IQ5tWFO5F7arjDhqwLtLh9b+G/Muo66mBPIZSkfuWra3jg==
+"@notelix/web-marker@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@notelix/web-marker/-/web-marker-2.0.0.tgz#d2153cc1711b00577e067359e6d5872cc984a5f4"
+  integrity sha512-z427FepY9OXiio+3yxhINFhvBJEa/CvpSjjFc4FDGClz6XVHbyoNsJwUUxX5z61xIpZTVi2bPi05m7OpC7jHIA==
   dependencies:
     uuid "^8.3.2"
 

@@ -22,6 +22,21 @@ export function getKey() {
   });
 }
 
+export function clientSideEncryptionEnabled() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
+      const NotelixChromeStorage = value[NotelixChromeStorageKey];
+      resolve(
+        !!(
+          NotelixChromeStorage &&
+          NotelixChromeStorage.notelixUser &&
+          NotelixChromeStorage.notelixUser.client_side_encryption
+        )
+      );
+    });
+  });
+}
+
 export function decryptKey(encryptedCfg, password) {
   const bytes = AES.decrypt(encryptedCfg, password);
   const originalText = bytes.toString(CryptoJS.enc.Utf8);

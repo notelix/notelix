@@ -6,13 +6,15 @@
     "build:content-script": "webpack --config ./webpack.content-script.config.js",
     "build:background": "webpack --config ./webpack.background.config.js",
     "build:popup": "webpack --config ./webpack.popup.config.js",
+    "build:app": "webpack --config ./webpack.app.config.js",
+    "build-extension:app": "npm run build:app; rm -rf ./extension-build/dist ; cp -r ./dist ./extension-build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "@babel/plugin-transform-runtime": "^7.15.0",
     "@babel/preset-react": "^7.14.5",
     "@babel/runtime": "^7.15.3",
-    "@notelix/web-marker": "^1.0.4",
+    "@notelix/web-marker": "^2.0.0",
     "axios": "^0.19.2",
     "babel-polyfill": "^6.26.0",
     "crypto-js": "^4.1.1",

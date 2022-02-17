@@ -21,7 +21,7 @@ export class Annotation extends BaseEntity {
   @Column({ type: 'varchar', length: 64, unique: true })
   uid: string;
 
-  @Column({ type: 'varchar', length: 512 })
+  @Column({ type: 'varchar', length: 32768 })
   url: string;
 
   @Column({ type: 'json' })

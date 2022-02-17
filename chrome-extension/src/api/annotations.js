@@ -7,7 +7,6 @@ import client from "./client";
 
 const AnnotationEncryptedFields = [
   "notes",
-  "originalText",
   "text",
   "textAfter",
   "textBefore",
@@ -74,4 +73,20 @@ const queryAnnotationsByUrl = (url, { onDataReceivedCallback }) => {
   );
 };
 
-export { queryAnnotationsByUrl, saveAnnotation, deleteAnnotation };
+const search = (q) => {
+  return wrapRequestApiRequireLoggedIn(({ headers }) =>
+    getEndpoint("annotations/search", {
+      involvesClientSideEncryption: true,
+    }).then((endpoint) =>
+      client.post(
+        endpoint,
+        {
+          q,
+        },
+        { headers: headers }
+      )
+    )
+  );
+};
+
+export { queryAnnotationsByUrl, saveAnnotation, deleteAnnotation, search };
