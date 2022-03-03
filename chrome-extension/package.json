@@ -1,6 +1,5 @@
 {
   "name": "notelix",
-  "version": "0.0.1",
   "main": "index.js",
   "scripts": {
     "build:content-script": "webpack --config ./webpack.content-script.config.js",
