@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Notelix SaaS test</title>
+    <script>
+        // This is a DEMO of using Notelix as SaaS
+        // You can add Notelix to your website without requiring users to install a browser extension
+
+        window.notelixSaasConfig = {
+            server: "https://public-dev.notelix.com/",
+
+            // guestToken is a unique 64-characters token, tied to each user.
+            // This token should be treated as a secret, authentication will be based on this token.
+            // This token should not be distributed freely. Instead,
+            //   1. when a user registers, generate a random 64-character token and store it in the database.
+            //   2. when a user logs in, send this token to the frontend so that it can be used to talk to Notelix server.
+            guestToken: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+        window.addEventListener('load', function () {
+            var script = document.createElement('script');
+            script.src = window.notelixSaasConfig.server + "/saas/content-script.dist.js"; // this script is the same as `chrome-extension/extension-build/dist/content-script.dist.js`
+            document.head.appendChild(script);
+        });
+    </script>
+</head>
+<body>
+Lorem ipsum dolor sit amet, consectetur adipisicing elit. Eius omnis sit voluptatem voluptatum. Ab enim magni
+necessitatibus? Distinctio, dolor exercitationem facere harum iste laudantium mollitia officiis temporibus, velit veniam
+vero.
+</body>
+</html>

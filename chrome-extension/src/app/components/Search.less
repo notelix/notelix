@@ -1,0 +1,39 @@
+.search-root {
+  .hit {
+    padding: 6px 10px;
+    border-bottom: 1px solid #DDD;
+
+    .url {
+      font-size: 12px;
+      margin: 4px 0 10px 0;
+    }
+
+    em {
+      background: yellow;
+    }
+
+    cursor: pointer;
+    transition: 0.2s all;
+
+    &:hover {
+      background: #F6F6F6;
+    }
+
+    .text {
+      text-decoration: underline;
+      display: inline;
+    }
+
+    .color-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      box-shadow: 0 2px 2px #00000055;
+      margin-right: 6px;
+      top: -1px;
+      position: relative;
+    }
+  }
+}
+
