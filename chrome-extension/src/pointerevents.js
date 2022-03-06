@@ -16,22 +16,15 @@ function isRangeInContentEditable(range) {
   return false;
 }
 
-const outOfEnablementCssClass =
-  window.notelixSaasConfig && window.notelixSaasConfig.enablementCssClass
+const outOfAllowedRootElement =
+  window.notelixSaasConfig && window.notelixSaasConfig.rootElementCssClassName
     ? (range) => {
-        if (
-          !window.notelixSaasConfig ||
-          !window.notelixSaasConfig.enablementCssClass
-        ) {
-          return false;
-        }
-
         let ptr = range.commonAncestorContainer;
         while (ptr) {
           if (
             ptr.className &&
             ptr.className.indexOf(
-              window.notelixSaasConfig.enablementCssClass
+              window.notelixSaasConfig.rootElementCssClassName
             ) >= 0
           ) {
             return false;
@@ -57,7 +50,7 @@ export function addPointerUpEventListeners() {
         selection.isCollapsed ||
         !range ||
         isRangeInContentEditable(range) ||
-        outOfEnablementCssClass(range)
+        outOfAllowedRootElement(range)
       ) {
         hideAnnotatePopover(e);
         hideEditAnnotationPopover();
