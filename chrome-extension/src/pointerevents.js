@@ -16,6 +16,32 @@ function isRangeInContentEditable(range) {
   return false;
 }
 
+const outOfEnablementCssClass =
+  window.notelixSaasConfig && window.notelixSaasConfig.enablementCssClass
+    ? (range) => {
+        if (
+          !window.notelixSaasConfig ||
+          !window.notelixSaasConfig.enablementCssClass
+        ) {
+          return false;
+        }
+
+        let ptr = range.commonAncestorContainer;
+        while (ptr) {
+          if (
+            ptr.className &&
+            ptr.className.indexOf(
+              window.notelixSaasConfig.enablementCssClass
+            ) >= 0
+          ) {
+            return false;
+          }
+          ptr = ptr.parentElement;
+        }
+        return true;
+      }
+    : () => false;
+
 export function addPointerUpEventListeners() {
   window.addEventListener("pointerup", (e) => {
     setTimeout(() => {
@@ -30,7 +56,8 @@ export function addPointerUpEventListeners() {
         !selection.rangeCount ||
         selection.isCollapsed ||
         !range ||
-        isRangeInContentEditable(range)
+        isRangeInContentEditable(range) ||
+        outOfEnablementCssClass(range)
       ) {
         hideAnnotatePopover(e);
         hideEditAnnotationPopover();

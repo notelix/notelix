@@ -18,7 +18,11 @@
             // This token should not be distributed freely. Instead,
             //   1. when a user registers, generate a random 64-character token and store it in the database.
             //   2. when a user logs in, send this token to the frontend so that it can be used to talk to Notelix server.
-            guestToken: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            guestToken: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+
+            // enablementCssClass is an optional CSS class name.
+            // If specified, notelix will only work in the children elements of the elements with the specified CSS class name.
+            enablementCssClass: "notelix-enabled"
         }
         window.addEventListener('load', function () {
             var script = document.createElement('script');
@@ -31,5 +35,92 @@
 Lorem ipsum dolor sit amet, consectetur adipisicing elit. Eius omnis sit voluptatem voluptatum. Ab enim magni
 necessitatibus? Distinctio, dolor exercitationem facere harum iste laudantium mollitia officiis temporibus, velit veniam
 vero.
+
+
+<div style="color: red;margin-top:20px">
+    Notelix will only be enabled in the following <span style="background: #F2F2F2;padding: 2px 10px;color:black">grey boxes</span>.
+</div>
+
+<div class="notelix-enabled" style="margin: 20px; padding: 10px;background: #F2F2F2">
+    Notelix is enabled here.
+    <br/>
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque sodales ligula elit, et consectetur arcu
+    finibus sit amet. Suspendisse fringilla placerat faucibus. Ut vulputate varius ornare. Aliquam ut lacus urna. Proin
+    varius justo et lectus auctor, ut mollis ante convallis. Proin pharetra mauris risus, non eleifend diam feugiat
+    mollis. Cras id convallis purus, ultricies ultricies nibh. Nam quam tellus, eleifend quis faucibus et, maximus quis
+    est.
+
+    Quisque interdum nunc nibh, ut porttitor lectus lacinia sit amet. Pellentesque massa dolor, consequat eget aliquam
+    id, lacinia eget magna. Suspendisse fringilla tellus eget dignissim auctor. Nullam placerat pretium diam, vel
+    elementum nisi tempor et. Mauris accumsan, tortor sed volutpat condimentum, ipsum leo commodo tellus, eu consequat
+    ante sapien a tortor. Donec quis vulputate justo. Etiam nec eros ipsum. Cras molestie dapibus risus a condimentum.
+    Quisque tincidunt semper lobortis.
+
+    Quisque laoreet facilisis rhoncus. Suspendisse sed tincidunt ex. Nam orci tellus, facilisis a porta at, pulvinar non
+    enim. Fusce ac lobortis dolor. Etiam nec sem rhoncus, ultricies risus ac, pulvinar sapien. Sed id massa commodo,
+    tempus ante quis, malesuada erat. In laoreet, elit eget congue malesuada, nunc diam lobortis odio, nec dapibus risus
+    mauris quis odio. Sed ultricies ante nec blandit rhoncus. Nunc quis pulvinar nibh. Quisque id leo ex. Phasellus
+    ullamcorper orci vestibulum ex elementum, at ullamcorper elit elementum. Phasellus id lectus vestibulum, sagittis
+    tellus in, efficitur nisi.
+
+    Sed ac lacus id quam sagittis accumsan. Donec hendrerit laoreet tincidunt. Nulla interdum eros magna, eu aliquam
+    nibh maximus id. Etiam et pellentesque nunc. Mauris tellus erat, fermentum lobortis interdum a, semper vel mauris.
+    Morbi in rutrum eros, ornare commodo sapien. Ut finibus imperdiet sapien, ultricies placerat orci scelerisque at.
+    Vestibulum porta, neque interdum rhoncus malesuada, velit nisl finibus sapien, quis venenatis neque felis eu orci.
+    Quisque sit amet nulla sem. Integer eu imperdiet urna, ac imperdiet turpis. Aenean tortor mauris, suscipit sed
+    mattis nec, sagittis vitae dui. In hac habitasse platea dictumst. Quisque ante ex, vulputate non blandit non, luctus
+    ac est. Phasellus vestibulum, nulla vitae sagittis rutrum, nunc elit facilisis sem, id porta ligula arcu ac ex.
+    Nulla porta iaculis dapibus. Nulla facilisi.
+
+    Morbi feugiat massa in diam sodales, eget elementum quam fringilla. Cras posuere felis non augue feugiat, sit amet
+    malesuada enim lobortis. Fusce nec dolor vitae quam tempus rhoncus. Suspendisse blandit lorem sed nisi bibendum
+    rhoncus. Ut accumsan ipsum viverra, auctor turpis vitae, molestie elit. Duis scelerisque elit purus, sit amet
+    consequat diam ornare vitae. Praesent ac euismod elit. Vivamus maximus ac dui ut pulvinar. Pellentesque habitant
+    morbi tristique senectus et netus et malesuada fames ac turpis egestas. Cras nec nibh leo. Pellentesque vitae lectus
+    interdum turpis porta vehicula at ac justo.
+</div>
+
+<div style="color: red;margin-top:20px">
+    Notelix is not enabled here
+</div>
+
+<div class="notelix-enabled" style="margin: 20px; padding: 10px;background: #F2F2F2">
+    Notelix is enabled here.
+    <br/>
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam varius felis at aliquam condimentum. Mauris eget
+    efficitur ante. Cras et leo rutrum, luctus dolor nec, placerat dolor. Ut ac diam ac sapien porta sollicitudin a
+    consectetur orci. Sed in tristique tellus, sed ullamcorper quam. Mauris facilisis risus eu mollis viverra.
+    Vestibulum venenatis velit lorem. Vestibulum sed quam id tortor mattis pharetra. Ut eget massa vel urna ullamcorper
+    posuere. Nam augue eros, lacinia vitae leo in, pretium lacinia sapien. Maecenas egestas enim in nisi varius, vitae
+    dictum leo cursus. Nam id eros accumsan, ultricies lacus vitae, egestas mauris. Vivamus suscipit orci vitae orci
+    interdum eleifend.
+
+    Morbi euismod facilisis eros eu auctor. Donec placerat consequat placerat. Etiam quis sagittis ipsum. Proin semper
+    nunc vitae tortor fermentum faucibus. Nullam laoreet purus est, nec consequat dolor tempus in. Nunc mattis, diam nec
+    ornare auctor, diam ex dictum neque, vel lobortis erat ante in lorem. Aenean eget vehicula ipsum. Donec volutpat
+    metus nisl, id scelerisque nisi maximus a. Nulla vel consequat augue. Duis varius scelerisque molestie. Nam vehicula
+    sem leo. Nulla vitae placerat turpis. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere
+    cubilia curae; Sed a lacus non risus tincidunt dignissim et sit amet libero. Nunc posuere sit amet quam vitae
+    vestibulum.
+
+    Phasellus mattis sodales cursus. Etiam vestibulum leo odio, ac posuere libero cursus at. Integer finibus dolor ut
+    pharetra ornare. Proin id porttitor quam. Nullam nec aliquam tellus, ac iaculis ligula. Morbi varius gravida purus.
+    Nunc a neque ac ex consectetur faucibus. Mauris accumsan nisl eget orci tristique pellentesque.
+
+    Suspendisse ullamcorper venenatis dolor a blandit. Mauris gravida erat a enim sagittis, in congue dolor finibus.
+    Proin at dui massa. Sed dignissim egestas libero vitae ornare. Mauris pretium, risus vel lacinia euismod, sem sapien
+    posuere velit, vel malesuada dolor neque nec velit. Aliquam erat volutpat. Phasellus eu pharetra ipsum. Suspendisse
+    vitae tortor ac sapien aliquet consectetur viverra eget purus. Maecenas sed nunc eget ex fermentum posuere quis sed
+    diam.
+
+    Pellentesque massa diam, mollis sit amet nisi eu, interdum luctus neque. Mauris eleifend condimentum felis, in
+    maximus mi commodo ac. Donec sit amet tellus varius, rutrum ligula eget, vestibulum ex. Etiam accumsan, neque in
+    viverra faucibus, mi magna sollicitudin magna, a porttitor mi tortor sit amet dolor. Sed sapien ipsum, tempus id
+    iaculis et, fringilla in massa. Vestibulum quis euismod purus, eu ultricies justo. Quisque molestie arcu nulla.
+    Praesent in molestie est, semper molestie ipsum. Aenean dapibus suscipit libero et scelerisque. Aenean eleifend nisl
+    nunc, blandit efficitur dolor porttitor vel.
+
+
+</div>
 </body>
 </html>

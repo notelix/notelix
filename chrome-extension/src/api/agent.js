@@ -4,6 +4,9 @@ import client from "./client";
 import sleep from "../utils/sleep";
 
 export function doTrySetAgentSyncParamsLoop() {
+  if (window.notelixSaasConfig) {
+    return;
+  }
   setTimeout(async () => {
     while (true) {
       await trySetAgentSyncParams();
@@ -13,9 +16,6 @@ export function doTrySetAgentSyncParamsLoop() {
 }
 
 export async function trySetAgentSyncParams() {
-  if (window.notelixSaasConfig) {
-    return;
-  }
   chrome.storage.sync.get(NotelixChromeStorageKey, async (value) => {
     const server = value[NotelixChromeStorageKey].notelixServer;
 
