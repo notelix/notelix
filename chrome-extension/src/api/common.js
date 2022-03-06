@@ -31,7 +31,7 @@ export async function getEndpoint(
 export const getHeaders = (requireLoggedIn = false) => {
   if (window.notelixSaasConfig) {
     return Promise.resolve({
-      Authorization: `guest-token ${window.notelixSaasConfig.guestToken}`,
+      Authorization: `static-token ${window.notelixSaasConfig.staticToken}`,
     });
   }
 

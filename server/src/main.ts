@@ -6,7 +6,7 @@ import { AnnotationsController } from './controllers/annotations.controller';
 import { MetaController } from './controllers/meta.controller';
 import JwtService from './services/jwt';
 import JwtAuth from './authenticators/authenticators/jwtAuth';
-import GuestTokenAuth from './authenticators/authenticators/guestTokenAuth';
+import StaticTokenAuth from './authenticators/authenticators/staticTokenAuth';
 import AnnotationChangeHistoryService from './services/annotationChangeHistory';
 import { AgentSyncController } from './controllers/agentSyncController';
 import { createConnection } from 'typeorm';
@@ -25,7 +25,7 @@ import { bootstrapMeiliSearch } from './meilisearch';
     AuthenticationService,
     JwtService,
     JwtAuth,
-    GuestTokenAuth,
+    StaticTokenAuth,
     AnnotationChangeHistoryService,
   ],
 })

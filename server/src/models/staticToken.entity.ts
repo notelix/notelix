@@ -11,12 +11,12 @@ import {
 import { User } from './user.entity';
 
 @Entity()
-export class GuestToken extends BaseEntity {
+export class StaticToken extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ type: 'varchar', length: 64 })
-  guestToken: string;
+  staticToken: string;
 
   @OneToOne(() => User)
   @JoinColumn()

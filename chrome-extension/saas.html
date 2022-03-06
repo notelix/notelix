@@ -13,12 +13,15 @@
         window.notelixSaasConfig = {
             server: "https://public-dev.notelix.com/",
 
-            // guestToken is a unique 64-characters token, tied to each user.
-            // This token should be treated as a secret, authentication will be based on this token.
-            // This token should not be distributed freely. Instead,
+            // staticToken is a unique 64-characters token, tied to each user.
+            // This token should be treated as a secret and should not be distributed freely. Instead,
             //   1. when a user registers, generate a random 64-character token and store it in the database.
-            //   2. when a user logs in, send this token to the frontend so that it can be used to talk to Notelix server.
-            guestToken: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            //   2. when a user logs in, send this token to the frontend so that when the frontend is making an API call,
+            //      this token will be used for authentication.
+            //
+            // The first time a new staticToken is used, the backend automatically creates a new user.
+            // Subsequent calls with the same staticToken will authenticate the calls to that user.
+            staticToken: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 
             // enablementCssClass is an optional CSS class name.
             // If specified, notelix will only work in the children elements of the elements with the specified CSS class name.

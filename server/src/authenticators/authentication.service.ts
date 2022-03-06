@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import JwtAuth from './authenticators/jwtAuth';
-import GuestTokenAuth from './authenticators/guestTokenAuth';
+import StaticTokenAuth from './authenticators/staticTokenAuth';
 
 @Injectable()
 export class AuthenticationService {
@@ -16,9 +16,9 @@ export class AuthenticationService {
   constructor(
     @Inject(REQUEST) private request: Request,
     private jwtAuth: JwtAuth,
-    private guestTokenAuth: GuestTokenAuth,
+    private staticTokenAuth: StaticTokenAuth,
   ) {
-    this.authenticators.push(jwtAuth, guestTokenAuth);
+    this.authenticators.push(jwtAuth, staticTokenAuth);
   }
 
   async getAuthenticatedUser() {
@@ -29,7 +29,7 @@ export class AuthenticationService {
     const indexOfSpace = header.indexOf(' ');
     const authenticatorType = header.substr(0, indexOfSpace);
     const authenticatorParam = header.substr(indexOfSpace + 1);
-    for (let authenticator of this.authenticators) {
+    for (const authenticator of this.authenticators) {
       if (authenticator.getAuthenticatorName() === authenticatorType) {
         try {
           return await authenticator.authenticate(authenticatorParam);
