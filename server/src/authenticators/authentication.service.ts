@@ -42,7 +42,7 @@ export class AuthenticationService {
       }
     }
     throw new BadRequestException(
-      `unsupported authenticator ${authenticatorType}`,
+      `unsupported auth scheme ${authenticatorType}`,
     );
   }
 }
