@@ -1,5 +1,4 @@
 import "./styles.less";
-import "toastr/toastr.less";
 import "babel-polyfill";
 import { prepareDomElements } from "./dom";
 import { whenUrlChanges } from "./utils/whenUrlChanges";

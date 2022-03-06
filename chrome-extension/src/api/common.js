@@ -1,6 +1,7 @@
-import toastr from "toastr";
+import iziToast from "izitoast/dist/js/iziToast.min";
+import "izitoast/dist/css/iziToast.min.css";
 import { NotelixChromeStorageKey } from "../popup/consts";
-import { get } from "lodash";
+import get from "lodash/get";
 import { sendChromeCommandToEveryTab } from "../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../consts";
 import { clientSideEncryptionEnabled } from "../encryption";
@@ -43,9 +44,10 @@ export const getHeaders = (requireLoggedIn = false) => {
           "jwt " + value[NotelixChromeStorageKey].notelixUser.jwt;
       } else {
         if (requireLoggedIn) {
-          toastr.warning(
-            `notelix: Please login first, by clicking on the Notelix extension in the top-right corner of the Chrome window`
-          );
+          iziToast.warning({
+            message: `notelix: Please login first, by clicking on the Notelix extension in the top-right corner of the Chrome window`,
+            position: "topRight",
+          });
           throw "not logged in";
         }
       }
@@ -69,12 +71,16 @@ export function getServer() {
 export function onRequestError(err) {
   setTimeout(() => {
     if (err.toString() === "Error: Extension context invalidated.") {
-      toastr.warning(
-        `notelix: Please refresh the page before using this plugin`
-      );
+      iziToast.warning({
+        message: `notelix: Please refresh the page before using this plugin`,
+        position: "topRight",
+      });
     } else {
       if (get(err, "response.data.clearClientCredentials")) {
-        toastr.error(`notelix: login expired, please login again`);
+        iziToast.error({
+          message: `notelix: login expired, please login again`,
+          position: "topRight",
+        });
 
         chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
           delete value[NotelixChromeStorageKey].notelixUser;
@@ -84,7 +90,10 @@ export function onRequestError(err) {
           });
         });
       } else {
-        toastr.error(`notelix: ${err.toString()}`);
+        iziToast.error({
+          message: `notelix: ${err.toString()}`,
+          position: "topRight",
+        });
       }
     }
   });

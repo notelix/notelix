@@ -1,6 +1,5 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import "toastr/toastr.less";
 import Search from "./app/components/Search";
 
 ReactDOM.render(

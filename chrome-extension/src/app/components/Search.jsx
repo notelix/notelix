@@ -1,5 +1,5 @@
 import React from "react";
-import { debounce } from "lodash";
+import debounce from "lodash/debounce";
 import { search } from "../../api/annotations";
 import "./Search.less";
 
