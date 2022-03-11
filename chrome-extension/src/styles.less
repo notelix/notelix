@@ -51,17 +51,6 @@
   display: none;
   position: absolute;
   margin-top: -10px;
-
-  #notelix-annotation-comments {
-    font-size: 12px;
-    vertical-align: top;
-    padding: 3px;
-    width: 450px;
-    height: 120px;
-    overflow-y: auto;
-    background: rgba(255, 255, 255, 0.8);
-    color: #444;
-  }
 }
 
 .notelix-button {
@@ -104,5 +93,45 @@
     span:hover {
       background: rgba(255, 255, 255, 0.2) !important;
     }
+  }
+}
+
+.notelix-comments-inline {
+  display: inline-block;
+  position: relative;
+  vertical-align: bottom;
+  width: 0;
+  margin-bottom: calc(2em + 20px);
+  cursor: pointer;
+  filter: brightness(1);
+  transition: all 0.15s ease-in-out;
+
+  .text {
+    white-space: nowrap;
+    display: inline;
+    padding: 4px 8px;
+    position: absolute;
+    z-index: 1;
+    bottom: calc(-1em - 16px);
+    background: #ffe091;
+    border-radius: 2px;
+    font-size: 12px;
+  }
+
+  .caret {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    transform: rotate(45deg);
+    position: absolute;
+    bottom: calc(-1em - 15px);
+
+    z-index: 0;
+    left: 6px;
+    background: #ffe091;
+  }
+
+  &:hover {
+    filter: brightness(1.05);
   }
 }

@@ -6,7 +6,7 @@ import { highlighterColors } from "./utils/colors";
 import { doSaveAnnotation } from "./service";
 import makeid from "./utils/makeid";
 import { getNormalizedUrl } from "./utils/getNormalizedUrl";
-import { marker } from "./marker";
+import { clearInlineComments, marker } from "./marker";
 import { deleteAnnotation } from "./api/annotations";
 
 function prepareAnnotatePopoverDom() {
@@ -32,7 +32,7 @@ function prepareAnnotatePopoverDom() {
 function prepareEditAnnotationPopoverDom() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<span id="notelix-edit-annotation-popover" class="notelix-button"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-comment">${commentsSvg}</span><span id="notelix-annotation-comments"></span></span>`
+    `<span id="notelix-edit-annotation-popover" class="notelix-button"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-comment">${commentsSvg}</span></span>`
   );
   state.editAnnotationPopoverDom = document.getElementById(
     "notelix-edit-annotation-popover"
@@ -42,35 +42,9 @@ function prepareEditAnnotationPopoverDom() {
     onDeleteAnnotationElementClick();
   };
 
-  document.getElementById("notelix-button-comment").onpointerdown =
-    document.getElementById("notelix-annotation-comments").onpointerdown =
-      () => {
-        let annotation = state.annotations[state.selectedAnnotationId];
-
-        const value = prompt(
-          "write comments",
-          annotation.notes ? JSON.parse(annotation.notes)[0].text : ""
-        );
-        if (value === null) {
-          return;
-        }
-
-        const backup = state.annotations[annotation.uid];
-        annotation = {
-          ...annotation,
-          notes: value ? JSON.stringify([{ text: value }]) : "",
-        };
-        state.annotations[annotation.uid] = annotation;
-        marker.unpaint(state.annotations[annotation.uid]);
-        marker.paint(state.annotations[annotation.uid]);
-        doSaveAnnotation(annotation).catch(() => {
-          state.annotations[annotation.uid] = backup;
-          marker.unpaint(state.annotations[annotation.uid]);
-          marker.paint(state.annotations[annotation.uid]);
-        });
-
-        hideEditAnnotationPopover();
-      };
+  document.getElementById("notelix-button-comment").onpointerdown = () => {
+    onEditCommentElementClick();
+  };
 }
 
 export function showAnnotatePopover() {
@@ -97,18 +71,6 @@ export function showEditAnnotationPopover() {
   setTimeout(() => {
     state.editAnnotationPopoverDom.style.display = "flex";
   });
-
-  const source = state.annotations[state.selectedAnnotationId];
-  const commentsDom = document.getElementById("notelix-annotation-comments");
-  if (source && source.notes) {
-    commentsDom.innerHTML = JSON.parse(source.notes).map(
-      (note) => `<div class="note-item">${note.text}</div>`
-    );
-    commentsDom.style.display = "block";
-  } else {
-    commentsDom.innerText = "";
-    commentsDom.style.display = "none";
-  }
 }
 
 export function hideEditAnnotationPopover() {
@@ -117,12 +79,41 @@ export function hideEditAnnotationPopover() {
   });
 }
 
+export function onEditCommentElementClick() {
+  let annotation = state.annotations[state.selectedAnnotationId];
+
+  const value = prompt(
+    "write comments",
+    annotation.notes ? JSON.parse(annotation.notes)[0].text : ""
+  );
+  if (value === null) {
+    return;
+  }
+
+  const backup = state.annotations[annotation.uid];
+  annotation = {
+    ...annotation,
+    notes: value ? JSON.stringify([{ text: value }]) : "",
+  };
+  state.annotations[annotation.uid] = annotation;
+  marker.unpaint(state.annotations[annotation.uid]);
+  marker.paint(state.annotations[annotation.uid]);
+  doSaveAnnotation(annotation).catch(() => {
+    state.annotations[annotation.uid] = backup;
+    marker.unpaint(state.annotations[annotation.uid]);
+    marker.paint(state.annotations[annotation.uid]);
+  });
+
+  hideEditAnnotationPopover();
+}
+
 export function onDeleteAnnotationElementClick() {
   const annotation = state.annotations[state.selectedAnnotationId];
   if (annotation && annotation.notes) {
     if (!confirm("The comments will also be deleted with it")) {
       return;
     }
+    clearInlineComments(state.selectedAnnotationId);
   }
 
   marker.unpaint(annotation);
