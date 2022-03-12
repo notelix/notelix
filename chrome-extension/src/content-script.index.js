@@ -4,12 +4,10 @@ import { prepareDomElements } from "./dom";
 import { whenUrlChanges } from "./utils/whenUrlChanges";
 import { marker } from "./marker";
 import { loadAllAnnotationsData } from "./service";
-import {
-  registerChromeRuntimeMessageListeners,
-  registerHotkeys,
-} from "./hotkeys";
+import { registerHotkeys } from "./hotkeys";
 import { addPointerUpEventListeners } from "./pointerevents";
 import { doTrySetAgentSyncParamsLoop } from "./api/agent";
+import { registerChromeRuntimeMessageListeners } from "./chrome";
 
 setTimeout(() => {
   if (document.body.className.indexOf("notelix-initialized") >= 0) {
