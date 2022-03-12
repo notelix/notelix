@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { signUp } from "../../api/user";
 import { useHistory } from "react-router-dom";
 import { makeClientSideEncryptionParams } from "../../encryption/utils";
+import { NotelixDefaultServer } from "../consts";
+import { getServer } from "../../api/common";
 
 export const SignUp = () => {
   const history = useHistory();
@@ -11,10 +13,28 @@ export const SignUp = () => {
     useState(false);
   const [repeatPassword, setRepeatPassword] = useState("");
 
-  let submit = () => {
+  let submit = async () => {
     if (password !== repeatPassword) {
       alert("passwords don't match");
       return;
+    }
+
+    const server = await getServer();
+    if (server === NotelixDefaultServer) {
+      if (
+        !confirm(
+          "You are using Notelix's public development server. While this server is free-to-use, it ** doesn't provide any guarantee regarding availability or data safety **. In fact, this database will be reset when there is major Notelix API change. (expected every year)."
+        )
+      ) {
+        return;
+      }
+      if (
+        !confirm(
+          "Only use this dev server when you are trying out Notelix. For production use, please refer to https://github.com/notelix/notelix and host your own server."
+        )
+      ) {
+        return;
+      }
     }
 
     let client_side_encryption = null;
