@@ -53,7 +53,6 @@ const pickBlackOrWhiteForeground = memoize((_color) => {
   const color = hexToRgb(_color);
   const contrastWhite = colorContrast(color, [255, 255, 255]);
   const contrastBlack = colorContrast(color, [0, 0, 0]);
-  console.log(_color, contrastWhite, contrastBlack);
   if (contrastBlack.brightness > contrastWhite.brightness) {
     return "#000000";
   } else {
