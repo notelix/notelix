@@ -19,5 +19,4 @@
 * [ ] support for annotating pdf (pdf.js)
 * [ ] carets to show the position of annotations
 * [ ] encryption mode: Authenticated GCM?
-* [ ] API change: change .notes back to string
 * [ ] make it configurable: multiple ways to display notes (inline notes display / display an icon, hover on the icon to show notes)

@@ -35,9 +35,7 @@ function paintNotes(context) {
     inlineNotesRootElement.className =
       "web-marker-black-listed-element notelix-comments-inline";
     const inlineNotesTextElement = document.createElement("div");
-    inlineNotesTextElement.innerText = JSON.parse(
-      annotation.data.notes
-    )[0].text;
+    inlineNotesTextElement.innerText = annotation.data.notes;
     inlineNotesTextElement.className = "text";
     inlineNotesTextElement.style.background = annotation.data.color;
     const textWidth = 300;

@@ -86,10 +86,7 @@ export function hideEditAnnotationPopover() {
 export function onEditCommentElementClick() {
   let annotation = state.annotations[state.selectedAnnotationId];
 
-  const value = prompt(
-    "write comments",
-    annotation.data.notes ? JSON.parse(annotation.data.notes)[0].text : ""
-  );
+  const value = prompt("write comments", annotation.data.notes);
   if (value === null) {
     return;
   }
@@ -99,7 +96,7 @@ export function onEditCommentElementClick() {
     ...annotation,
     data: {
       ...annotation.data,
-      notes: value ? JSON.stringify([{ text: value }]) : "",
+      notes: value,
     },
   };
   state.annotations[annotation.uid] = annotation;
