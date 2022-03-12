@@ -86,7 +86,8 @@ export function hideEditAnnotationPopover() {
 
 export async function onEditNotesElementClick() {
   let annotation = state.annotations[state.selectedAnnotationId];
-
+  hideAnnotatePopover();
+  hideEditAnnotationPopover();
   const { value } = await Swal.fire({
     input: "textarea",
     inputLabel: "Write some notes..",
@@ -129,6 +130,8 @@ export async function onEditNotesElementClick() {
 export async function onDeleteAnnotationElementClick() {
   const annotation = state.annotations[state.selectedAnnotationId];
   if (annotation && annotation.data && annotation.data.notes) {
+    hideAnnotatePopover();
+    hideEditAnnotationPopover();
     const { isConfirmed } = await Swal.fire({
       title: "Are you sure?",
       text: "The notes will also be deleted with it",
