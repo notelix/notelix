@@ -2,7 +2,7 @@ import { state } from "./state";
 import {
   hideAnnotatePopover,
   onDeleteAnnotationElementClick,
-  onEditCommentElementClick,
+  onEditNotesElementClick,
   onHighlightElementClick,
 } from "./dom";
 import { highlighterColors } from "./utils/colors";
@@ -39,7 +39,7 @@ export function registerHotkeys() {
       ) {
         return;
       }
-      onEditCommentElementClick();
+      onEditNotesElementClick();
       e.preventDefault();
     }
   });

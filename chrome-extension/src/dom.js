@@ -7,7 +7,7 @@ import { doSaveAnnotation } from "./service";
 import makeid from "./utils/makeid";
 import { getNormalizedUrl } from "./utils/getNormalizedUrl";
 import {
-  clearInlineComments,
+  clearInlineNotes,
   convertAnnotationToSerializedRange,
   marker,
 } from "./marker";
@@ -36,7 +36,7 @@ function prepareAnnotatePopoverDom() {
 function prepareEditAnnotationPopoverDom() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<span id="notelix-edit-annotation-popover" class="notelix-button"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-comment">${commentsSvg}</span></span>`
+    `<span id="notelix-edit-annotation-popover" class="notelix-button"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-notes">${commentsSvg}</span></span>`
   );
   state.editAnnotationPopoverDom = document.getElementById(
     "notelix-edit-annotation-popover"
@@ -46,8 +46,8 @@ function prepareEditAnnotationPopoverDom() {
     onDeleteAnnotationElementClick();
   };
 
-  document.getElementById("notelix-button-comment").onpointerdown = () => {
-    onEditCommentElementClick();
+  document.getElementById("notelix-button-notes").onpointerdown = () => {
+    onEditNotesElementClick();
   };
 }
 
@@ -83,10 +83,10 @@ export function hideEditAnnotationPopover() {
   });
 }
 
-export function onEditCommentElementClick() {
+export function onEditNotesElementClick() {
   let annotation = state.annotations[state.selectedAnnotationId];
 
-  const value = prompt("write comments", annotation.data.notes);
+  const value = prompt("Write some notes..", annotation.data.notes);
   if (value === null) {
     return;
   }
@@ -122,10 +122,10 @@ export function onEditCommentElementClick() {
 export function onDeleteAnnotationElementClick() {
   const annotation = state.annotations[state.selectedAnnotationId];
   if (annotation && annotation.data && annotation.data.notes) {
-    if (!confirm("The comments will also be deleted with it")) {
+    if (!confirm("The notes will also be deleted with it")) {
       return;
     }
-    clearInlineComments(state.selectedAnnotationId);
+    clearInlineNotes(state.selectedAnnotationId);
   }
 
   marker.unpaint(convertAnnotationToSerializedRange(annotation));

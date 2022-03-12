@@ -1,7 +1,7 @@
 import { Marker } from "@notelix/web-marker";
 import { state } from "./state";
 import {
-  onEditCommentElementClick,
+  onEditNotesElementClick,
   showEditAnnotationPopover,
   updateSelectionRectAccordingToRange,
 } from "./dom";
@@ -17,7 +17,7 @@ function convertAnnotationToSerializedRange(annotation) {
 }
 
 function paintNotes(context) {
-  clearInlineComments(context.serializedRange.uid);
+  clearInlineNotes(context.serializedRange.uid);
   const annotation = state.annotations[context.serializedRange.uid];
   if (annotation.data.notes) {
     const firstHighlightElement = Array.from(
@@ -48,12 +48,12 @@ function paintNotes(context) {
     });
     inlineNotesRootElement.addEventListener("click", () => {
       state.selectedAnnotationId = context.serializedRange.uid;
-      onEditCommentElementClick();
+      onEditNotesElementClick();
       expandedNotesElement.parentElement.removeChild(expandedNotesElement);
     });
     inlineNotesRootElement.id = "notes-" + context.serializedRange.uid;
     inlineNotesRootElement.className =
-      "web-marker-black-listed-element notelix-comments-inline";
+      "web-marker-black-listed-element notelix-notes-inline";
     const inlineNotesTextElement = document.createElement("div");
     inlineNotesTextElement.innerText = annotation.data.notes;
     inlineNotesTextElement.className = "text";
@@ -133,11 +133,11 @@ export const marker = new Marker({
   },
 });
 
-function clearInlineComments(uid) {
+function clearInlineNotes(uid) {
   const originalNotesElement = document.getElementById("notes-" + uid);
   if (originalNotesElement) {
     originalNotesElement.parentElement.removeChild(originalNotesElement);
   }
 }
 
-export { clearInlineComments, convertAnnotationToSerializedRange };
+export { clearInlineNotes, convertAnnotationToSerializedRange };

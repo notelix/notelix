@@ -1,7 +1,7 @@
 import { COMMAND_REFRESH_ANNOTATIONS } from "./consts";
 import { state } from "./state";
 import {
-  clearInlineComments,
+  clearInlineNotes,
   convertAnnotationToSerializedRange,
   marker,
 } from "./marker";
@@ -16,7 +16,7 @@ export function registerChromeRuntimeMessageListeners() {
     if (request.command === COMMAND_REFRESH_ANNOTATIONS) {
       setTimeout(() => {
         Object.keys(state.annotations).forEach((key) => {
-          clearInlineComments(key);
+          clearInlineNotes(key);
           marker.unpaint(
             convertAnnotationToSerializedRange(state.annotations[key])
           );
