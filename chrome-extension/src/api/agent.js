@@ -17,8 +17,11 @@ export function doTrySetAgentSyncParamsLoop() {
 
 export async function trySetAgentSyncParams() {
   chrome.storage.sync.get(NotelixChromeStorageKey, async (value) => {
+    if (!value[NotelixChromeStorageKey].notelixUser) {
+      client.post("http://127.0.0.1:18565/agentsync/resetData", {});
+      return;
+    }
     const server = value[NotelixChromeStorageKey].notelixServer;
-
     const serverUrl = server.replace(/\/$/, "");
     const clientSideEncryptionKey = await getKey();
     client

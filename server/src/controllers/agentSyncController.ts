@@ -98,6 +98,12 @@ export class AgentSyncController implements OnModuleInit {
     }
   }
 
+  @Post('/resetData')
+  async ResetData(): Promise<any> {
+    assertRunModeAgent();
+    this.resetData();
+  }
+
   @Post('/set')
   async Set(@Req() request: Request): Promise<any> {
     assertRunModeAgent();

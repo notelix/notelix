@@ -3,6 +3,7 @@ import { NotelixChromeStorageKey } from "../consts";
 import { useHistory } from "react-router-dom";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
+import { trySetAgentSyncParams } from "../../api/agent";
 
 export const UserInfo = () => {
   const [notelixServer, setNotelixServer] = useState("");
@@ -38,6 +39,7 @@ export const UserInfo = () => {
       chrome.storage.sync.set(value, () => {
         sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
         history.push("/");
+        trySetAgentSyncParams();
       });
     });
   };

@@ -3,7 +3,6 @@
 * [ ] pagination support in /list and /listDiff
 * [ ] AnnotationHistory garbage collection 
 * [ ] searchable comments
-* [ ] after log out, do a resetData()
 * [ ] convert to TypeScript
 
 * [ ] more features in front end dashboard: annotation management, etc
