@@ -34,7 +34,7 @@ export class AnnotationsController {
       annotation = new Annotation();
     }
     annotation.user = user;
-    annotation.data = { ...request.body };
+    annotation.data = request.body['data'] || {};
     annotation.uid = uid;
     annotation.url = request.body['url'] || '';
     delete annotation.data.uid;

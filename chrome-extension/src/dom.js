@@ -6,7 +6,11 @@ import { highlighterColors } from "./utils/colors";
 import { doSaveAnnotation } from "./service";
 import makeid from "./utils/makeid";
 import { getNormalizedUrl } from "./utils/getNormalizedUrl";
-import { clearInlineComments, marker } from "./marker";
+import {
+  clearInlineComments,
+  convertAnnotationToSerializedRange,
+  marker,
+} from "./marker";
 import { deleteAnnotation } from "./api/annotations";
 
 function prepareAnnotatePopoverDom() {
@@ -84,7 +88,7 @@ export function onEditCommentElementClick() {
 
   const value = prompt(
     "write comments",
-    annotation.notes ? JSON.parse(annotation.notes)[0].text : ""
+    annotation.data.notes ? JSON.parse(annotation.data.notes)[0].text : ""
   );
   if (value === null) {
     return;
@@ -93,15 +97,26 @@ export function onEditCommentElementClick() {
   const backup = state.annotations[annotation.uid];
   annotation = {
     ...annotation,
-    notes: value ? JSON.stringify([{ text: value }]) : "",
+    data: {
+      ...annotation.data,
+      notes: value ? JSON.stringify([{ text: value }]) : "",
+    },
   };
   state.annotations[annotation.uid] = annotation;
-  marker.unpaint(state.annotations[annotation.uid]);
-  marker.paint(state.annotations[annotation.uid]);
+  marker.unpaint(
+    convertAnnotationToSerializedRange(state.annotations[annotation.uid])
+  );
+  marker.paint(
+    convertAnnotationToSerializedRange(state.annotations[annotation.uid])
+  );
   doSaveAnnotation(annotation).catch(() => {
     state.annotations[annotation.uid] = backup;
-    marker.unpaint(state.annotations[annotation.uid]);
-    marker.paint(state.annotations[annotation.uid]);
+    marker.unpaint(
+      convertAnnotationToSerializedRange(state.annotations[annotation.uid])
+    );
+    marker.paint(
+      convertAnnotationToSerializedRange(state.annotations[annotation.uid])
+    );
   });
 
   hideEditAnnotationPopover();
@@ -109,14 +124,14 @@ export function onEditCommentElementClick() {
 
 export function onDeleteAnnotationElementClick() {
   const annotation = state.annotations[state.selectedAnnotationId];
-  if (annotation && annotation.notes) {
+  if (annotation && annotation.data && annotation.data.notes) {
     if (!confirm("The comments will also be deleted with it")) {
       return;
     }
     clearInlineComments(state.selectedAnnotationId);
   }
 
-  marker.unpaint(annotation);
+  marker.unpaint(convertAnnotationToSerializedRange(annotation));
   const backup = state.annotations[state.selectedAnnotationId];
   delete state.annotations[state.selectedAnnotationId];
   deleteAnnotation({
@@ -124,7 +139,7 @@ export function onDeleteAnnotationElementClick() {
     uid: state.selectedAnnotationId,
   }).catch(() => {
     state.annotations[state.selectedAnnotationId] = backup;
-    marker.paint(annotation);
+    marker.paint(convertAnnotationToSerializedRange(annotation));
   });
 
   hideEditAnnotationPopover();
@@ -133,18 +148,24 @@ export function onDeleteAnnotationElementClick() {
 export function onHighlightElementClick(color) {
   const selection = document.getSelection();
   const range = selection.getRangeAt(0);
-  let annotation = marker.serializeRange(range, {
+  const uid = makeid();
+  let serializedRange = marker.serializeRange(range, {
     charsToKeepForTextBeforeAndTextAfter: 128,
-    uid: makeid(),
+    uid,
   });
-  if (!annotation) {
+  if (!serializedRange) {
     return;
   }
-  annotation = { ...annotation, color, range };
+
+  const { text, textBefore, textAfter } = serializedRange;
+  const annotation = {
+    uid,
+    data: { color, notes: "", text, textBefore, textAfter },
+  };
   state.annotations[annotation.uid] = annotation;
-  marker.paint(annotation);
+  marker.paint(convertAnnotationToSerializedRange(annotation));
   doSaveAnnotation(annotation).catch(() => {
-    marker.unpaint(annotation);
+    marker.unpaint(convertAnnotationToSerializedRange(annotation));
     delete state.annotations[annotation.uid];
   });
 }

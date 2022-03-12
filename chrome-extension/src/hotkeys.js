@@ -7,7 +7,7 @@ import {
 } from "./dom";
 import { highlighterColors } from "./utils/colors";
 import { COMMAND_REFRESH_ANNOTATIONS } from "./consts";
-import { marker } from "./marker";
+import { convertAnnotationToSerializedRange, marker } from "./marker";
 import { NotelixChromeStorageKey } from "./popup/consts";
 import { loadAllAnnotationsData } from "./service";
 
@@ -19,7 +19,9 @@ export function registerChromeRuntimeMessageListeners() {
     if (request.command === COMMAND_REFRESH_ANNOTATIONS) {
       setTimeout(() => {
         Object.keys(state.annotations).forEach((key) => {
-          marker.unpaint(state.annotations[key]);
+          marker.unpaint(
+            convertAnnotationToSerializedRange(state.annotations[key])
+          );
           delete state.annotations[key];
         });
         chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {

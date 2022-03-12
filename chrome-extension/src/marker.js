@@ -7,10 +7,19 @@ import {
 } from "./dom";
 import { pickBlackOrWhiteForeground } from "./utils/colors";
 
+function convertAnnotationToSerializedRange(annotation) {
+  return {
+    uid: annotation.uid,
+    text: annotation.data.text,
+    textBefore: annotation.data.textBefore,
+    textAfter: annotation.data.textAfter,
+  };
+}
+
 function paintNotes(context) {
   clearInlineComments(context.serializedRange.uid);
   const annotation = state.annotations[context.serializedRange.uid];
-  if (annotation.notes) {
+  if (annotation.data.notes) {
     const firstHighlightElement = Array.from(
       document.getElementsByTagName("web-marker-highlight")
     ).filter(
@@ -26,20 +35,22 @@ function paintNotes(context) {
     inlineNotesRootElement.className =
       "web-marker-black-listed-element notelix-comments-inline";
     const inlineNotesTextElement = document.createElement("div");
-    inlineNotesTextElement.innerText = JSON.parse(annotation.notes)[0].text;
+    inlineNotesTextElement.innerText = JSON.parse(
+      annotation.data.notes
+    )[0].text;
     inlineNotesTextElement.className = "text";
-    inlineNotesTextElement.style.background = annotation.color;
+    inlineNotesTextElement.style.background = annotation.data.color;
     const textWidth = 300;
     inlineNotesTextElement.style.maxWidth = `${textWidth}px`;
     inlineNotesTextElement.style.color = pickBlackOrWhiteForeground(
-      annotation.color
+      annotation.data.color
     );
     inlineNotesRootElement.appendChild(inlineNotesTextElement);
     firstHighlightElement.prepend(inlineNotesRootElement);
 
     const inlineNotesCaretElement = document.createElement("div");
     inlineNotesCaretElement.className = "caret";
-    inlineNotesCaretElement.style.background = annotation.color;
+    inlineNotesCaretElement.style.background = annotation.data.color;
     inlineNotesRootElement.appendChild(inlineNotesCaretElement);
 
     if (inlineNotesTextElement) {
@@ -61,7 +72,9 @@ export const marker = new Marker({
       setTimeout(() => {
         state.selectedAnnotationId = context.serializedRange.uid;
         const range = marker.deserializeRange(
-          state.annotations[state.selectedAnnotationId]
+          convertAnnotationToSerializedRange(
+            state.annotations[state.selectedAnnotationId]
+          )
         );
         updateSelectionRectAccordingToRange(range);
         showEditAnnotationPopover();
@@ -76,7 +89,7 @@ export const marker = new Marker({
           inlineNotesElement.style.zIndex = "100";
         }
         element.style.backgroundColor =
-          state.annotations[context.serializedRange.uid].color + "44";
+          state.annotations[context.serializedRange.uid].data.color + "44";
       } else {
         const inlineNotesElement = document.getElementById(
           "notes-" + context.serializedRange.uid
@@ -93,8 +106,8 @@ export const marker = new Marker({
       element.style.textDecoration = "underline";
       element.style["text-decoration-thickness"] = "2px";
       const annotation = state.annotations[context.serializedRange.uid];
-      element.style.textDecorationColor = annotation.color;
-      element.style.backgroundColor = annotation.color + "22";
+      element.style.textDecorationColor = annotation.data.color;
+      element.style.backgroundColor = annotation.data.color + "22";
     },
     afterPaintHighlight: (context) => {
       paintNotes(context);
@@ -109,4 +122,4 @@ function clearInlineComments(uid) {
   }
 }
 
-export { clearInlineComments };
+export { clearInlineComments, convertAnnotationToSerializedRange };

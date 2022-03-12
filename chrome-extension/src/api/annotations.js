@@ -3,22 +3,16 @@ import { decryptFields, encryptFields, getKey } from "../encryption";
 import CryptoJS from "crypto-js";
 import client from "./client";
 
-// TODO: add typescript support and use typescript annotations to mark which field should be encrypted
-
-const AnnotationEncryptedFields = [
-  "notes",
-  "text",
-  "textAfter",
-  "textBefore",
-  "url",
-];
-
 const saveAnnotation = (data) => {
   return wrapRequestApiRequireLoggedIn(({ headers }) =>
     getEndpoint("annotations/save").then((endpoint) =>
-      encryptFields(data, AnnotationEncryptedFields).then((data) =>
-        client.post(endpoint, data, { headers: headers })
-      )
+      encryptFields(data, [
+        "notes",
+        "text",
+        "textAfter",
+        "textBefore",
+        "url",
+      ]).then((data) => client.post(endpoint, data, { headers: headers }))
     )
   );
 };
@@ -42,7 +36,7 @@ const queryAnnotationsByUrl = (url, { onDataReceivedCallback }) => {
   return wrapRequestApiRequireLoggedIn(({ headers }) =>
     getEndpoint("annotations/queryByUrl").then((endpoint) => {
       onDataReceivedCallback();
-      return encryptFields({ url }, AnnotationEncryptedFields).then(({ url }) =>
+      return encryptFields({ url }, ["url"]).then(({ url }) =>
         client
           .post(
             endpoint,
@@ -54,15 +48,23 @@ const queryAnnotationsByUrl = (url, { onDataReceivedCallback }) => {
           .then((item) => {
             return new Promise((resolve) => {
               return getKey().then((key) => {
+                const decryptionKey = key ? CryptoJS.enc.Hex.parse(key) : null;
+
                 resolve(
                   Promise.all(
-                    item.data.list.map((x) =>
-                      decryptFields({
-                        decryptionKey: key ? CryptoJS.enc.Hex.parse(key) : null,
-                        object: { ...x, ...x.data },
-                        fields: AnnotationEncryptedFields,
-                      })
-                    )
+                    item.data.list.map(async (item) => {
+                      item.data = await decryptFields({
+                        decryptionKey: decryptionKey,
+                        object: item.data,
+                        fields: ["notes", "text", "textAfter", "textBefore"],
+                      });
+
+                      return decryptFields({
+                        decryptionKey: decryptionKey,
+                        object: item,
+                        fields: ["url"],
+                      });
+                    })
                   )
                 );
               });

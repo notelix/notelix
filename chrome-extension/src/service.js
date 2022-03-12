@@ -1,6 +1,6 @@
 import { getNormalizedUrl } from "./utils/getNormalizedUrl";
 import { state } from "./state";
-import { marker } from "./marker";
+import { convertAnnotationToSerializedRange, marker } from "./marker";
 import { queryAnnotationsByUrl, saveAnnotation } from "./api/annotations";
 
 function scrollToAnnotationIfNeeded() {
@@ -44,12 +44,14 @@ export function loadAllAnnotationsData() {
     },
   }).then((list) => {
     list
-      .sort((a, b) => b.data.text.length - a.data.text.length)
-      .map((item) => {
+      .sort((a, b) => (b.data.text || "").length - (a.data.text || "").length)
+      .forEach((item) => {
         state.annotations[item.uid] = item;
 
         try {
-          marker.paint(state.annotations[item.uid]);
+          marker.paint(
+            convertAnnotationToSerializedRange(state.annotations[item.uid])
+          );
         } catch (e) {
           failureCount++;
           console.warn(e);
@@ -70,15 +72,13 @@ export function doSaveAnnotation(annotation) {
   return saveAnnotation({
     ...annotation,
     url: getNormalizedUrl(),
-    notes: annotation.notes || "",
-    range: undefined,
   });
 }
 
 function retryPaintMarker(retryCount, uid) {
   setTimeout(() => {
     try {
-      marker.paint(state.annotations[uid]);
+      marker.paint(convertAnnotationToSerializedRange(state.annotations[uid]));
     } catch (e) {
       if (retryCount < 10) {
         retryPaintMarker(retryCount + 1, uid);
