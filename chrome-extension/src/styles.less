@@ -107,15 +107,19 @@
   transition: all 0.15s ease-in-out;
 
   .text {
+    text-decoration: none;
+    font-style: normal;
+    font-weight: normal;
     white-space: nowrap;
     display: inline;
     padding: 4px 8px;
     position: absolute;
     z-index: 1;
     bottom: calc(-1em - 16px);
-    background: #ffe091;
     border-radius: 2px;
-    font-size: 12px;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .caret {
@@ -124,14 +128,14 @@
     height: 10px;
     transform: rotate(45deg);
     position: absolute;
-    bottom: calc(-1em - 15px);
+    bottom: calc(-1em - 16px);
 
     z-index: 0;
     left: 6px;
-    background: #ffe091;
   }
 
   &:hover {
     filter: brightness(1.05);
+    z-index: 100;
   }
 }

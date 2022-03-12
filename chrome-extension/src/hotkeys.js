@@ -2,6 +2,7 @@ import { state } from "./state";
 import {
   hideAnnotatePopover,
   onDeleteAnnotationElementClick,
+  onEditCommentElementClick,
   onHighlightElementClick,
 } from "./dom";
 import { highlighterColors } from "./utils/colors";
@@ -56,6 +57,15 @@ export function registerHotkeys() {
         return;
       }
       onDeleteAnnotationElementClick();
+      e.preventDefault();
+    } else if (e.code === "Space") {
+      if (
+        state.editAnnotationPopoverDom.style.display === "none" ||
+        !state.selectedAnnotationId
+      ) {
+        return;
+      }
+      onEditCommentElementClick();
       e.preventDefault();
     }
   });

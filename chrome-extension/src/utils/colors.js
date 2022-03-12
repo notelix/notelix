@@ -1,3 +1,5 @@
+import { memoize } from "lodash";
+
 const hexToRgb = (hex) =>
   hex
     .replace(
@@ -20,6 +22,45 @@ function darkenColor(color) {
   return rgbToHex(...rgb);
 }
 
+function getBrightness(rgb) {
+  const sum =
+    parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114;
+  return Math.round(sum / 1000);
+}
+
+function colorDifference(a, b) {
+  var d0, d1, d2, max, min;
+  max = Math.max;
+  min = Math.min;
+  d0 = max(a[0], b[0]) - min(a[0], b[0]);
+  d1 = max(a[1], b[1]) - min(a[1], b[1]);
+  d2 = max(a[2], b[2]) - min(a[2], b[2]);
+  return d0 + d1 + d2;
+}
+
+function colorContrast(a, b) {
+  var b0, b1, contrast;
+  b0 = getBrightness(a);
+  b1 = getBrightness(b);
+  contrast = {
+    brightness: Math.abs(b0 - b1),
+    difference: colorDifference(a, b),
+  };
+  return contrast;
+}
+
+const pickBlackOrWhiteForeground = memoize((_color) => {
+  const color = hexToRgb(_color);
+  const contrastWhite = colorContrast(color, [255, 255, 255]);
+  const contrastBlack = colorContrast(color, [0, 0, 0]);
+  console.log(_color, contrastWhite, contrastBlack);
+  if (contrastBlack.brightness > contrastWhite.brightness) {
+    return "#000000";
+  } else {
+    return "#FFFFFF";
+  }
+});
+
 const highlighterColors = [
   "#ff6797",
   "#ffb801",
@@ -29,4 +70,4 @@ const highlighterColors = [
   "#812dff",
 ];
 
-export { darkenColor, highlighterColors };
+export { darkenColor, highlighterColors, pickBlackOrWhiteForeground };

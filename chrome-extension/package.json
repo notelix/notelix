@@ -13,7 +13,7 @@
     "@babel/plugin-transform-runtime": "^7.15.0",
     "@babel/preset-react": "^7.14.5",
     "@babel/runtime": "^7.15.3",
-    "@notelix/web-marker": "^2.0.1",
+    "@notelix/web-marker": "^2.0.2",
     "axios": "^0.19.2",
     "babel-polyfill": "^6.26.0",
     "crypto-js": "^4.1.1",

@@ -1,7 +1,6 @@
 * [ ] ☆ review API design
 * [ ] better user experience: direct users to install the agent when client-side encryption is enabled
 * [ ] automated data backup script (https://github.com/wal-g/wal-g)
-* [ ] migrate to tsx and react (will react in content-script conflict with react used by websites?)
 * [ ] pagination support in /list and /listDiff
 * [ ] AnnotationHistory garbage collection 
 * [ ] searchable comments
@@ -20,3 +19,4 @@
 * [ ] carets to show the position of annotations
 * [ ] encryption mode: Authenticated GCM?
 * [ ] API change: change .notes back to string
+* [ ] make it configurable: multiple ways to display notes (inline notes display / display an icon, hover on the icon to show notes)
