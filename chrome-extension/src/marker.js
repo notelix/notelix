@@ -55,7 +55,10 @@ function paintNotes(context) {
     inlineNotesRootElement.className =
       "web-marker-black-listed-element notelix-notes-inline";
     const inlineNotesTextElement = document.createElement("div");
-    inlineNotesTextElement.innerText = annotation.data.notes;
+    inlineNotesTextElement.innerText = annotation.data.notes.replace(
+      /\n/g,
+      " "
+    );
     inlineNotesTextElement.className = "text";
     inlineNotesTextElement.style.background = annotation.data.color;
     const textWidth = 300;
