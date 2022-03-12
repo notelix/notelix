@@ -62,7 +62,11 @@ function paintNotes(context) {
     inlineNotesTextElement.className = "text";
     inlineNotesTextElement.style.background = annotation.data.color;
     const textWidth = 300;
-    inlineNotesTextElement.style.maxWidth = `${textWidth}px`;
+    inlineNotesTextElement.style.setProperty(
+      "max-width",
+      `${textWidth}px`,
+      "important"
+    );
     inlineNotesTextElement.style.color = pickBlackOrWhiteForeground(
       annotation.data.color
     );
