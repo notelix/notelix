@@ -139,3 +139,22 @@
     z-index: 100;
   }
 }
+
+.notelix-expanded-notes {
+  position: fixed;
+  left: 0;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+  z-index: 1000;
+
+  & > div {
+    padding: 20px;
+    backdrop-filter: blur(5px);
+    background: #FFFFFFBB;
+    box-shadow: 0 0 4px #00000055;
+    border-radius: 4px;
+    font-size: 16px;
+  }
+}

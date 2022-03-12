@@ -27,9 +27,29 @@ function paintNotes(context) {
     )[0];
 
     const inlineNotesRootElement = document.createElement("div");
+    const expandedNotesElement = document.createElement("div");
+    expandedNotesElement.className = "notelix-expanded-notes";
+    const expandedNotesTextElement = document.createElement("div");
+    expandedNotesElement.appendChild(expandedNotesTextElement);
+    expandedNotesTextElement.innerText = annotation.data.notes;
+    inlineNotesRootElement.addEventListener("mouseover", () => {
+      const clientRect = inlineNotesTextElement.getBoundingClientRect();
+      if (clientRect.top >= document.documentElement.clientHeight / 2) {
+        expandedNotesElement.style.bottom = undefined;
+        expandedNotesElement.style.top = "0px";
+      } else {
+        expandedNotesElement.style.top = undefined;
+        expandedNotesElement.style.bottom = "0px";
+      }
+      document.body.appendChild(expandedNotesElement);
+    });
+    inlineNotesRootElement.addEventListener("mouseleave", () => {
+      expandedNotesElement.parentElement.removeChild(expandedNotesElement);
+    });
     inlineNotesRootElement.addEventListener("click", () => {
       state.selectedAnnotationId = context.serializedRange.uid;
       onEditCommentElementClick();
+      expandedNotesElement.parentElement.removeChild(expandedNotesElement);
     });
     inlineNotesRootElement.id = "notes-" + context.serializedRange.uid;
     inlineNotesRootElement.className =
