@@ -65,4 +65,13 @@ export class Annotation extends BaseEntity {
       ],
     );
   }
+
+  static Neat(annotation: Annotation) {
+    return {
+      id: annotation.id,
+      uid: annotation.uid,
+      url: annotation.url,
+      data: annotation.data,
+    };
+  }
 }

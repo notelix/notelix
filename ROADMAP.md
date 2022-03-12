@@ -1,4 +1,3 @@
-* [ ] ☆ review API design
 * [ ] better user experience: direct users to install the agent when client-side encryption is enabled
 * [ ] automated data backup script (https://github.com/wal-g/wal-g)
 * [ ] pagination support in /list and /listDiff

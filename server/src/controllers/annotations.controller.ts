@@ -91,7 +91,7 @@ export class AnnotationsController {
       url: request.body['url'],
     });
 
-    return { list };
+    return { list: list.map(Annotation.Neat) };
   }
 
   @Post('/list')
