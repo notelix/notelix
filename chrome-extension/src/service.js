@@ -43,17 +43,19 @@ export function loadAllAnnotationsData() {
       startTime = +new Date();
     },
   }).then((list) => {
-    list.map((item) => {
-      state.annotations[item.uid] = item;
+    list
+      .sort((a, b) => b.data.text.length - a.data.text.length)
+      .map((item) => {
+        state.annotations[item.uid] = item;
 
-      try {
-        marker.paint(state.annotations[item.uid]);
-      } catch (e) {
-        failureCount++;
-        console.warn(e);
-        retryPaintMarker(0, item.uid);
-      }
-    });
+        try {
+          marker.paint(state.annotations[item.uid]);
+        } catch (e) {
+          failureCount++;
+          console.warn(e);
+          retryPaintMarker(0, item.uid);
+        }
+      });
     const endTime = +new Date();
     console.log(
       `[Notelix]: loaded ${list.length} marks in ${
