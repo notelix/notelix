@@ -35,10 +35,10 @@ function paintNotes(context) {
     inlineNotesRootElement.addEventListener("mouseover", () => {
       const clientRect = inlineNotesTextElement.getBoundingClientRect();
       if (clientRect.top >= document.documentElement.clientHeight / 2) {
-        expandedNotesElement.style.bottom = undefined;
+        expandedNotesElement.style.removeProperty("bottom");
         expandedNotesElement.style.top = "0px";
       } else {
-        expandedNotesElement.style.top = undefined;
+        expandedNotesElement.style.removeProperty("top");
         expandedNotesElement.style.bottom = "0px";
       }
       document.body.appendChild(expandedNotesElement);
