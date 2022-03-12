@@ -3,17 +3,18 @@ import { decryptFields, encryptFields, getKey } from "../encryption";
 import CryptoJS from "crypto-js";
 import client from "./client";
 
-const saveAnnotation = (data) => {
+const saveAnnotation = (annotation) => {
   return wrapRequestApiRequireLoggedIn(({ headers }) =>
-    getEndpoint("annotations/save").then((endpoint) =>
-      encryptFields(data, [
-        "notes",
+    getEndpoint("annotations/save").then(async (endpoint) => {
+      annotation = await encryptFields(annotation, ["url"]);
+      annotation.data = await encryptFields(annotation.data, [
         "text",
         "textAfter",
         "textBefore",
-        "url",
-      ]).then((data) => client.post(endpoint, data, { headers: headers }))
-    )
+        "notes",
+      ]);
+      return client.post(endpoint, annotation, { headers: headers });
+    })
   );
 };
 

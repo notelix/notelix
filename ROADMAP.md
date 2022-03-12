@@ -10,7 +10,6 @@
 * [ ] shortcut to jump to the previous / next annotation
 * [ ] refactor code
 * [ ] reliability, recover from all possible failures
-* [ ] "TODO"s
 * [ ] (off-topic) highlighting ebooks? integration with calibre / JS based e-readers?  
 
 * [ ] support for annotating pdf (pdf.js)

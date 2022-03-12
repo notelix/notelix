@@ -15,7 +15,7 @@ import {
   AnnotationChangeHistoryKindSave,
 } from '../models/annotationChangeHistory.entity';
 import { Annotation } from '../models/annotation.entity';
-import { AnnotationEncryptedFields, decryptFields } from '../encryption';
+import { decryptFields } from '../encryption';
 import * as CryptoJS from 'crypto-js';
 import { meilisearchClient } from '../meilisearch';
 
@@ -50,14 +50,16 @@ export class AgentSyncController implements OnModuleInit {
     if (!this.config.clientSideEncryptionKey) {
       return annotation;
     }
-    const decrypted = (await decryptFields({
+    annotation.data = (await decryptFields({
       decryptionKey: this.config.clientSideEncryptionKeyHexParsed,
-      object: { ...annotation.data, url: annotation.url },
-      fields: AnnotationEncryptedFields,
+      object: annotation.data,
+      fields: ['notes', 'text', 'textAfter', 'textBefore'],
     })) as any;
-    annotation.url = decrypted.url;
-    delete decrypted.url;
-    annotation.data = decrypted;
+    annotation = (await decryptFields({
+      decryptionKey: this.config.clientSideEncryptionKeyHexParsed,
+      object: annotation,
+      fields: ['url'],
+    })) as any;
     return annotation;
   };
 

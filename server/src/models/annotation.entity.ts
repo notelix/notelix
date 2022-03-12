@@ -39,14 +39,14 @@ export class Annotation extends BaseEntity {
   updated_at: Date;
 
   // typeorm bug?.. if we just called save() to insert a record, value of `.id` is ignored, and id was set to auto-increment
-  static async agentSyncPersist(data) {
+  static async agentSyncPersist(annotation) {
     setTimeout(async () => {
-      await meilisearchClient.IndexAnnotation(data);
+      await meilisearchClient.IndexAnnotation(annotation);
     });
 
-    const existing = await Annotation.findOne({ id: data.id });
+    const existing = await Annotation.findOne({ id: annotation.id });
     if (existing) {
-      Object.assign(existing, data);
+      Object.assign(existing, annotation);
       await existing.save();
       return;
     }
@@ -55,13 +55,13 @@ export class Annotation extends BaseEntity {
       `insert into annotation (id, uid, url, data, "userId", created_at, updated_at)
              values ($1, $2, $3, $4, $5, $6, $7);`,
       [
-        data.id,
-        data.uid,
-        data.url,
-        data.data,
+        annotation.id,
+        annotation.uid,
+        annotation.url,
+        annotation.data,
         0,
-        data.created_at,
-        data.updated_at,
+        annotation.created_at,
+        annotation.updated_at,
       ],
     );
   }
