@@ -2,7 +2,6 @@
 * [ ] better user experience: direct users to install the agent when client-side encryption is enabled
 * [ ] automated data backup script (https://github.com/wal-g/wal-g)
 * [ ] migrate to tsx and react (will react in content-script conflict with react used by websites?)
-* [ ] support adding multiple comments to one annotation
 * [ ] pagination support in /list and /listDiff
 * [ ] AnnotationHistory garbage collection 
 * [ ] searchable comments
@@ -19,3 +18,5 @@
 
 * [ ] support for annotating pdf (pdf.js)
 * [ ] carets to show the position of annotations
+* [ ] encryption mode: Authenticated GCM?
+* [ ] API change: change .notes back to string

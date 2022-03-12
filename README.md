@@ -59,7 +59,9 @@ enabled.
 https://public-dev.notelix.com/
 ```
 
-Note: this server is free-to-use, but doesn't provide any guarantee regarding availability or data safety.
+Note: this server is free-to-use, but **doesn't provide any guarantee regarding availability or data safety**.
+
+In fact, this database will be reset when there is major Notelix API change. (expected every year).
 
 Only use this dev server when you are trying out Notelix.
 
