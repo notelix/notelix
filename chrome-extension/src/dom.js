@@ -12,6 +12,7 @@ import {
   marker,
 } from "./marker";
 import { deleteAnnotation } from "./api/annotations";
+import Swal from "sweetalert2";
 
 function prepareAnnotatePopoverDom() {
   document.body.insertAdjacentHTML(
@@ -83,11 +84,17 @@ export function hideEditAnnotationPopover() {
   });
 }
 
-export function onEditNotesElementClick() {
+export async function onEditNotesElementClick() {
   let annotation = state.annotations[state.selectedAnnotationId];
 
-  const value = prompt("Write some notes..", annotation.data.notes);
-  if (value === null) {
+  const { value } = await Swal.fire({
+    input: "textarea",
+    inputLabel: "Write some notes..",
+    inputValue: annotation.data.notes || "",
+    allowOutsideClick: false,
+  });
+
+  if (value === undefined) {
     return;
   }
 
@@ -119,10 +126,17 @@ export function onEditNotesElementClick() {
   hideEditAnnotationPopover();
 }
 
-export function onDeleteAnnotationElementClick() {
+export async function onDeleteAnnotationElementClick() {
   const annotation = state.annotations[state.selectedAnnotationId];
   if (annotation && annotation.data && annotation.data.notes) {
-    if (!confirm("The notes will also be deleted with it")) {
+    const { isConfirmed } = await Swal.fire({
+      title: "Are you sure?",
+      text: "The notes will also be deleted with it",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes",
+    });
+    if (!isConfirmed) {
       return;
     }
     clearInlineNotes(state.selectedAnnotationId);
