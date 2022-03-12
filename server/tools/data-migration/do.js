@@ -46,45 +46,45 @@ annotations.forEach((a) => {
   }
   a.data = (() => {
     const data = JSON.parse(a.data);
-    for (let field of [
-      'text',
-      'textBefore',
-      'textAfter',
-      'originalText',
-      'notes',
-    ]) {
+    for (let field of ['text', 'textBefore', 'textAfter', 'notes']) {
       data[field] = CryptoJS.AES.decrypt(data[field], keyBefore, {
         iv: emptyIV,
       }).toString(CryptoJS.enc.Utf8);
     }
-    data.text = data.originalText;
-    delete data.originalText;
     if (data.notes) {
-      data.notes = JSON.stringify([{ text: data.notes }]);
+      data.notes = JSON.parse(data.notes)[0].text;
     }
     for (let field of ['text', 'textBefore', 'textAfter', 'notes']) {
       if (!data[field]) {
         continue;
       }
       data[field] = CryptoJS.AES.encrypt(data[field], keyAfter, {
-        iv: emptyIV,
+        iv: CryptoJS.enc.Utf8.parse(a.uid),
       }).toString();
+    }
+    if (data.notes) {
+      console.log(a.url);
     }
     return JSON.stringify(data);
   })();
 });
 
 const sqlKeys = ['uid', 'url', 'data'];
-console.log(
-  annotations
-    .map(
-      // language=SQL format=false
-      (a) =>
-        `INSERT into annotation (${sqlKeys.join(
-          ',',
-        )}, "userId") values (${sqlKeys
-          .map((key) => "'" + a[key].replace(/'/g, `\\'`) + "'")
-          .join(', ')}, ${userAfter.id});`,
-    )
-    .join('\n'),
-);
+// console.log(`DELETE from annotation where "userId"=${userAfter.id};`);
+// console.log(
+//   `DELETE from annotation_change_history where "userId"=${userAfter.id};`,
+// );
+
+// console.log(
+//   annotations
+//     .map(
+//       // language=SQL format=false
+//       (a) =>
+//         `INSERT into annotation (${sqlKeys.join(
+//           ',',
+//         )}, "userId") values (${sqlKeys
+//           .map((key) => "'" + a[key].replace(/'/g, `\\'`) + "'")
+//           .join(', ')}, ${userAfter.id});`,
+//     )
+//     .join('\n'),
+// );
