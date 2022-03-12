@@ -54,6 +54,7 @@ export class AgentSyncController implements OnModuleInit {
       decryptionKey: this.config.clientSideEncryptionKeyHexParsed,
       object: annotation.data,
       fields: ['notes', 'text', 'textAfter', 'textBefore'],
+      iv: annotation.uid,
     })) as any;
     annotation = (await decryptFields({
       decryptionKey: this.config.clientSideEncryptionKeyHexParsed,
@@ -103,6 +104,14 @@ export class AgentSyncController implements OnModuleInit {
   @Post('/resetData')
   async ResetData(): Promise<any> {
     assertRunModeAgent();
+    this.config = {
+      enabled: false,
+      decodedJwt: null as any,
+      token: '',
+      url: '',
+      clientSideEncryptionKey: '',
+      clientSideEncryptionKeyHexParsed: null as any,
+    };
     this.resetData();
   }
 
