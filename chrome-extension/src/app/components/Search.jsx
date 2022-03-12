@@ -46,6 +46,15 @@ export default class Search extends React.Component {
                     }}
                   />
                   {hit.textAfter}
+                  {!!hit.notes && (
+                    <div className="notes-wrapper">
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html: hit._formatted.notes,
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="url">
                     <span
                       className="color-dot"

@@ -1,8 +1,7 @@
 * [ ] better user experience: direct users to install the agent when client-side encryption is enabled
 * [ ] automated data backup script (https://github.com/wal-g/wal-g)
 * [ ] pagination support in /list and /listDiff
-* [ ] AnnotationHistory garbage collection 
-* [ ] searchable comments
+* [ ] AnnotationHistory garbage collection
 * [ ] convert to TypeScript
 
 * [ ] more features in front end dashboard: annotation management, etc
