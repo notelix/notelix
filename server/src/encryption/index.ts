@@ -4,7 +4,7 @@ const { AES } = CryptoJS;
 
 const emptyIV = { words: [0, 0, 0, 0], sigBytes: 16 };
 
-export function decryptFields({ decryptionKey, object, fields }) {
+export function decryptFields({ decryptionKey, object, fields, iv = '' }) {
   return new Promise((resolve) => {
     if (!decryptionKey) {
       resolve(object);
@@ -17,7 +17,7 @@ export function decryptFields({ decryptionKey, object, fields }) {
         }
 
         result[k] = AES.decrypt(object[k], decryptionKey, {
-          iv: emptyIV,
+          iv: iv ? CryptoJS.enc.Utf8.parse(iv) : emptyIV,
         }).toString(CryptoJS.enc.Utf8);
       });
       resolve(result);

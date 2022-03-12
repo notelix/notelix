@@ -52,7 +52,7 @@ export function decryptKey(encryptedCfg, password) {
   return JSON.parse(originalText).key;
 }
 
-export function encryptFields(object, fields = []) {
+export function encryptFields({ object, fields = [], iv = "" }) {
   return new Promise((resolve) => {
     if (window.notelixSaasConfig) {
       resolve(object);
@@ -78,7 +78,7 @@ export function encryptFields(object, fields = []) {
           }
 
           result[k] = CryptoJS.AES.encrypt(object[k], key, {
-            iv: emptyIV,
+            iv: iv ? CryptoJS.enc.Utf8.parse(iv) : emptyIV,
           }).toString();
         });
         resolve(result);
@@ -87,7 +87,7 @@ export function encryptFields(object, fields = []) {
   });
 }
 
-export function decryptFields({ decryptionKey, object, fields }) {
+export function decryptFields({ decryptionKey, object, fields, iv }) {
   return new Promise((resolve) => {
     if (!decryptionKey) {
       resolve(object);
@@ -100,7 +100,7 @@ export function decryptFields({ decryptionKey, object, fields }) {
         }
 
         result[k] = AES.decrypt(object[k], decryptionKey, {
-          iv: emptyIV,
+          iv: iv ? CryptoJS.enc.Utf8.parse(iv) : emptyIV,
         }).toString(CryptoJS.enc.Utf8);
       });
       resolve(result);
