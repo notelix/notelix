@@ -1,3 +1,4 @@
+import { Marker } from "@notelix/web-marker";
 import trashSvg from "./icons/trash.svg";
 import commentsSvg from "./icons/comments.svg";
 import { state } from "./state";
@@ -170,6 +171,7 @@ export function onHighlightElementClick(color) {
   if (!serializedRange) {
     return;
   }
+  Marker.clearSelection();
 
   const { text, textBefore, textAfter } = serializedRange;
   const annotation = {
