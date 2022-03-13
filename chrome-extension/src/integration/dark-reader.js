@@ -2,10 +2,10 @@ function isDarkReaderEnabled() {
   return !!document.getElementById("dark-reader-style");
 }
 
-function addOrRemoveDarkReaderClass(annotatePopoverDom) {
+function addOrRemoveDarkReaderClass(element) {
   // support for the dark reader chrome extension
   const classNameToAdd = "dark-reader-enabled";
-  let clsName = annotatePopoverDom.className;
+  let clsName = element.className;
   clsName = clsName.split(classNameToAdd).join("");
 
   const darkReaderEnabled = isDarkReaderEnabled();
@@ -13,7 +13,7 @@ function addOrRemoveDarkReaderClass(annotatePopoverDom) {
     clsName += " " + classNameToAdd;
   }
   clsName = clsName.replace(/\s+/g, " ");
-  annotatePopoverDom.className = clsName;
+  element.className = clsName;
 }
 
 module.exports = { addOrRemoveDarkReaderClass, isDarkReaderEnabled };

@@ -100,11 +100,34 @@
   display: inline-block;
   position: relative;
   vertical-align: bottom;
-  width: 0;
-  margin-bottom: calc(2em + 20px);
+  margin-top: calc(1em + 10px);
   cursor: pointer;
   filter: brightness(1);
   transition: all 0.15s ease-in-out;
+
+  .comments-svg {
+    svg {
+      box-sizing: content-box;
+      opacity: .5;
+      width: 0.8em;
+      padding: 0 0.35em;
+      vertical-align: -0.05em;
+      fill: #000000;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+
+  &.dark-reader-enabled {
+    .comments-svg {
+      svg {
+        fill: #FFFFFF;
+        background-color: transparent !important;
+      }
+    }
+  }
 
   .text {
     text-decoration: none;
@@ -115,11 +138,13 @@
     padding: 4px 8px;
     position: absolute;
     z-index: 1;
-    bottom: calc(-1em - 16px);
+    top: calc(-1em - 12px);
+    left: 0;
     border-radius: 2px;
     font-size: 11px;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 12px;
   }
 
   .caret {
@@ -128,7 +153,7 @@
     height: 10px;
     transform: rotate(45deg);
     position: absolute;
-    bottom: calc(-1em - 16px);
+    top: -10px;
 
     z-index: 0;
     left: 6px;

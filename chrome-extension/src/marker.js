@@ -6,6 +6,8 @@ import {
   updateSelectionRectAccordingToRange,
 } from "./dom";
 import { pickBlackOrWhiteForeground } from "./utils/colors";
+import commentsSvg from "./icons/comments.svg";
+import { addOrRemoveDarkReaderClass } from "./integration/dark-reader";
 
 function convertAnnotationToSerializedRange(annotation) {
   return {
@@ -66,9 +68,9 @@ function paintNotes(context) {
     );
     inlineNotesTextElement.className = "text";
     inlineNotesTextElement.style.setProperty(
-        "background",
-        annotation.data.color,
-        "important"
+      "background",
+      annotation.data.color,
+      "important"
     );
     const textWidth = 300;
     inlineNotesTextElement.style.setProperty(
@@ -79,15 +81,18 @@ function paintNotes(context) {
     inlineNotesTextElement.style.color = pickBlackOrWhiteForeground(
       annotation.data.color
     );
+    inlineNotesRootElement.innerHTML = `<span class="comments-svg" style="background-color: transparent">${commentsSvg}</span>`;
+    inlineNotesRootElement.style.backgroundColor = "transparent";
+    addOrRemoveDarkReaderClass(inlineNotesRootElement);
     inlineNotesRootElement.appendChild(inlineNotesTextElement);
     firstHighlightElement.prepend(inlineNotesRootElement);
 
     const inlineNotesCaretElement = document.createElement("div");
     inlineNotesCaretElement.className = "caret";
     inlineNotesCaretElement.style.setProperty(
-        "background",
-        annotation.data.color,
-        "important"
+      "background",
+      annotation.data.color,
+      "important"
     );
     inlineNotesRootElement.appendChild(inlineNotesCaretElement);
 
