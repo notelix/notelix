@@ -2,15 +2,23 @@
 
 ![logo](design/logo/FullColor_TransparentBg_1280x1024_72dpi.png)
 
-An open source web note taking / highlighter software (chrome extension with backend)
+An open source web note taking / highlighter software (with backend).
 
 ![demo](design/demo.gif)
 
-Powered by the powerful and reliable MIT-licensed web-marker: https://github.com/notelix/web-marker
+Notelix features:
 
-If you want to try out this chrome extension, just go to the [release page](https://github.com/notelix/notelix/releases)
-and download a zip
-file. [(How to install chrome plugin from zip?)](https://dev.to/ben/how-to-install-chrome-extensions-manually-from-github-1612)
+* Powerful and reliable web highlighting (powered by
+  MIT-licensed [@notelix/web-marker](https://github.com/notelix/web-marker))
+* Adding notes to highlights
+* A search engine for your highlights and notes (powered by [MeiliSearch](https://github.com/meilisearch/meilisearch))
+* Optional client-side encryption (and an optional agent that runs on user's machine if they have client-side encryption
+  enabled and want features such as the search engine)
+* Use as a chrome plugin ([download a zip](https://github.com/notelix/notelix/releases)
+  and [install it](https://dev.to/ben/how-to-install-chrome-extensions-manually-from-github-1612) to try), or use it as
+  a service and integrate it into your website / project without requiring users to install a
+  plugin ([try it](https://public-dev.notelix.com/saas/))
+* More features coming soon...
 
 # building and running chrome extension
 
