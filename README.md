@@ -18,6 +18,7 @@ Notelix features:
   and [install it](https://dev.to/ben/how-to-install-chrome-extensions-manually-from-github-1612) to try), or use it as
   a service and integrate it into your website / project without requiring users to install a
   plugin ([try it](https://public-dev.notelix.com/saas/))
+* Works well with [darkreader](https://github.com/darkreader/darkreader)
 * More features coming soon...
 
 # building and running chrome extension
