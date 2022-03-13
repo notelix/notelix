@@ -62,29 +62,26 @@ annotations.forEach((a) => {
         iv: CryptoJS.enc.Utf8.parse(a.uid),
       }).toString();
     }
-    if (data.notes) {
-      console.log(a.url);
-    }
     return JSON.stringify(data);
   })();
 });
 
 const sqlKeys = ['uid', 'url', 'data'];
-// console.log(`DELETE from annotation where "userId"=${userAfter.id};`);
-// console.log(
-//   `DELETE from annotation_change_history where "userId"=${userAfter.id};`,
-// );
+console.log(`DELETE from annotation where "userId"=${userAfter.id};`);
+console.log(
+  `DELETE from annotation_change_history where "userId"=${userAfter.id};`,
+);
 
-// console.log(
-//   annotations
-//     .map(
-//       // language=SQL format=false
-//       (a) =>
-//         `INSERT into annotation (${sqlKeys.join(
-//           ',',
-//         )}, "userId") values (${sqlKeys
-//           .map((key) => "'" + a[key].replace(/'/g, `\\'`) + "'")
-//           .join(', ')}, ${userAfter.id});`,
-//     )
-//     .join('\n'),
-// );
+console.log(
+  annotations
+    .map(
+      // language=SQL format=false
+      (a) =>
+        `INSERT into annotation (${sqlKeys.join(
+          ',',
+        )}, "userId") values (${sqlKeys
+          .map((key) => "'" + a[key].replace(/'/g, `\\'`) + "'")
+          .join(', ')}, ${userAfter.id});`,
+    )
+    .join('\n'),
+);
