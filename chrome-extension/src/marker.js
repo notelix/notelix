@@ -32,6 +32,8 @@ function paintNotes(context) {
     const expandedNotesTextElement = document.createElement("div");
     expandedNotesElement.appendChild(expandedNotesTextElement);
     expandedNotesTextElement.innerText = annotation.data.notes;
+    expandedNotesTextElement.style.backgroundColor = "#FFFFFFBB";
+
     inlineNotesRootElement.addEventListener("mouseover", () => {
       const clientRect = inlineNotesTextElement.getBoundingClientRect();
       if (clientRect.top >= document.documentElement.clientHeight / 2) {
@@ -63,7 +65,11 @@ function paintNotes(context) {
       " "
     );
     inlineNotesTextElement.className = "text";
-    inlineNotesTextElement.style.background = annotation.data.color;
+    inlineNotesTextElement.style.setProperty(
+        "background",
+        annotation.data.color,
+        "important"
+    );
     const textWidth = 300;
     inlineNotesTextElement.style.setProperty(
       "max-width",
@@ -78,7 +84,11 @@ function paintNotes(context) {
 
     const inlineNotesCaretElement = document.createElement("div");
     inlineNotesCaretElement.className = "caret";
-    inlineNotesCaretElement.style.background = annotation.data.color;
+    inlineNotesCaretElement.style.setProperty(
+        "background",
+        annotation.data.color,
+        "important"
+    );
     inlineNotesRootElement.appendChild(inlineNotesCaretElement);
 
     if (inlineNotesTextElement) {
