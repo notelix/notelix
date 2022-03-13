@@ -1,5 +1,6 @@
 import { getNormalizedUrl } from "./utils/getNormalizedUrl";
 import { state } from "./state";
+import chunk from "lodash/chunk";
 import { convertAnnotationToSerializedRange, marker } from "./marker";
 import { queryAnnotationsByUrl, saveAnnotation } from "./api/annotations";
 
@@ -37,27 +38,35 @@ function scrollToAnnotationIfNeeded() {
 
 export function loadAllAnnotationsData() {
   let startTime = 0;
-  let failureCount = 0;
   return queryAnnotationsByUrl(getNormalizedUrl(), {
     onDataReceivedCallback: () => {
       startTime = +new Date();
     },
   }).then((list) => {
-    list
-      .sort((a, b) => (b.data.text || "").length - (a.data.text || "").length)
-      .forEach((item) => {
-        state.annotations[item.uid] = item;
+    const sortedList = list.sort(
+      (a, b) => (b.data.text || "").length - (a.data.text || "").length
+    );
 
-        try {
-          marker.paint(
-            convertAnnotationToSerializedRange(state.annotations[item.uid])
-          );
-        } catch (e) {
-          failureCount++;
-          console.warn(e);
-          retryPaintMarker(0, item.uid);
-        }
+    sortedList.forEach((item) => {
+      state.annotations[item.uid] = item;
+    });
+    let failureCount = 0;
+
+    const chunks = chunk(sortedList, 4);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const { results, errors } = marker.batchPaint(
+        chunks[i].map(convertAnnotationToSerializedRange)
+      );
+
+      Object.keys(errors).forEach((i) => {
+        console.warn(errors[i]);
+        retryPaintMarker(0, sortedList[i].uid);
       });
+
+      failureCount += Object.keys(errors).length;
+    }
+
     const endTime = +new Date();
     console.log(
       `[Notelix]: loaded ${list.length} marks in ${
