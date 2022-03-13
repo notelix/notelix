@@ -52,44 +52,35 @@ export function decryptKey(encryptedCfg, password) {
   return JSON.parse(originalText).key;
 }
 
-export function encryptFields({ object, fields = [], iv = "" }) {
+export function encryptFields({ key, object, fields = [], iv = "" }) {
   return new Promise((resolve) => {
     if (window.notelixSaasConfig) {
       resolve(object);
       return;
     }
 
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      if (!value[NotelixChromeStorageKey].notelixUser.client_side_encryption) {
-        resolve(object);
-      } else {
-        const key = CryptoJS.enc.Hex.parse(
-          decryptKey(
-            value[NotelixChromeStorageKey].notelixUser.client_side_encryption,
-            value[NotelixChromeStorageKey].notelixPassword
-          )
-        );
+    if (!key) {
+      resolve(object);
+    } else {
+      const result = { ...object };
+      fields.forEach((k) => {
+        if (!object[k]) {
+          result[k] = object[k];
+          return;
+        }
 
-        const result = { ...object };
-        fields.forEach((k) => {
-          if (!object[k]) {
-            result[k] = object[k];
-            return;
-          }
-
-          result[k] = CryptoJS.AES.encrypt(object[k], key, {
-            iv: iv ? CryptoJS.enc.Utf8.parse(iv) : emptyIV,
-          }).toString();
-        });
-        resolve(result);
-      }
-    });
+        result[k] = CryptoJS.AES.encrypt(object[k], key, {
+          iv: iv ? CryptoJS.enc.Utf8.parse(iv) : emptyIV,
+        }).toString();
+      });
+      resolve(result);
+    }
   });
 }
 
-export function decryptFields({ decryptionKey, object, fields, iv }) {
+export function decryptFields({ key, object, fields, iv }) {
   return new Promise((resolve) => {
-    if (!decryptionKey) {
+    if (!key) {
       resolve(object);
     } else {
       const result = { ...object };
@@ -99,7 +90,7 @@ export function decryptFields({ decryptionKey, object, fields, iv }) {
           return;
         }
 
-        result[k] = AES.decrypt(object[k], decryptionKey, {
+        result[k] = AES.decrypt(object[k], key, {
           iv: iv ? CryptoJS.enc.Utf8.parse(iv) : emptyIV,
         }).toString(CryptoJS.enc.Utf8);
       });
