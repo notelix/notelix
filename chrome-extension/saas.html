@@ -7,11 +7,12 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Notelix SaaS test</title>
     <script>
-        // This is a DEMO of using Notelix as SaaS
+        // This is a DEMO of using Notelix as a service
         // You can add Notelix to your website without requiring users to install a browser extension
 
         window.notelixSaasConfig = {
             server: "https://public-dev.notelix.com/",
+            // server: "http://127.0.0.1:18555/",
 
             // staticToken is a unique 64-characters token, tied to each user.
             // This token should be treated as a secret and should not be distributed freely. Instead,
@@ -30,6 +31,7 @@
         window.addEventListener('load', function () {
             var script = document.createElement('script');
             script.src = window.notelixSaasConfig.server + "/saas/content-script.dist.js"; // this script is the same as `chrome-extension/extension-build/dist/content-script.dist.js`
+            // script.src = "/dist/content-script.dist.js";
             document.head.appendChild(script);
         });
     </script>
@@ -47,8 +49,10 @@ vero.
 <div class="notelix-enabled" style="margin: 20px; padding: 10px;background: #F2F2F2">
     <div style="color:green">Notelix is enabled here.</div>
     <br/>
-    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque sodales ligula elit, et consectetur arcu
-    finibus sit amet. Suspendisse fringilla placerat faucibus. Ut vulputate varius ornare. Aliquam ut lacus urna. Proin
+    Lorem ipsum dolor sit amet, <b>consectetur adipiscing elit</b>. Pellentesque sodales ligula elit, et consectetur
+    arcu
+    finibus sit amet. Suspendisse fringilla placerat faucibus. Ut <br/>vulputate varius ornare. Aliquam ut lacus urna.
+    Proin
     varius justo et lectus auctor, ut mollis ante convallis. Proin pharetra mauris risus, non eleifend diam feugiat
     mollis. Cras id convallis purus, ultricies ultricies nibh. Nam quam tellus, eleifend quis faucibus et, maximus quis
     est.
