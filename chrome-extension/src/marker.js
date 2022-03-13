@@ -99,7 +99,7 @@ function paintNotes(context) {
     if (inlineNotesTextElement) {
       // prevent text from growing out of the screen bounds
       const clientRect = inlineNotesTextElement.getBoundingClientRect();
-      const maxRight = document.documentElement.clientWidth - 20;
+      const maxRight = document.documentElement.clientWidth;
       if (clientRect.right > maxRight) {
         const diff = maxRight - clientRect.right;
         inlineNotesTextElement.style.marginLeft = diff + "px";
