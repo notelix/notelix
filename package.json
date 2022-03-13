@@ -1,6 +1,6 @@
 {
   "name": "notelix",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "dependencies": {
     "prettier": "^2.5.1"
   }
