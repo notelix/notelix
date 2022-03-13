@@ -46,7 +46,10 @@ function paintNotes(context) {
     inlineNotesRootElement.addEventListener("mouseleave", () => {
       expandedNotesElement.parentElement.removeChild(expandedNotesElement);
     });
-    inlineNotesRootElement.addEventListener("click", () => {
+    inlineNotesRootElement.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       state.selectedAnnotationId = context.serializedRange.uid;
       onEditNotesElementClick();
       expandedNotesElement.parentElement.removeChild(expandedNotesElement);
