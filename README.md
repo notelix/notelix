@@ -73,9 +73,15 @@ In fact, this database will be reset when there is major Notelix API change. (ex
 
 Only use this dev server when you are trying out Notelix.
 
-For production use, please host your own server (see `building and running backend`), and
-use cron + pg_dump or https://github.com/wal-g/wal-g to backup your database.
+For production use, please host your own server (see `building and running backend`), and use cron + pg_dump
+or https://github.com/wal-g/wal-g to backup your database.
 
-# Using Notelix as SaaS to add it to your website without requiring users to install a browser extension
+# Using Notelix as a service to add it to your website without requiring users to install a browser extension
 
-See [chrome-extension/saas.html](./chrome-extension/saas.html)
+Try [here](https://public-dev.notelix.com/saas/). See [chrome-extension/saas.html](./chrome-extension/saas.html) for the
+code.
+
+A note about LICENSE: If you want to integrate Notelix into your project using the above method, it's okay not to
+disclose source code of your project. You only need to disclose source code for any changes made directly to Notelix.
+
+[Contact me](mailto:me@ke.wang) if you have questions regarding LICENSE / for custom licensing.
