@@ -52,7 +52,7 @@ export function loadAllAnnotationsData() {
     });
     let failureCount = 0;
 
-    const chunks = chunk(sortedList, 4);
+    const chunks = chunk(sortedList, 1);
 
     for (let i = 0; i < chunks.length; i++) {
       const { results, errors } = marker.batchPaint(
