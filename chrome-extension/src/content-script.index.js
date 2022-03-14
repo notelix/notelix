@@ -5,7 +5,7 @@ import { whenUrlChanges } from "./utils/whenUrlChanges";
 import { marker } from "./marker";
 import { loadAllAnnotationsData } from "./service";
 import { registerHotkeys } from "./hotkeys";
-import { addPointerUpEventListeners } from "./pointerevents";
+import { reactToSelection } from "./selection";
 import { doTrySetAgentSyncParamsLoop } from "./api/agent";
 import { registerChromeRuntimeMessageListeners } from "./chrome";
 
@@ -24,6 +24,6 @@ setTimeout(() => {
   prepareDomElements();
   marker.addEventListeners();
   registerHotkeys();
-  addPointerUpEventListeners();
+  reactToSelection();
   doTrySetAgentSyncParamsLoop();
 });

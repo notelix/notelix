@@ -121,7 +121,7 @@ export const marker = new Marker({
         );
         updateSelectionRectAccordingToRange(range);
         showEditAnnotationPopover();
-      }, 20);
+      }, 75);
     },
     onHighlightHoverStateChange: (context, element, hovering) => {
       if (hovering) {
