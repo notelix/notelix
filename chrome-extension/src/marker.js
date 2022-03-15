@@ -3,7 +3,7 @@ import { state } from "./state";
 import {
   onEditNotesElementClick,
   showEditAnnotationPopover,
-  updateSelectionRectAccordingToRange,
+  updatePopoverPosOnHighlightSelect,
 } from "./dom";
 import { pickBlackOrWhiteForeground } from "./utils/colors";
 import commentsSvg from "./icons/comments.svg";
@@ -48,7 +48,9 @@ function paintNotes(context) {
       document.body.appendChild(expandedNotesElement);
     });
     inlineNotesRootElement.addEventListener("mouseleave", () => {
-      expandedNotesElement.parentElement.removeChild(expandedNotesElement);
+      if (expandedNotesElement) {
+        expandedNotesElement.parentElement.removeChild(expandedNotesElement);
+      }
     });
     inlineNotesRootElement.addEventListener("click", (e) => {
       e.preventDefault();
@@ -119,9 +121,9 @@ export const marker = new Marker({
             state.annotations[state.selectedAnnotationId]
           )
         );
-        updateSelectionRectAccordingToRange(range);
+        updatePopoverPosOnHighlightSelect(range.getBoundingClientRect());
         showEditAnnotationPopover();
-      }, 75);
+      });
     },
     onHighlightHoverStateChange: (context, element, hovering) => {
       if (hovering) {

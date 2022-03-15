@@ -28,6 +28,7 @@
   position: absolute;
   font-size: 0;
   padding: 3px 2px;
+  user-select: none;
 
   .color {
     width: 14px;
@@ -43,6 +44,14 @@
     &:hover {
       filter: brightness(1.05);
       transform: scale(1.1);
+    }
+  }
+
+  &.mobile-or-tablet {
+    .color {
+      width: 22px;
+      height: 22px;
+      margin: 0 6px;
     }
   }
 }
@@ -92,6 +101,18 @@
 
     span:hover {
       background: rgba(255, 255, 255, 0.2) !important;
+    }
+  }
+
+  &.mobile-or-tablet {
+    span {
+      width: 52px;
+      height: 46px;
+
+      svg {
+        width: 26px;
+        height: 26px;
+      }
     }
   }
 }
@@ -182,5 +203,18 @@
     border-radius: 4px;
     font-size: 16px;
     color: black !important;
+  }
+}
+
+body.selection-changing {
+  //background: #AEA;
+
+  #notelix-annotate-popover {
+    //background: #9b4dca;
+    pointer-events: none !important;
+
+    * {
+      pointer-events: none !important;
+    }
   }
 }

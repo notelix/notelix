@@ -2,9 +2,14 @@ import {
   hideAnnotatePopover,
   hideEditAnnotationPopover,
   showAnnotatePopover,
-  updateSelectionRectAccordingToRange,
+  updatePopoverPosOnSelectionChange,
 } from "./dom";
-import { SelectionObserver } from "./selection-observer";
+import {
+  isSelectionBackwards,
+  selectionFocusRect,
+  SelectionObserver,
+} from "./selection-observer";
+import { state } from "./state";
 
 function isRangeInContentEditable(range) {
   let ptr = range.commonAncestorContainer;
@@ -55,7 +60,7 @@ export function reactToSelection() {
       hideAnnotatePopover();
       hideEditAnnotationPopover();
     } else {
-      updateSelectionRectAccordingToRange(range);
+      hideEditAnnotationPopover();
       showAnnotatePopover();
     }
   };
@@ -64,3 +69,53 @@ export function reactToSelection() {
     callback();
   });
 }
+
+const selectionChangingCssClass = "selection-changing";
+let lastSelectionChangeTime = 0;
+
+function setSelectionChanging(changing) {
+  if (changing) {
+    if (document.body.className.indexOf(selectionChangingCssClass) < 0) {
+      document.body.className =
+        document.body.className + " " + selectionChangingCssClass;
+    }
+  } else {
+    document.body.className = document.body.className.replace(
+      /\s*selection-changing\s*/g,
+      ""
+    );
+  }
+}
+
+const onSelectionChange = () => {
+  lastSelectionChangeTime = new Date();
+  setSelectionChanging(true);
+
+  setTimeout(() => {
+    if (new Date() - lastSelectionChangeTime > 300) {
+      setSelectionChanging(false);
+    }
+  }, 350);
+
+  const selection = document.getSelection();
+  let range = null;
+  try {
+    range = selection.getRangeAt(0);
+  } catch (e) {}
+  if (!range) {
+    return;
+  }
+
+  const rect = selectionFocusRect(selection);
+  if (rect) {
+    updatePopoverPosOnSelectionChange(rect, isSelectionBackwards(selection));
+    state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
+    state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
+  }
+};
+
+document.addEventListener("selectstart", onSelectionChange);
+document.addEventListener("selectionchange", onSelectionChange);
+document.addEventListener("pointerup", () => {
+  setSelectionChanging(false);
+});

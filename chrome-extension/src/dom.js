@@ -14,11 +14,16 @@ import {
 } from "./marker";
 import { deleteAnnotation } from "./api/annotations";
 import Swal from "sweetalert2";
+import { isMobileOrTablet } from "./mobile";
+import sleep from "./utils/sleep";
+import { isSelectionBackwards } from "./selection-observer";
 
 function prepareAnnotatePopoverDom() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<span id="notelix-annotate-popover">${highlighterColors
+    `<span class="${
+      isMobileOrTablet ? "mobile-or-tablet" : ""
+    }" id="notelix-annotate-popover">${highlighterColors
       .map(
         (color) =>
           `<span class="color" style="background-color: ${color}" data-color="${color}"></span>`
@@ -38,7 +43,9 @@ function prepareAnnotatePopoverDom() {
 function prepareEditAnnotationPopoverDom() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<span id="notelix-edit-annotation-popover" class="notelix-button"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-notes">${commentsSvg}</span></span>`
+    `<span id="notelix-edit-annotation-popover" class="notelix-button ${
+      isMobileOrTablet ? "mobile-or-tablet" : ""
+    }"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-notes">${commentsSvg}</span></span>`
   );
   state.editAnnotationPopoverDom = document.getElementById(
     "notelix-edit-annotation-popover"
@@ -54,9 +61,8 @@ function prepareEditAnnotationPopoverDom() {
 }
 
 export function showAnnotatePopover() {
-  const { x, y } = getPopoverPos();
-  state.annotatePopoverDom.style.top = y + "px";
-  state.annotatePopoverDom.style.left = x + "px";
+  state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
+  state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
   addOrRemoveDarkReaderClass(state.annotatePopoverDom);
   setTimeout(() => {
     state.annotatePopoverDom.style.display = "flex";
@@ -69,10 +75,11 @@ export function hideAnnotatePopover() {
   });
 }
 
+let lastShowEditAnnotationPopoverTimestamp = 0;
 export function showEditAnnotationPopover() {
-  const { x, y } = getPopoverPos();
-  state.editAnnotationPopoverDom.style.top = y + "px";
-  state.editAnnotationPopoverDom.style.left = x + "px";
+  lastShowEditAnnotationPopoverTimestamp = +new Date();
+  state.editAnnotationPopoverDom.style.top = state.popoverPos.y + "px";
+  state.editAnnotationPopoverDom.style.left = state.popoverPos.x + "px";
   addOrRemoveDarkReaderClass(state.editAnnotationPopoverDom);
   setTimeout(() => {
     state.editAnnotationPopoverDom.style.display = "flex";
@@ -80,6 +87,9 @@ export function showEditAnnotationPopover() {
 }
 
 export function hideEditAnnotationPopover() {
+  if (+new Date() - lastShowEditAnnotationPopoverTimestamp < 150) {
+    return;
+  }
   setTimeout(() => {
     state.editAnnotationPopoverDom.style.display = "none";
   });
@@ -89,6 +99,7 @@ export async function onEditNotesElementClick() {
   let annotation = state.annotations[state.selectedAnnotationId];
   hideAnnotatePopover();
   hideEditAnnotationPopover();
+  await sleep(200);
   const { value } = await Swal.fire({
     input: "textarea",
     inputLabel: "Write some notes..",
@@ -133,6 +144,7 @@ export async function onDeleteAnnotationElementClick() {
   if (annotation && annotation.data && annotation.data.notes) {
     hideAnnotatePopover();
     hideEditAnnotationPopover();
+    await sleep(200);
     const { isConfirmed } = await Swal.fire({
       title: "Are you sure?",
       text: "The notes will also be deleted with it",
@@ -186,26 +198,41 @@ export function onHighlightElementClick(color) {
   });
 }
 
-function getPopoverPos() {
-  let y = state.selectionRect.top;
-  let x = state.selectionRect.left + state.selectionRect.width / 2;
-  let minY = window.scrollY + 100;
-  if (y < minY) {
-    y = state.selectionRect.top + state.selectionRect.height + 38;
+export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {
+  if (selectionIsBackwards) {
+    if (isMobileOrTablet) {
+      state.popoverPos.y = rect.top + window.scrollY + 80;
+    } else {
+      state.popoverPos.y = rect.top + window.scrollY - 10;
+    }
+  } else {
+    if (isMobileOrTablet) {
+      state.popoverPos.y = rect.top + rect.height + window.scrollY + 50;
+    } else {
+      state.popoverPos.y = rect.top + rect.height + window.scrollY + 30;
+    }
   }
-  return { x, y };
+  if (selectionIsBackwards) {
+    state.popoverPos.x = rect.left + window.scrollX + 70;
+  } else {
+    state.popoverPos.x = rect.right + window.scrollX - 70;
+  }
+
+  if (isMobileOrTablet) {
+    state.popoverPos.x = screen.width / 2;
+  }
 }
 
-export function updateSelectionRectAccordingToRange(range) {
-  let pos = range.getBoundingClientRect();
-  state.selectionRect.top = pos.top + window.scrollY;
-  state.selectionRect.left = pos.left + window.scrollX;
-  state.selectionRect.width = pos.width;
-  state.selectionRect.height = pos.height;
-  if (state.selectionRect.width === 0) {
-    state.selectionRect.width = 400;
-    state.selectionRect.top = state.selectionRect.top - 10;
-    state.selectionRect.left = state.selectionRect.left - 200;
+export function updatePopoverPosOnHighlightSelect(rect) {
+  if (isMobileOrTablet) {
+    state.popoverPos.y = rect.top + rect.height + window.scrollY + 50;
+  } else {
+    state.popoverPos.y = rect.top + rect.height + window.scrollY + 30;
+  }
+  state.popoverPos.x = rect.left + rect.width / 2;
+
+  if (isMobileOrTablet) {
+    state.popoverPos.x = screen.width / 2;
   }
 }
 

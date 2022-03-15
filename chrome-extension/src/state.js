@@ -3,6 +3,6 @@ export const state = {
   editAnnotationPopoverDom: null,
 
   selectedAnnotationId: null,
-  selectionRect: {},
+  popoverPos: { x: 0, y: 0 },
   annotations: {},
 };
