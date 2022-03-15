@@ -206,7 +206,7 @@ export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {
     if (isMobileOrTablet) {
       state.popoverPos.y = rect.top + window.scrollY + 80;
     } else {
-      state.popoverPos.y = rect.top + window.scrollY - 10;
+      state.popoverPos.y = rect.top + window.scrollY - 20;
     }
   } else {
     if (isMobileOrTablet) {
@@ -230,7 +230,7 @@ export function updatePopoverPosOnHighlightSelect(rect) {
   if (isMobileOrTablet) {
     state.popoverPos.y = rect.top + rect.height + window.scrollY + 50;
   } else {
-    state.popoverPos.y = rect.top + rect.height + window.scrollY + 30;
+    state.popoverPos.y = rect.top + rect.height + window.scrollY + 40;
   }
   state.popoverPos.x = rect.left + rect.width / 2;
 
