@@ -222,7 +222,7 @@ export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {
   }
 
   if (isMobileOrTablet) {
-    state.popoverPos.x = screen.width / 2;
+    state.popoverPos.x = document.documentElement.clientWidth / 2;
   }
 }
 
@@ -235,7 +235,7 @@ export function updatePopoverPosOnHighlightSelect(rect) {
   state.popoverPos.x = rect.left + rect.width / 2;
 
   if (isMobileOrTablet) {
-    state.popoverPos.x = screen.width / 2;
+    state.popoverPos.x = document.documentElement.clientWidth / 2;
   }
 }
 
