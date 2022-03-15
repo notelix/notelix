@@ -116,6 +116,9 @@ const onSelectionChange = () => {
 };
 
 document.addEventListener("selectstart", onSelectionChange);
+document.addEventListener("selectstart", () => {
+  hideAnnotatePopover();
+});
 document.addEventListener("selectionchange", onSelectionChange);
 document.addEventListener("pointerup", () => {
   setSelectionChanging(false);
