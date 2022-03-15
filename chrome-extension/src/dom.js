@@ -67,6 +67,9 @@ export function showAnnotatePopover() {
   setTimeout(() => {
     state.annotatePopoverDom.style.display = "flex";
   });
+  setTimeout(() => {
+    hideEditAnnotationPopover();
+  }, 250);
 }
 
 export function hideAnnotatePopover() {
