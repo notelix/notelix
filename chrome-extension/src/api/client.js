@@ -8,7 +8,7 @@ class ApiClient {
   }
 
   request({ method, url, data = null, headers }) {
-    if (window.notelixSaasConfig) {
+    if (window.NotelixEmbeddedConfig) {
       return new Promise((resolve, reject) => {
         fetch(url, {
           method: method,

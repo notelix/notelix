@@ -9,7 +9,7 @@ import { NotelixChromeStorageKey } from "./popup/consts";
 import { loadAllAnnotationsData } from "./service";
 
 export function registerChromeRuntimeMessageListeners() {
-  if (window.notelixSaasConfig) {
+  if (window.NotelixEmbeddedConfig) {
     return;
   }
   chrome.runtime.onMessage.addListener(function (request) {

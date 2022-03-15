@@ -4,7 +4,7 @@ import client from "./client";
 import sleep from "../utils/sleep";
 
 export function doTrySetAgentSyncParamsLoop() {
-  if (window.notelixSaasConfig) {
+  if (window.NotelixEmbeddedConfig) {
     return;
   }
   setTimeout(async () => {

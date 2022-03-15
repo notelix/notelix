@@ -29,9 +29,9 @@ export async function getEndpoint(
 }
 
 export const getHeaders = (requireLoggedIn = false) => {
-  if (window.notelixSaasConfig) {
+  if (window.NotelixEmbeddedConfig) {
     return Promise.resolve({
-      Authorization: `static-token ${window.notelixSaasConfig.staticToken}`,
+      Authorization: `static-token ${window.NotelixEmbeddedConfig.staticToken}`,
     });
   }
 
@@ -58,8 +58,8 @@ export const getHeaders = (requireLoggedIn = false) => {
 
 export function getServer() {
   return new Promise((resolve) => {
-    if (window.notelixSaasConfig) {
-      resolve(window.notelixSaasConfig.server);
+    if (window.NotelixEmbeddedConfig) {
+      resolve(window.NotelixEmbeddedConfig.server);
       return;
     }
     chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {

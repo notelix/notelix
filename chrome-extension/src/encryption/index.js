@@ -6,7 +6,7 @@ const emptyIV = { words: [0, 0, 0, 0], sigBytes: 16 };
 
 export function getKey() {
   return new Promise((resolve) => {
-    if (window.notelixSaasConfig) {
+    if (window.NotelixEmbeddedConfig) {
       resolve(null);
       return;
     }
@@ -28,7 +28,7 @@ export function getKey() {
 
 export function clientSideEncryptionEnabled() {
   return new Promise((resolve) => {
-    if (window.notelixSaasConfig) {
+    if (window.NotelixEmbeddedConfig) {
       resolve(false);
       return;
     }
@@ -54,7 +54,7 @@ export function decryptKey(encryptedCfg, password) {
 
 export function encryptFields({ key, object, fields = [], iv = "" }) {
   return new Promise((resolve) => {
-    if (window.notelixSaasConfig) {
+    if (window.NotelixEmbeddedConfig) {
       resolve(object);
       return;
     }

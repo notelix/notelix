@@ -5,12 +5,16 @@
     <meta name="viewport"
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Notelix SaaS test</title>
+    <title>Notelix Embedded test</title>
     <script>
-        // This is a DEMO of using Notelix as a service
+        // This is a DEMO of using Notelix Embedded
         // You can add Notelix to your website without requiring users to install a browser extension
-
-        window.notelixSaasConfig = {
+        // window.oncontextmenu = function (event) {
+        //     event.preventDefault();
+        //     event.stopPropagation();
+        //     return false;
+        // };
+        window.NotelixEmbeddedConfig = {
             server: "https://public-dev.notelix.com/",
             // server: "http://127.0.0.1:18555/",
 
@@ -30,8 +34,8 @@
         }
         window.addEventListener('load', function () {
             var script = document.createElement('script');
-            script.src = window.notelixSaasConfig.server + "/saas/content-script.dist.js"; // this script is the same as `chrome-extension/extension-build/dist/content-script.dist.js`
-            // script.src = "/dist/content-script.dist.js";
+            script.src = window.NotelixEmbeddedConfig.server + "/embedded/content-script.dist.js"; // this script is the same as `chrome-extension/extension-build/dist/content-script.dist.js`
+            // script.src = "http://192.168.1.6:8080/dist/content-script.dist.js?r=" + Math.random();
             document.head.appendChild(script);
         });
     </script>
@@ -41,6 +45,7 @@ Lorem ipsum dolor sit amet, consectetur adipisicing elit. Eius omnis sit volupta
 necessitatibus? Distinctio, dolor exercitationem facere harum iste laudantium mollitia officiis temporibus, velit veniam
 vero.
 
+<div id="info"></div>
 
 <div style="color: red;margin-top:20px">
     Notelix will only be enabled in the following <span style="background: #F2F2F2;padding: 2px 10px;color:black">grey boxes</span>.

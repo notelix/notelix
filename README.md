@@ -17,7 +17,7 @@ Notelix features:
 * Use as a chrome plugin ([download a zip](https://github.com/notelix/notelix/releases)
   and [install it](https://dev.to/ben/how-to-install-chrome-extensions-manually-from-github-1612) to try), or use it as
   a service and integrate it into your website / project without requiring users to install a
-  plugin ([try it](https://public-dev.notelix.com/saas/))
+  plugin ([try it](https://public-dev.notelix.com/embedded/))
 * Works well with [darkreader](https://github.com/darkreader/darkreader)
 * More features coming soon...
 
@@ -77,9 +77,9 @@ Only use this dev server when you are trying out Notelix.
 For production use, please host your own server (see `building and running backend`), and use cron + pg_dump
 or https://github.com/wal-g/wal-g to backup your database.
 
-# Using Notelix as a service to add it to your website without requiring users to install a browser extension
+# Using Notelix Embedded to add it to your website without requiring users to install a browser extension
 
-Try [here](https://public-dev.notelix.com/saas/). See [chrome-extension/saas.html](./chrome-extension/saas.html) for the
+Try [here](https://public-dev.notelix.com/embedded/). See [chrome-extension/embedded.html](./chrome-extension/embedded.html) for the
 code.
 
 A note about LICENSE: If you want to integrate Notelix into your project using the above method, it's okay not to

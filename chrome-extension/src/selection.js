@@ -23,14 +23,15 @@ function isRangeInContentEditable(range) {
 }
 
 const outOfAllowedRootElement =
-  window.notelixSaasConfig && window.notelixSaasConfig.rootElementClassName
+  window.NotelixEmbeddedConfig &&
+  window.NotelixEmbeddedConfig.rootElementClassName
     ? (range) => {
         let ptr = range.commonAncestorContainer;
         while (ptr) {
           if (
             ptr.className &&
             ptr.className.indexOf(
-              window.notelixSaasConfig.rootElementClassName
+              window.NotelixEmbeddedConfig.rootElementClassName
             ) >= 0
           ) {
             return false;
