@@ -7,7 +7,6 @@ import {
 } from "./dom";
 import { pickBlackOrWhiteForeground } from "./utils/colors";
 import commentsSvg from "./icons/comments.svg";
-import { addOrRemoveDarkReaderClass } from "./integration/dark-reader";
 
 function convertAnnotationToSerializedRange(annotation) {
   return {
@@ -83,11 +82,12 @@ function paintNotes(context) {
     inlineNotesTextElement.style.color = pickBlackOrWhiteForeground(
       annotation.data.color
     );
-    inlineNotesRootElement.innerHTML = `<span class="comments-svg" style="background-color: transparent">${commentsSvg}</span>`;
+    inlineNotesRootElement.innerHTML = `<span class="comments-svg" style="background-color: transparent;border-color:transparent">${commentsSvg}</span>`;
     inlineNotesRootElement.style.backgroundColor = "transparent";
-    addOrRemoveDarkReaderClass(inlineNotesRootElement);
     inlineNotesRootElement.appendChild(inlineNotesTextElement);
     firstHighlightElement.prepend(inlineNotesRootElement);
+    inlineNotesRootElement.getElementsByTagName("svg")[0].style.fill =
+      annotation.data.color;
 
     const inlineNotesCaretElement = document.createElement("div");
     inlineNotesCaretElement.className = "caret";
