@@ -25,15 +25,15 @@
   display: none;
   position: absolute;
   font-size: 0;
-  padding: 6px 2px;
+  padding: 6px 4px;
   user-select: none;
 
   .color {
-    width: 17px;
-    height: 17px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
     display: inline-block;
-    margin: 0 4px;
+    margin: 0 3px;
     cursor: pointer;
     box-shadow: 0 0 1px #888;
     transform: scale(1.0);
@@ -118,19 +118,18 @@
 .notelix-notes-inline {
   display: inline-block;
   position: relative;
-  vertical-align: bottom;
-  margin-top: calc(1em + 11px);
+  margin-top: calc(1em + 10px);
   cursor: pointer;
   filter: brightness(1);
   transition: all 0.15s ease-in-out;
 
   .comments-svg {
-    position: relative;
-    top: 0.4px;
 
     svg {
+      position: relative;
+      top: 2px;
       box-sizing: content-box !important;
-      width: 0.8em;
+      width: 1em;
       padding: 0 2px 0 4px;
       fill: #000000;
       transition: all 0.2s ease-in-out;
@@ -212,4 +211,8 @@ body.selection-changing {
       pointer-events: none !important;
     }
   }
+}
+
+.swal2-popup {
+  font-size: 14px !important;
 }

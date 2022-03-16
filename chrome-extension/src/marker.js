@@ -82,7 +82,7 @@ function paintNotes(context) {
     inlineNotesTextElement.style.color = pickBlackOrWhiteForeground(
       annotation.data.color
     );
-    inlineNotesRootElement.innerHTML = `<span class="comments-svg" style="background-color: transparent;border-color:transparent">${commentsSvg}</span>`;
+    inlineNotesRootElement.innerHTML = `<span class="comments-svg" style="background-color: transparent;border-color:transparent"><span style="visibility: hidden;display: inline-block;white-space:nowrap;width: 0;">notes</span>${commentsSvg}</span>`;
     inlineNotesRootElement.style.backgroundColor = "transparent";
     inlineNotesRootElement.appendChild(inlineNotesTextElement);
     firstHighlightElement.prepend(inlineNotesRootElement);
