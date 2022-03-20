@@ -79,6 +79,7 @@ export function hideAnnotatePopover() {
 }
 
 let lastShowEditAnnotationPopoverTimestamp = 0;
+
 export function showEditAnnotationPopover() {
   lastShowEditAnnotationPopoverTimestamp = +new Date();
   state.editAnnotationPopoverDom.style.top = state.popoverPos.y + "px";
@@ -224,6 +225,14 @@ export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {
   if (isMobileOrTablet) {
     state.popoverPos.x = document.documentElement.clientWidth / 2;
   }
+
+  if (state.popoverPos.x < 76) {
+    state.popoverPos.x = 76;
+  }
+
+  if (state.popoverPos.x > document.documentElement.clientWidth - 76) {
+    state.popoverPos.x = document.documentElement.clientWidth - 76;
+  }
 }
 
 export function updatePopoverPosOnHighlightSelect(rect) {
@@ -236,6 +245,14 @@ export function updatePopoverPosOnHighlightSelect(rect) {
 
   if (isMobileOrTablet) {
     state.popoverPos.x = document.documentElement.clientWidth / 2;
+  }
+
+  if (state.popoverPos.x < 76) {
+    state.popoverPos.x = 76;
+  }
+
+  if (state.popoverPos.x > document.documentElement.clientWidth - 76) {
+    state.popoverPos.x = document.documentElement.clientWidth - 76;
   }
 }
 
