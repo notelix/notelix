@@ -85,6 +85,12 @@ export function doSaveAnnotation(annotation) {
 }
 
 function retryPaintMarker(retryCount, uid) {
+  if (
+    window.NotelixEmbeddedConfig &&
+    window.NotelixEmbeddedConfig.disablePaintMarkerRetry
+  ) {
+    return;
+  }
   setTimeout(() => {
     try {
       marker.paint(convertAnnotationToSerializedRange(state.annotations[uid]));
