@@ -39,4 +39,8 @@ setTimeout(() => {
   window.NotelixAPI = {
     loadAllAnnotationsData,
   };
+
+  if (window.NotelixEmbeddedConfig && window.NotelixEmbeddedConfig.onReady) {
+    window.NotelixEmbeddedConfig.onReady();
+  }
 });
