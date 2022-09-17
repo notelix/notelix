@@ -35,4 +35,8 @@ setTimeout(() => {
   registerHotkeys();
   reactToSelection();
   doTrySetAgentSyncParamsLoop();
+
+  window.NotelixAPI = {
+    loadAllAnnotationsData,
+  };
 });
