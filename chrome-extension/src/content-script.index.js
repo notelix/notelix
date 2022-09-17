@@ -15,11 +15,20 @@ setTimeout(() => {
   } else {
     document.body.className = document.body.className + " notelix-initialized";
   }
-  whenUrlChanges(() => {
-    setTimeout(() => {
-      loadAllAnnotationsData();
+
+  if (
+    !(
+      window.NotelixEmbeddedConfig &&
+      window.NotelixEmbeddedConfig.disableLoadAllAnnotationsDataWhenUrlChanges
+    )
+  ) {
+    whenUrlChanges(() => {
+      setTimeout(() => {
+        loadAllAnnotationsData();
+      });
     });
-  });
+  }
+
   registerChromeRuntimeMessageListeners();
   prepareDomElements();
   marker.addEventListeners();
