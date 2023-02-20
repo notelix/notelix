@@ -6,6 +6,6 @@ RUN mkdir /app
 ADD ./package.json /app/package.json
 WORKDIR /app
 # RUN npm i
-RUN npm i --registry=https://registry.npmmirror.com
+RUN npm i
 
 CMD ["npm", "run", "start:dev"]

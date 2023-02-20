@@ -5,6 +5,6 @@ RUN ln -sf python3 /usr/bin/python
 ADD . /app/
 WORKDIR /app
 # RUN npm i
-RUN npm i --registry=https://registry.npmmirror.com
+RUN npm i
 
 CMD ["npm", "run", "prod"]
