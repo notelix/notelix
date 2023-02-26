@@ -60,6 +60,12 @@ export default class Search extends React.Component {
                       className="color-dot"
                       style={{ background: hit.color }}
                     />
+                    <span
+                      className="title"
+                      dangerouslySetInnerHTML={{
+                        __html: hit._formatted.title,
+                      }}
+                    />
                     {hit.url}
                   </div>
                 </div>

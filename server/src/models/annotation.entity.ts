@@ -24,6 +24,9 @@ export class Annotation extends BaseEntity {
   @Column({ type: 'varchar', length: 32768 })
   url: string;
 
+  @Column({ type: 'varchar', length: 32768, default: '' })
+  title: string;
+
   @Column({ type: 'json' })
   data: any;
 
@@ -52,12 +55,13 @@ export class Annotation extends BaseEntity {
     }
 
     await getManager().query(
-      `insert into annotation (id, uid, url, data, "userId", created_at, updated_at)
-             values ($1, $2, $3, $4, $5, $6, $7);`,
+      `insert into annotation (id, uid, url, title, data, "userId", created_at, updated_at)
+             values ($1, $2, $3, $4, $5, $6, $7, $8);`,
       [
         annotation.id,
         annotation.uid,
         annotation.url,
+        annotation.title,
         annotation.data,
         0,
         annotation.created_at,
@@ -71,6 +75,7 @@ export class Annotation extends BaseEntity {
       id: annotation.id,
       uid: annotation.uid,
       url: annotation.url,
+      title: annotation.title,
       data: annotation.data,
     };
   }

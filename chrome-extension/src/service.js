@@ -81,6 +81,7 @@ export function doSaveAnnotation(annotation) {
   return saveAnnotation({
     ...annotation,
     url: getNormalizedUrl(),
+    title: document.title,
   });
 }
 

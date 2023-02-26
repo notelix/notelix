@@ -59,7 +59,7 @@ export class AgentSyncController implements OnModuleInit {
     annotation = (await decryptFields({
       decryptionKey: this.config.clientSideEncryptionKeyHexParsed,
       object: annotation,
-      fields: ['url'],
+      fields: ['url', 'title'],
     })) as any;
     return annotation;
   };

@@ -18,6 +18,7 @@ function toMeiliEntry(annotation: Annotation) {
     notes: annotation.data.notes,
     userId: annotation.user ? annotation.user.id : undefined,
     url: annotation.url,
+    title: annotation.title,
   };
 }
 
@@ -37,7 +38,7 @@ class MeilisearchClient {
   queryAnnotations(q, userId) {
     return annotationIndex.search(q, {
       filter: userId ? `userId = ${userId}` : undefined,
-      attributesToHighlight: ['text', 'notes'],
+      attributesToHighlight: ['text', 'notes', 'title'],
     });
   }
 }

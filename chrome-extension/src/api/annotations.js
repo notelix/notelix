@@ -12,7 +12,7 @@ const saveAnnotation = (annotation) => {
       annotation = await encryptFields({
         key: parsedKey,
         object: annotation,
-        fields: ["url"],
+        fields: ["url", "title"],
       });
       annotation.data = await encryptFields({
         key: parsedKey,

@@ -37,8 +37,10 @@ export class AnnotationsController {
     annotation.data = request.body['data'] || {};
     annotation.uid = uid;
     annotation.url = request.body['url'] || '';
+    annotation.title = request.body['title'] || '';
     delete annotation.data.uid;
     delete annotation.data.url;
+    delete annotation.data.title;
     annotation = await annotation.save();
 
     setTimeout(() => {
