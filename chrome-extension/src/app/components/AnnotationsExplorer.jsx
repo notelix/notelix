@@ -107,7 +107,7 @@ export default class AnnotationsExplorer extends React.Component {
                         src={`https://s2.googleusercontent.com/s2/favicons?domain_url=http://${item.host}`}
                         alt=""
                       />
-                      {item.host}
+                      {item.host || "(N/A)"}
                     </span>
                     <span className="count">{item.count}</span>
                   </div>
@@ -134,7 +134,7 @@ export default class AnnotationsExplorer extends React.Component {
                       content: true,
                     })}
                   >
-                    <span className="text">{item.title}</span>
+                    <span className="text">{item.title || "(N/A)"}</span>
                     <span className="count">{item.count}</span>
                   </div>
                 </div>
