@@ -82,6 +82,7 @@ export function doSaveAnnotation(annotation) {
     ...annotation,
     url: getNormalizedUrl(),
     title: document.title,
+    host: window.location.host,
   });
 }
 

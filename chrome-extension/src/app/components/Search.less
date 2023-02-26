@@ -1,51 +1,93 @@
 .search-root {
-  .hit {
-    padding: 6px 10px;
-    border-bottom: 1px solid #DDD;
 
-    .url {
-      font-size: 12px;
-      margin: 4px 0 10px 0;
-    }
+  display: flex;
 
-    em {
-      background: yellow;
-    }
-
-    cursor: pointer;
-    transition: 0.2s all;
-
-    &:hover {
-      background: #F6F6F6;
-    }
-
-    .text {
-      text-decoration: underline;
-      display: inline;
-    }
-
-    .color-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      box-shadow: 0 2px 2px #00000055;
-      margin-right: 6px;
-      top: -1px;
-      position: relative;
-    }
-
-    .title {
-      margin-right: 6px;
-      font-weight: bold;
-    }
+  .logo {
+    width: 48px;
+    margin-right: 10px;
+    flex: 0 0 auto;
+    position: absolute;
+    left: 4px;
+    top: 4px;
   }
 
-  .notes-wrapper {
-    padding: 4px 12px;
-    background: #f7f7f7;
-    border: 1px solid #CCCCCC;
+  input {
+    background-color: white;
+    flex: 1 1 auto;
     border-radius: 4px;
+    margin-bottom: 0;
+    margin-left: 50px;
+  }
+
+  .search-result-root {
+    position: absolute;
+
+    left: 0;
+    top: 58px;
+    width: calc(100vw);
+    height: calc(100vh - 58px);
+    background: #DDDDDD33;
+    z-index: 9999;
+
+    .content {
+      margin: 10px;
+      width: calc(100vw - 20px);
+      height: calc(100vh - 80px);
+      background: white;
+      border-radius: 5px;
+      padding: 10px;
+      overflow-y: auto;
+      border: 0.1rem solid #d1d1d1;
+
+      .hit {
+        padding: 6px 10px;
+        border-bottom: 1px solid #DDD;
+
+        .url {
+          font-size: 12px;
+          margin: 4px 0 10px 0;
+        }
+
+        em {
+          background: yellow;
+        }
+
+        cursor: pointer;
+        transition: 0.2s all;
+
+        &:hover {
+          background: #F6F6F6;
+        }
+
+        .text {
+          text-decoration: underline;
+          display: inline;
+        }
+
+        .color-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          box-shadow: 0 2px 2px #00000055;
+          margin-right: 6px;
+          top: -1px;
+          position: relative;
+        }
+
+        .title {
+          font-weight: bold;
+          margin-right: 4px;
+        }
+      }
+
+      .notes-wrapper {
+        padding: 4px 12px;
+        background: #f7f7f7;
+        border: 1px solid #CCCCCC;
+        border-radius: 4px;
+      }
+    }
   }
 }
 

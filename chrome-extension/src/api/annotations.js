@@ -12,7 +12,7 @@ const saveAnnotation = (annotation) => {
       annotation = await encryptFields({
         key: parsedKey,
         object: annotation,
-        fields: ["url", "title"],
+        fields: ["url", "host", "title"],
       });
       annotation.data = await encryptFields({
         key: parsedKey,
@@ -105,4 +105,29 @@ const search = (q) => {
   );
 };
 
-export { queryAnnotationsByUrl, saveAnnotation, deleteAnnotation, search };
+const findAnnotations = (params = { selectors: {}, groupBy: "" }) => {
+  const { selectors, groupBy } = params;
+
+  return wrapRequestApiRequireLoggedIn(({ headers }) =>
+    getEndpoint("annotations/find", {
+      involvesClientSideEncryption: true,
+    }).then((endpoint) =>
+      client.post(
+        endpoint,
+        {
+          selectors,
+          groupBy,
+        },
+        { headers: headers }
+      )
+    )
+  );
+};
+
+export {
+  queryAnnotationsByUrl,
+  saveAnnotation,
+  deleteAnnotation,
+  search,
+  findAnnotations,
+};

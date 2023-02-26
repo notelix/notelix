@@ -1,0 +1,106 @@
+.annotations-explorer-root {
+  height: 100%;
+
+  .columns {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+
+    .column {
+      margin: 0 2px;
+      border-right: 1px solid #DDDDDD;
+
+      &:last-of-type {
+        border-right: none;
+      }
+
+      .list-item {
+        font-size: 13px;
+        padding: 4px 12px 4px 4px;
+        border-bottom: 1px solid #DDDDDD;
+        cursor: pointer;
+        position: relative;
+
+        &:last-of-type {
+          border-bottom: none;
+        }
+
+        .content > .text {
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          overflow: hidden;
+          display: block;
+
+          .favicon {
+            vertical-align: middle;
+            margin-right: 5px;
+          }
+        }
+
+        .count {
+          font-weight: bold;
+          float: right;
+          font-size: 12px;
+          position: absolute;
+          right: 6px;
+          top: 6px;
+        }
+
+        &:hover {
+          background-color: #FAFAFA;
+        }
+
+        .content {
+          padding: 2px 6px;
+        }
+
+        &.active {
+          background-color: #efd5ff;
+        }
+      }
+    }
+  }
+
+  .third-level-item {
+    .hit {
+      .url {
+        font-size: 12px;
+        margin: 4px 0 10px 0;
+      }
+
+      em {
+        background: yellow;
+      }
+
+      cursor: pointer;
+      transition: 0.2s all;
+
+      .text {
+        text-decoration: underline;
+        display: inline;
+      }
+
+      .color-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        box-shadow: 0 2px 2px #00000055;
+        margin-right: 6px;
+        top: -1px;
+        position: relative;
+      }
+
+      .title {
+        font-weight: bold;
+      }
+    }
+
+    .notes-wrapper {
+      padding: 4px 12px;
+      background: #f7f7f7;
+      border: 1px solid #CCCCCC;
+      border-radius: 4px;
+    }
+  }
+}

@@ -17,7 +17,12 @@ export default class Search extends React.Component {
   render() {
     return (
       <div className="search-root">
+        <span className="logo">
+          <img src="./public/logo.png" alt="" />
+        </span>
+
         <input
+          placeholder="Search..."
           type="text"
           value={this.state.q}
           onChange={(e) => {
@@ -26,51 +31,53 @@ export default class Search extends React.Component {
           }}
         />
 
-        {!!this.state.data && (
-          <div>
-            {!this.state.data.results.hits.length && (
-              <div>No results found.</div>
-            )}
-            {this.state.data.results.hits.map((hit) => {
-              return (
-                <div
-                  className="hit"
-                  onClick={() => this.onSearchResultClick(hit)}
-                >
-                  {hit.textBefore}
+        {!!(this.state.data && this.state.q) && (
+          <div className="search-result-root">
+            <div className="content">
+              {!this.state.data.results.hits.length && (
+                <div>No results found.</div>
+              )}
+              {this.state.data.results.hits.map((hit) => {
+                return (
                   <div
-                    className="text"
-                    style={{ textDecorationColor: hit.color }}
-                    dangerouslySetInnerHTML={{
-                      __html: hit._formatted.text,
-                    }}
-                  />
-                  {hit.textAfter}
-                  {!!hit.notes && (
-                    <div className="notes-wrapper">
-                      <div
-                        dangerouslySetInnerHTML={{
-                          __html: hit._formatted.notes,
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className="url">
-                    <span
-                      className="color-dot"
-                      style={{ background: hit.color }}
-                    />
-                    <span
-                      className="title"
+                    className="hit"
+                    onClick={() => this.onSearchResultClick(hit)}
+                  >
+                    {hit.textBefore}
+                    <div
+                      className="text"
+                      style={{ textDecorationColor: hit.color }}
                       dangerouslySetInnerHTML={{
-                        __html: hit._formatted.title,
+                        __html: hit._formatted.text,
                       }}
                     />
-                    {hit.url}
+                    {hit.textAfter}
+                    {!!hit.notes && (
+                      <div className="notes-wrapper">
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: hit._formatted.notes,
+                          }}
+                        />
+                      </div>
+                    )}
+                    <div className="url">
+                      <span
+                        className="color-dot"
+                        style={{ background: hit.color }}
+                      />
+                      <span
+                        className="title"
+                        dangerouslySetInnerHTML={{
+                          __html: hit._formatted.title,
+                        }}
+                      />
+                      {hit.url}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@
 An open source web note taking / highlighter software (with backend).
 
 ![demo](design/demo.gif)
+![demo2](design/demo2.gif)
 
 Notelix features:
 
@@ -12,6 +13,7 @@ Notelix features:
   MIT-licensed [@notelix/web-marker](https://github.com/notelix/web-marker))
 * Adding notes to highlights
 * A search engine for your highlights and notes (powered by [MeiliSearch](https://github.com/meilisearch/meilisearch))
+* An app to manage your highlights and notes in one place
 * Optional client-side encryption (and an optional agent that runs on user's machine if they have client-side encryption
   enabled and want features such as the search engine)
 * Use as a chrome plugin ([download a zip](https://github.com/notelix/notelix/releases)

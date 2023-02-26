@@ -38,9 +38,11 @@ export class AnnotationsController {
     annotation.uid = uid;
     annotation.url = request.body['url'] || '';
     annotation.title = request.body['title'] || '';
+    annotation.host = request.body['host'] || '';
     delete annotation.data.uid;
     delete annotation.data.url;
     delete annotation.data.title;
+    delete annotation.data.host;
     annotation = await annotation.save();
 
     setTimeout(() => {
@@ -171,7 +173,50 @@ export class AnnotationsController {
       userId = user.id;
     }
     const q = request.body['q'];
+    if (!q || !q.trim()) {
+      return { results: { hits: [] } };
+    }
 
     return { results: await meilisearchClient.queryAnnotations(q, userId) };
+  }
+
+  @Post('/find')
+  async Find(@Req() request: Request): Promise<any> {
+    let userId = 0;
+    if (!isRunModeAgent()) {
+      const user = await this.authenticationService.getAuthenticatedUser();
+      userId = user.id;
+    }
+    const selectors = request.body['selectors'] || {};
+    const groupBy = request.body['groupBy'] || '';
+    selectors['userId'] = userId;
+
+    const selectorsKeyAndValues = Object.entries(selectors);
+
+    if (groupBy) {
+      const sqlQuery = `select count(1) as count, ${JSON.stringify(
+        groupBy,
+      )} from annotation where ${selectorsKeyAndValues
+        .map((entry, index) => `${JSON.stringify(entry[0])}=$${index + 1}`)
+        .join(' AND ')} GROUP BY ${JSON.stringify(groupBy)}`;
+
+      const list = await getManager().query(
+        sqlQuery,
+        selectorsKeyAndValues.map((x) => x[1]),
+      );
+
+      return { list };
+    } else {
+      const sqlQuery = `select * from annotation where ${selectorsKeyAndValues
+        .map((entry, index) => `${JSON.stringify(entry[0])}=$${index + 1}`)
+        .join(' AND ')}`;
+
+      const list = await getManager().query(
+        sqlQuery,
+        selectorsKeyAndValues.map((x) => x[1]),
+      );
+
+      return { list };
+    }
   }
 }
