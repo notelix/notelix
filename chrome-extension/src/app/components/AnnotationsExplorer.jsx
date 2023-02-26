@@ -144,10 +144,7 @@ export default class AnnotationsExplorer extends React.Component {
           <div className="column" style={{ flex: "1 1 auto" }}>
             {this.state.thirdLevelData.map((item) => {
               return (
-                <div
-                  onClick={() => this.setSecondLevelSelection(item.host)}
-                  className="list-item"
-                >
+                <div className="list-item">
                   <div className="content">
                     <ThirdLevelItem data={item} />
                   </div>
