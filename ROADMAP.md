@@ -15,3 +15,5 @@
 * [ ] carets to show the position of annotations
 * [ ] encryption mode: Authenticated GCM?
 * [ ] make it configurable: multiple ways to display notes (inline notes display / display an icon, hover on the icon to show notes)
+
+* [ ] APP: Group annotations by date
