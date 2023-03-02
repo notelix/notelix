@@ -9,10 +9,10 @@ ReactDOM.render(
     className="notelix-app-root"
     style={{ display: "flex", flexDirection: "column", height: "100vh" }}
   >
-    <div className="navbar" style={{ flex: "0 0 auto" }}>
+    <div className="navbar">
       <Search />
     </div>
-    <div style={{ flex: "1 1 auto" }}>
+    <div style={{ flexGrow: "1", overflowY: "auto" }}>
       <AnnotationsExplorer />
     </div>
   </div>,
