@@ -1,7 +1,7 @@
 import React from "react";
 import classnames from "classnames";
 import "./AnnotationsExplorer.less";
-import { findAnnotations } from "../../api/annotations";
+import { deleteAnnotation, findAnnotations } from "../../api/annotations";
 
 export default class AnnotationsExplorer extends React.Component {
   state = {
@@ -146,7 +146,25 @@ export default class AnnotationsExplorer extends React.Component {
               return (
                 <div className="list-item">
                   <div className="content">
-                    <ThirdLevelItem data={item} />
+                    <ThirdLevelItem
+                      data={item}
+                      onDeleteAnnotation={() => {
+                        if (
+                          !confirm(
+                            "Are you sure you want to delete this annotation?"
+                          )
+                        ) {
+                          return;
+                        }
+                        deleteAnnotation(item).then(() => {
+                          this.setState({
+                            thirdLevelData: this.state.thirdLevelData.filter(
+                              (x) => x.id !== item.id
+                            ),
+                          });
+                        });
+                      }}
+                    />
                   </div>
                 </div>
               );
@@ -190,6 +208,16 @@ class ThirdLevelItem extends React.Component {
               style={{ background: this.props.data.data.color }}
             />
             {this.props.data.url}
+            <a
+              style={{ float: "right" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                this.props.onDeleteAnnotation();
+              }}
+            >
+              Delete
+            </a>
           </div>
         </div>
       </div>

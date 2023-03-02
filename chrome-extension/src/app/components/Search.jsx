@@ -1,6 +1,10 @@
 import React from "react";
 import debounce from "lodash/debounce";
-import { search } from "../../api/annotations";
+import {
+  deleteAnnotation,
+  findAnnotations,
+  search,
+} from "../../api/annotations";
 import "./Search.less";
 
 export default class Search extends React.Component {
@@ -74,6 +78,42 @@ export default class Search extends React.Component {
                       />
                       {hit.url}
                     </div>
+                    <a
+                      className={"delete-button"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (
+                          !confirm(
+                            "Are you sure you want to delete this annotation?"
+                          )
+                        ) {
+                          return;
+                        }
+
+                        findAnnotations({
+                          groupBy: "",
+                          selectors: { id: hit.id },
+                        }).then((result) => {
+                          const annotationToDelete = result.data.list[0];
+                          deleteAnnotation(annotationToDelete).then(() => {
+                            this.setState({
+                              data: {
+                                ...this.state.data,
+                                results: {
+                                  ...this.state.data.results,
+                                  hits: this.state.data.results.hits.filter(
+                                    (x) => x.id !== hit.id
+                                  ),
+                                },
+                              },
+                            });
+                          });
+                        });
+                      }}
+                    >
+                      Delete
+                    </a>
                   </div>
                 );
               })}
