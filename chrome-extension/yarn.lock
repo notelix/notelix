@@ -986,10 +986,10 @@
     "@jridgewell/resolve-uri" "^3.0.3"
     "@jridgewell/sourcemap-codec" "^1.4.10"
 
-"@notelix/web-marker@^2.0.3":
-  version "2.0.3"
-  resolved "https://registry.yarnpkg.com/@notelix/web-marker/-/web-marker-2.0.3.tgz#58fd86e3066ac8682be67e0f95dbef0d6f790a04"
-  integrity sha512-fNeBHPkELRX3FVyNYN5ECgT9NnxRXgay1aSoVwrxR3G8vpkPMYEdECfVpnAiS3xNnlnvrWgqtDCpRRb8hn/Khg==
+"@notelix/web-marker@^2.0.6":
+  version "2.0.6"
+  resolved "https://registry.yarnpkg.com/@notelix/web-marker/-/web-marker-2.0.6.tgz#82e7d1f48b292244650bcdc81ffcca32acaf9b39"
+  integrity sha512-O+Z8HKVaRgzszL0k0fR7p5iGhMNjoeLZwPsusFo9IhlMwbbNLJo0oZcky0dXW7N8F5irdD9VddSCfXL3H3p1yg==
   dependencies:
     uuid "^8.3.2"
 
