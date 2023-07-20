@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   backend:
-    image: notelix:agent
+    image: kevinwang15/notelix:agent
     restart: always
 #    command: [ "sh", "-c", "sleep 3000" ]
     ports:

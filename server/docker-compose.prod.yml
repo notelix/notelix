@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   backend:
-    image: notelix:prod
+    image: kevinwang15/notelix:prod
     restart: always
     ports:
       - "18555:3000"
