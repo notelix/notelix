@@ -1,13 +1,13 @@
-import { getNormalizedUrl } from "./getNormalizedUrl";
+import {getNormalizedUrl} from "./getNormalizedUrl";
 
 let lastUrl;
 
 export function whenUrlChanges(callback) {
-  setInterval(() => {
-    const currentUrl = getNormalizedUrl();
-    if (lastUrl !== currentUrl) {
-      callback();
-    }
-    lastUrl = currentUrl;
-  }, 500);
+    setInterval(() => {
+        const currentUrl = getNormalizedUrl();
+        if (lastUrl !== currentUrl) {
+            callback();
+        }
+        lastUrl = currentUrl;
+    }, 500);
 }

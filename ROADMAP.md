@@ -9,11 +9,12 @@
 * [ ] shortcut to jump to the previous / next annotation
 * [ ] refactor code
 * [ ] reliability, recover from all possible failures
-* [ ] (off-topic) highlighting ebooks? integration with calibre / JS based e-readers?  
+* [ ] (off-topic) highlighting ebooks? integration with calibre / JS based e-readers?
 
 * [ ] support for annotating pdf (pdf.js)
 * [ ] carets to show the position of annotations
 * [ ] encryption mode: Authenticated GCM?
-* [ ] make it configurable: multiple ways to display notes (inline notes display / display an icon, hover on the icon to show notes)
+* [ ] make it configurable: multiple ways to display notes (inline notes display / display an icon, hover on the icon to
+  show notes)
 
 * [ ] APP: Group annotations by date

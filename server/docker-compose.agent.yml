@@ -3,7 +3,7 @@ services:
   backend:
     image: kevinwang15/notelix:agent
     restart: always
-#    command: [ "sh", "-c", "sleep 3000" ]
+    #    command: [ "sh", "-c", "sleep 3000" ]
     ports:
       - "18565:3000"
     links:
@@ -13,7 +13,7 @@ services:
       - .env.agent
     environment:
       - RUN_MODE=AGENT
-#      - AGENT_SYNC_URL_OVERRIDE=http://notelix-dev_backend_1:3000
+    #      - AGENT_SYNC_URL_OVERRIDE=http://notelix-dev_backend_1:3000
     volumes:
       - ./src:/app/src
       - ./tools:/app/tools

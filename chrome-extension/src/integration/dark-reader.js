@@ -1,19 +1,18 @@
 function isDarkReaderEnabled() {
-  return !!document.getElementById("dark-reader-style");
+    return !!document.getElementById("dark-reader-style");
 }
 
 function addOrRemoveDarkReaderClass(element) {
-  // support for the dark reader chrome extension
-  const classNameToAdd = "dark-reader-enabled";
-  let clsName = element.className;
-  clsName = clsName.split(classNameToAdd).join("");
+    const classNameToAdd = "dark-reader-enabled";
+    let clsName = element.className;
+    clsName = clsName.split(classNameToAdd).join("");
 
-  const darkReaderEnabled = isDarkReaderEnabled();
-  if (darkReaderEnabled) {
-    clsName += " " + classNameToAdd;
-  }
-  clsName = clsName.replace(/\s+/g, " ");
-  element.className = clsName;
+    const darkReaderEnabled = isDarkReaderEnabled();
+    if (darkReaderEnabled) {
+        clsName += " " + classNameToAdd;
+    }
+    clsName = clsName.replace(/\s+/g, " ");
+    element.className = clsName;
 }
 
-module.exports = { addOrRemoveDarkReaderClass, isDarkReaderEnabled };
+module.exports = {addOrRemoveDarkReaderClass, isDarkReaderEnabled};

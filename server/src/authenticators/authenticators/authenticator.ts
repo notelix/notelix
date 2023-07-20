@@ -1,6 +1,7 @@
 interface Authenticator {
-  getAuthenticatorName();
-  authenticate(params);
+    getAuthenticatorName();
+
+    authenticate(params);
 }
 
 export default Authenticator;

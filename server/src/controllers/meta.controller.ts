@@ -1,12 +1,12 @@
-import { Controller, Get } from '@nestjs/common';
-import { AuthenticationService } from '../authenticators/authentication.service';
+import {Controller, Get} from '@nestjs/common';
 
 @Controller('meta')
 export class MetaController {
-  constructor() {}
+    constructor() {
+    }
 
-  @Get('/version')
-  async Version(): Promise<any> {
-    return { notelix: true };
-  }
+    @Get('/version')
+    async Version(): Promise<any> {
+        return {notelix: true};
+    }
 }
