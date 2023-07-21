@@ -5,7 +5,6 @@
 An open source web note taking / highlighter software (with backend).
 
 ![demo](design/demo.gif)
-![demo2](design/demo2.gif)
 
 Notelix features:
 
@@ -83,7 +82,7 @@ or https://github.com/wal-g/wal-g to backup your database.
 
 # Using Notelix Embedded to add it to your website without requiring users to install a browser extension
 
-Try [here](https://public-dev.notelix.com/embedded/). 
+Try [here](https://public-dev.notelix.com/embedded/).
 See [chrome-extension/embedded.html](./chrome-extension/embedded.html) for the code.
 
 A note about LICENSE: If you want to integrate Notelix into your project using the above method, it's okay not to
