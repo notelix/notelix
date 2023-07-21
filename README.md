@@ -1,4 +1,4 @@
-# notelix
+# Notelix
 
 ![logo](design/logo/FullColor_TransparentBg_1280x1024_72dpi.png)
 
@@ -23,7 +23,7 @@ Notelix features:
 * Works well with [darkreader](https://github.com/darkreader/darkreader)
 * More features coming soon...
 
-# building and running chrome extension
+# Building and running chrome extension
 
 ```
 cd chrome-extension
@@ -32,7 +32,7 @@ cd chrome-extension
 
 Then `Load unpacked` from `chrome://extensions/`
 
-# building and running backend
+# Building and running backend
 
 ```
 cd ./server
@@ -49,7 +49,9 @@ docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev up -
 
 ![](./design/architecture.png)
 
-# Running notelix agent (only necessary when client-side encryption is enabled)
+# Running notelix agent
+
+> only necessary when client-side encryption is enabled
 
 ```
 cd server
@@ -81,9 +83,8 @@ or https://github.com/wal-g/wal-g to backup your database.
 
 # Using Notelix Embedded to add it to your website without requiring users to install a browser extension
 
-Try [here](https://public-dev.notelix.com/embedded/).
-See [chrome-extension/embedded.html](./chrome-extension/embedded.html) for the
-code.
+Try [here](https://public-dev.notelix.com/embedded/). 
+See [chrome-extension/embedded.html](./chrome-extension/embedded.html) for the code.
 
 A note about LICENSE: If you want to integrate Notelix into your project using the above method, it's okay not to
 disclose source code of your project. You only need to disclose source code for any changes made directly to Notelix.
