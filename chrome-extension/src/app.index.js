@@ -7,8 +7,7 @@ import AnnotationsExplorer from "./app/components/AnnotationsExplorer";
 ReactDOM.render(
     <div
         className="notelix-app-root"
-        style={{display: "flex", flexDirection: "column", height: "100vh"}}
-    >
+        style={{display: "flex", flexDirection: "column", height: "100vh"}}>
         <div className="navbar">
             <Search/>
         </div>

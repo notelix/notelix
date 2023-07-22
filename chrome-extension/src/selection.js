@@ -6,6 +6,8 @@ import {
 } from "./dom";
 import {isSelectionBackwards, selectionFocusRect, SelectionObserver,} from "./selection-observer";
 import {state} from "./state";
+import {getNormalizedUrl} from "./utils/getNormalizedUrl";
+import {IGNORE_DOMAINS} from "./consts";
 
 function isRangeInContentEditable(range) {
     let ptr = range.commonAncestorContainer;
@@ -72,10 +74,14 @@ const selectionChangingCssClass = "selection-changing";
 let lastSelectionChangeTime = 0;
 
 function setSelectionChanging(changing) {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        // console.debug(`${window.location.href} has been ignored on content load`);
+        return;
+    }
+
     if (changing) {
         if (document.body.className.indexOf(selectionChangingCssClass) < 0) {
-            document.body.className =
-                document.body.className + " " + selectionChangingCssClass;
+            document.body.className = document.body.className + " " + selectionChangingCssClass;
         }
     } else {
         document.body.className = document.body.className.replace(
@@ -86,6 +92,11 @@ function setSelectionChanging(changing) {
 }
 
 const onSelectionChange = () => {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        // console.debug(`${window.location.href} has been ignored on content load`);
+        return;
+    }
+
     lastSelectionChangeTime = new Date();
     setSelectionChanging(true);
 
@@ -117,6 +128,7 @@ document.addEventListener("selectstart", onSelectionChange);
 document.addEventListener("selectstart", () => {
     hideAnnotatePopover();
 });
+
 document.addEventListener("selectionchange", onSelectionChange);
 document.addEventListener("pointerup", () => {
     setSelectionChanging(false);

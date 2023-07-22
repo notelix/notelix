@@ -12,22 +12,21 @@ import {deleteAnnotation} from "./api/annotations";
 import Swal from "sweetalert2";
 import {isMobileOrTablet} from "./mobile";
 import sleep from "./utils/sleep";
+import {IGNORE_DOMAINS} from "./consts";
 
 function prepareAnnotatePopoverDom() {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        console.debug(`${document.url} has been ignored`);
+        return;
+    }
+
     document.body.insertAdjacentHTML(
         "beforeend",
-        `<span class="${
-            isMobileOrTablet ? "mobile-or-tablet" : ""
-        }" id="notelix-annotate-popover">${highlighterColors
-            .map(
-                (color) =>
-                    `<span class="color" style="background-color: ${color}" data-color="${color}"></span>`
-            )
-            .join("")}</span>`
+        `<span class="${isMobileOrTablet ? "mobile-or-tablet" : ""}" id="notelix-annotate-popover">
+            ${highlighterColors.map((color) => `<span class="color" style="background-color: ${color}" data-color="${color}"></span>`).join("")}
+            </span>`
     );
-    state.annotatePopoverDom = document.getElementById(
-        "notelix-annotate-popover"
-    );
+    state.annotatePopoverDom = document.getElementById("notelix-annotate-popover");
     state.annotatePopoverDom.childNodes.forEach((node) => {
         node.onpointerdown = () => {
             onHighlightElementClick(node.getAttribute("data-color"));
@@ -36,6 +35,11 @@ function prepareAnnotatePopoverDom() {
 }
 
 function prepareEditAnnotationPopoverDom() {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        console.debug(`${document.url} has been ignored`);
+        return;
+    }
+
     document.body.insertAdjacentHTML(
         "beforeend",
         `<span id="notelix-edit-annotation-popover" class="notelix-button ${
@@ -56,6 +60,11 @@ function prepareEditAnnotationPopoverDom() {
 }
 
 export function showAnnotatePopover() {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        console.debug(`${document.url} has been ignored`);
+        return;
+    }
+
     state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
     state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
     addOrRemoveDarkReaderClass(state.annotatePopoverDom);
@@ -68,6 +77,11 @@ export function showAnnotatePopover() {
 }
 
 export function hideAnnotatePopover() {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        // console.debug(`${window.location.href} has been ignored on content load`);
+        return;
+    }
+
     setTimeout(() => {
         state.annotatePopoverDom.style.display = "none";
     });
@@ -76,6 +90,11 @@ export function hideAnnotatePopover() {
 let lastShowEditAnnotationPopoverTimestamp = 0;
 
 export function showEditAnnotationPopover() {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        console.debug(`${document.url} has been ignored`);
+        return;
+    }
+
     lastShowEditAnnotationPopoverTimestamp = +new Date();
     state.editAnnotationPopoverDom.style.top = state.popoverPos.y + "px";
     state.editAnnotationPopoverDom.style.left = state.popoverPos.x + "px";
@@ -86,6 +105,11 @@ export function showEditAnnotationPopover() {
 }
 
 export function hideEditAnnotationPopover() {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        console.debug(`${document.url} has been ignored`);
+        return;
+    }
+
     if (+new Date() - lastShowEditAnnotationPopoverTimestamp < 150) {
         return;
     }
@@ -95,6 +119,11 @@ export function hideEditAnnotationPopover() {
 }
 
 export async function onEditNotesElementClick() {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        console.debug(`${document.url} has been ignored`);
+        return;
+    }
+
     let annotation = state.annotations[state.selectedAnnotationId];
     hideAnnotatePopover();
     hideEditAnnotationPopover();
@@ -139,6 +168,11 @@ export async function onEditNotesElementClick() {
 }
 
 export async function onDeleteAnnotationElementClick() {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        console.debug(`${document.url} has been ignored`);
+        return;
+    }
+
     const annotation = state.annotations[state.selectedAnnotationId];
     if (annotation && annotation.data && annotation.data.notes) {
         hideAnnotatePopover();
@@ -172,6 +206,11 @@ export async function onDeleteAnnotationElementClick() {
 }
 
 export function onHighlightElementClick(color) {
+    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
+        console.debug(`${document.url} has been ignored`);
+        return;
+    }
+
     const selection = document.getSelection();
     const range = selection.getRangeAt(0);
     const uid = makeid();
