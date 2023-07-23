@@ -1,18 +1,20 @@
 import React, {useEffect, useState} from "react";
-import {NotelixChromeStorageKey} from "../consts";
+import {NotelixChromeStorageKey, NotelixDefaultIgnoreDomains} from "../consts";
 import {useHistory} from "react-router-dom";
 import {COMMAND_REFRESH_ANNOTATIONS} from "../../consts";
 import {sendChromeCommandToEveryTab} from "../../utils/chromeCommand";
 
 export const UserInfo = () => {
-    const [notelixServer, setNotelixServer] = useState("");
     const [userInfo, setUserInfo] = useState(null);
+    const [notelixServer, setNotelixServer] = useState("");
+    const [domainsToIgnore, setDomainsToIgnore] = useState("");
     const history = useHistory();
 
     useEffect(() => {
         chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
             setUserInfo(value[NotelixChromeStorageKey].notelixUser);
             setNotelixServer(value[NotelixChromeStorageKey].notelixServer);
+            setDomainsToIgnore(value[NotelixChromeStorageKey].domainsToIgnore?.join(',') || NotelixDefaultIgnoreDomains);
         });
     }, []);
 
@@ -32,9 +34,24 @@ export const UserInfo = () => {
         if (!confirm("Do you want to logout?")) {
             return;
         }
+
         chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
             delete value[NotelixChromeStorageKey].notelixUser;
             delete value[NotelixChromeStorageKey].notelixPassword;
+
+            chrome.storage.sync.set(value, () => {
+                sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
+                history.push("/");
+                // trySetAgentSyncParams();
+            });
+        });
+    };
+
+
+    const save = () => {
+        chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
+            value[NotelixChromeStorageKey].domainsToIgnore = domainsToIgnore.split(",").map((e) => e.trim());
+
             chrome.storage.sync.set(value, () => {
                 sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
                 history.push("/");
@@ -58,6 +75,18 @@ export const UserInfo = () => {
                 <a style={{marginLeft: 20}} onClick={logout}>
                     Logout
                 </a>
+            </div>
+            <div style={{marginTop: 20}}>
+                <textarea
+                    value={domainsToIgnore}
+                    onChange={(e) => {
+                        setDomainsToIgnore(e.target.value);
+                    }}
+                    placeholder={"Enter domains to ignore, separated by commas..."}
+                />
+            </div>
+            <div style={{marginTop: 10}}>
+                <button onClick={save}>Save Domains</button>
             </div>
         </div>
     );

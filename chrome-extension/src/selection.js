@@ -6,8 +6,7 @@ import {
 } from "./dom";
 import {isSelectionBackwards, selectionFocusRect, SelectionObserver,} from "./selection-observer";
 import {state} from "./state";
-import {getNormalizedUrl} from "./utils/getNormalizedUrl";
-import {IGNORE_DOMAINS} from "./consts";
+import {isSiteUsable} from "./utils/isSiteUsable";
 
 function isRangeInContentEditable(range) {
     let ptr = range.commonAncestorContainer;
@@ -74,54 +73,48 @@ const selectionChangingCssClass = "selection-changing";
 let lastSelectionChangeTime = 0;
 
 function setSelectionChanging(changing) {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        // console.debug(`${window.location.href} has been ignored on content load`);
-        return;
-    }
-
-    if (changing) {
-        if (document.body.className.indexOf(selectionChangingCssClass) < 0) {
-            document.body.className = document.body.className + " " + selectionChangingCssClass;
+    isSiteUsable(() => {
+        if (changing) {
+            if (document.body.className.indexOf(selectionChangingCssClass) < 0) {
+                document.body.className = document.body.className + " " + selectionChangingCssClass;
+            }
+        } else {
+            document.body.className = document.body.className.replace(
+                /\s*selection-changing\s*/g,
+                ""
+            );
         }
-    } else {
-        document.body.className = document.body.className.replace(
-            /\s*selection-changing\s*/g,
-            ""
-        );
-    }
+    });
 }
 
 const onSelectionChange = () => {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        // console.debug(`${window.location.href} has been ignored on content load`);
-        return;
-    }
+    isSiteUsable(() => {
+        lastSelectionChangeTime = new Date();
+        setSelectionChanging(true);
 
-    lastSelectionChangeTime = new Date();
-    setSelectionChanging(true);
+        setTimeout(() => {
+            if (new Date() - lastSelectionChangeTime > 300) {
+                setSelectionChanging(false);
+            }
+        }, 350);
 
-    setTimeout(() => {
-        if (new Date() - lastSelectionChangeTime > 300) {
-            setSelectionChanging(false);
+        const selection = document.getSelection();
+        let range = null;
+        try {
+            range = selection.getRangeAt(0);
+        } catch (e) {
         }
-    }, 350);
+        if (!range) {
+            return;
+        }
 
-    const selection = document.getSelection();
-    let range = null;
-    try {
-        range = selection.getRangeAt(0);
-    } catch (e) {
-    }
-    if (!range) {
-        return;
-    }
-
-    const rect = selectionFocusRect(selection);
-    if (rect) {
-        updatePopoverPosOnSelectionChange(rect, isSelectionBackwards(selection));
-        state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
-        state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
-    }
+        const rect = selectionFocusRect(selection);
+        if (rect) {
+            updatePopoverPosOnSelectionChange(rect, isSelectionBackwards(selection));
+            state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
+            state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
+        }
+    });
 };
 
 document.addEventListener("selectstart", onSelectionChange);

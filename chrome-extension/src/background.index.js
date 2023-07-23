@@ -26,5 +26,6 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
             handleApiCall(request, sender, sendResponse);
             break;
     }
+
     return true;
 });

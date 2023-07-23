@@ -11,19 +11,21 @@ export function registerChromeRuntimeMessageListeners() {
     chrome.runtime.onMessage.addListener(function (request) {
         if (request.command === COMMAND_REFRESH_ANNOTATIONS) {
             setTimeout(() => {
+
                 Object.keys(state.annotations).forEach((key) => {
                     clearInlineNotes(key);
-                    marker.unpaint(
-                        convertAnnotationToSerializedRange(state.annotations[key])
-                    );
+                    marker.unpaint(convertAnnotationToSerializedRange(state.annotations[key]));
+
                     delete state.annotations[key];
                 });
+
                 chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
                     value[NotelixChromeStorageKey] = value[NotelixChromeStorageKey] || {};
                     if (value[NotelixChromeStorageKey].notelixUser) {
                         loadAllAnnotationsData();
                     }
                 });
+
             }, 1000);
         }
     });

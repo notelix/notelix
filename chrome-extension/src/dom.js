@@ -12,228 +12,213 @@ import {deleteAnnotation} from "./api/annotations";
 import Swal from "sweetalert2";
 import {isMobileOrTablet} from "./mobile";
 import sleep from "./utils/sleep";
-import {IGNORE_DOMAINS} from "./consts";
+import {isSiteUsable} from "./utils/isSiteUsable";
 
 function prepareAnnotatePopoverDom() {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        console.debug(`${document.url} has been ignored`);
-        return;
-    }
-
-    document.body.insertAdjacentHTML(
-        "beforeend",
-        `<span class="${isMobileOrTablet ? "mobile-or-tablet" : ""}" id="notelix-annotate-popover">
+    isSiteUsable(() => {
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<span class="${isMobileOrTablet ? "mobile-or-tablet" : ""}" id="notelix-annotate-popover">
             ${highlighterColors.map((color) => `<span class="color" style="background-color: ${color}" data-color="${color}"></span>`).join("")}
             </span>`
-    );
-    state.annotatePopoverDom = document.getElementById("notelix-annotate-popover");
-    state.annotatePopoverDom.childNodes.forEach((node) => {
-        node.onpointerdown = () => {
-            onHighlightElementClick(node.getAttribute("data-color"));
+        );
+        state.annotatePopoverDom = document.getElementById("notelix-annotate-popover");
+        state.annotatePopoverDom.childNodes.forEach((node) => {
+            node.onpointerdown = () => {
+                onHighlightElementClick(node.getAttribute("data-color"));
+            };
+        });
+    })
+}
+
+function prepareEditAnnotationPopoverDom() {
+    isSiteUsable(() => {
+        document.body.insertAdjacentHTML(
+            "beforeend",
+            `<span id="notelix-edit-annotation-popover" class="notelix-button ${
+                isMobileOrTablet ? "mobile-or-tablet" : ""
+            }"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-notes">${commentsSvg}</span></span>`
+        );
+        state.editAnnotationPopoverDom = document.getElementById(
+            "notelix-edit-annotation-popover"
+        );
+
+        document.getElementById("notelix-button-trash").onpointerdown = () => {
+            onDeleteAnnotationElementClick();
+        };
+
+        document.getElementById("notelix-button-notes").onpointerdown = () => {
+            onEditNotesElementClick();
         };
     });
 }
 
-function prepareEditAnnotationPopoverDom() {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        console.debug(`${document.url} has been ignored`);
-        return;
-    }
-
-    document.body.insertAdjacentHTML(
-        "beforeend",
-        `<span id="notelix-edit-annotation-popover" class="notelix-button ${
-            isMobileOrTablet ? "mobile-or-tablet" : ""
-        }"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-notes">${commentsSvg}</span></span>`
-    );
-    state.editAnnotationPopoverDom = document.getElementById(
-        "notelix-edit-annotation-popover"
-    );
-
-    document.getElementById("notelix-button-trash").onpointerdown = () => {
-        onDeleteAnnotationElementClick();
-    };
-
-    document.getElementById("notelix-button-notes").onpointerdown = () => {
-        onEditNotesElementClick();
-    };
-}
-
 export function showAnnotatePopover() {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        console.debug(`${document.url} has been ignored`);
-        return;
-    }
-
-    state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
-    state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
-    addOrRemoveDarkReaderClass(state.annotatePopoverDom);
-    setTimeout(() => {
-        state.annotatePopoverDom.style.display = "flex";
+    isSiteUsable(() => {
+        state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
+        state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
+        addOrRemoveDarkReaderClass(state.annotatePopoverDom);
+        setTimeout(() => {
+            state.annotatePopoverDom.style.display = "flex";
+        });
+        setTimeout(() => {
+            hideEditAnnotationPopover();
+        }, 250);
     });
-    setTimeout(() => {
-        hideEditAnnotationPopover();
-    }, 250);
 }
 
 export function hideAnnotatePopover() {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        // console.debug(`${window.location.href} has been ignored on content load`);
-        return;
-    }
-
-    setTimeout(() => {
-        state.annotatePopoverDom.style.display = "none";
+    isSiteUsable(() => {
+        setTimeout(() => {
+            state.annotatePopoverDom.style.display = "none";
+        });
     });
 }
 
 let lastShowEditAnnotationPopoverTimestamp = 0;
 
 export function showEditAnnotationPopover() {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        console.debug(`${document.url} has been ignored`);
-        return;
-    }
-
-    lastShowEditAnnotationPopoverTimestamp = +new Date();
-    state.editAnnotationPopoverDom.style.top = state.popoverPos.y + "px";
-    state.editAnnotationPopoverDom.style.left = state.popoverPos.x + "px";
-    addOrRemoveDarkReaderClass(state.editAnnotationPopoverDom);
-    setTimeout(() => {
-        state.editAnnotationPopoverDom.style.display = "flex";
+    isSiteUsable(() => {
+        lastShowEditAnnotationPopoverTimestamp = +new Date();
+        state.editAnnotationPopoverDom.style.top = state.popoverPos.y + "px";
+        state.editAnnotationPopoverDom.style.left = state.popoverPos.x + "px";
+        addOrRemoveDarkReaderClass(state.editAnnotationPopoverDom);
+        setTimeout(() => {
+            state.editAnnotationPopoverDom.style.display = "flex";
+        });
     });
 }
 
 export function hideEditAnnotationPopover() {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        console.debug(`${document.url} has been ignored`);
-        return;
-    }
-
-    if (+new Date() - lastShowEditAnnotationPopoverTimestamp < 150) {
-        return;
-    }
-    setTimeout(() => {
-        state.editAnnotationPopoverDom.style.display = "none";
+    isSiteUsable(() => {
+        if (+new Date() - lastShowEditAnnotationPopoverTimestamp < 150) {
+            return;
+        }
+        setTimeout(() => {
+            state.editAnnotationPopoverDom.style.display = "none";
+        });
     });
 }
 
 export async function onEditNotesElementClick() {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        console.debug(`${document.url} has been ignored`);
-        return;
-    }
+    isSiteUsable(async () => {
+        let annotation = state.annotations[state.selectedAnnotationId];
+        hideAnnotatePopover();
+        hideEditAnnotationPopover();
 
-    let annotation = state.annotations[state.selectedAnnotationId];
-    hideAnnotatePopover();
-    hideEditAnnotationPopover();
-    await sleep(200);
-    const {value} = await Swal.fire({
-        input: "textarea",
-        inputLabel: "Write some notes..",
-        inputValue: annotation.data.notes || "",
-        allowOutsideClick: false,
+        await sleep(200);
+        const {value} = await Swal.fire({
+            input: "textarea",
+            inputLabel: "Write some notes..",
+            inputValue: annotation.data.notes || "",
+            allowOutsideClick: false,
+        });
+
+        if (value === undefined) {
+            return;
+        }
+
+        const backup = state.annotations[annotation.uid];
+        annotation = {
+            ...annotation,
+            data: {
+                ...annotation.data,
+                notes: value,
+            },
+        };
+        state.annotations[annotation.uid] = annotation;
+        marker.unpaint(convertAnnotationToSerializedRange(state.annotations[annotation.uid]));
+        marker.paint(convertAnnotationToSerializedRange(state.annotations[annotation.uid]));
+
+        doSaveAnnotation(annotation).catch(() => {
+            state.annotations[annotation.uid] = backup;
+            marker.unpaint(convertAnnotationToSerializedRange(state.annotations[annotation.uid]));
+            marker.paint(convertAnnotationToSerializedRange(state.annotations[annotation.uid]));
+        });
+
+        hideEditAnnotationPopover();
     });
-
-    if (value === undefined) {
-        return;
-    }
-
-    const backup = state.annotations[annotation.uid];
-    annotation = {
-        ...annotation,
-        data: {
-            ...annotation.data,
-            notes: value,
-        },
-    };
-    state.annotations[annotation.uid] = annotation;
-    marker.unpaint(
-        convertAnnotationToSerializedRange(state.annotations[annotation.uid])
-    );
-    marker.paint(
-        convertAnnotationToSerializedRange(state.annotations[annotation.uid])
-    );
-    doSaveAnnotation(annotation).catch(() => {
-        state.annotations[annotation.uid] = backup;
-        marker.unpaint(
-            convertAnnotationToSerializedRange(state.annotations[annotation.uid])
-        );
-        marker.paint(
-            convertAnnotationToSerializedRange(state.annotations[annotation.uid])
-        );
-    });
-
-    hideEditAnnotationPopover();
 }
 
 export async function onDeleteAnnotationElementClick() {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        console.debug(`${document.url} has been ignored`);
-        return;
-    }
+    isSiteUsable(async () => {
+        const annotation = state.annotations[state.selectedAnnotationId];
+        if (annotation && annotation.data && annotation.data.notes) {
+            hideAnnotatePopover();
 
-    const annotation = state.annotations[state.selectedAnnotationId];
-    if (annotation && annotation.data && annotation.data.notes) {
-        hideAnnotatePopover();
-        hideEditAnnotationPopover();
-        await sleep(200);
-        const {isConfirmed} = await Swal.fire({
-            title: "Are you sure?",
-            text: "The notes will also be deleted with it",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "Yes",
-        });
-        if (!isConfirmed) {
-            return;
+            hideEditAnnotationPopover();
+
+            await sleep(200);
+
+            const {isConfirmed} = await Swal.fire({
+                title: "Are you sure?",
+                text: "The notes will also be deleted with it",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Yes",
+            });
+
+            if (!isConfirmed) {
+                return;
+            }
+
+            clearInlineNotes(state.selectedAnnotationId);
         }
-        clearInlineNotes(state.selectedAnnotationId);
-    }
 
-    marker.unpaint(convertAnnotationToSerializedRange(annotation));
-    const backup = state.annotations[state.selectedAnnotationId];
-    delete state.annotations[state.selectedAnnotationId];
-    deleteAnnotation({
-        url: getNormalizedUrl(),
-        uid: state.selectedAnnotationId,
-    }).catch(() => {
-        state.annotations[state.selectedAnnotationId] = backup;
-        marker.paint(convertAnnotationToSerializedRange(annotation));
+        marker.unpaint(convertAnnotationToSerializedRange(annotation));
+
+        const backup = state.annotations[state.selectedAnnotationId];
+
+        delete state.annotations[state.selectedAnnotationId];
+
+        deleteAnnotation({
+            url: getNormalizedUrl(),
+            uid: state.selectedAnnotationId,
+        }).catch(() => {
+            state.annotations[state.selectedAnnotationId] = backup;
+            marker.paint(convertAnnotationToSerializedRange(annotation));
+        });
+
+        hideEditAnnotationPopover();
     });
 
-    hideEditAnnotationPopover();
 }
 
 export function onHighlightElementClick(color) {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        console.debug(`${document.url} has been ignored`);
-        return;
-    }
+    isSiteUsable(() => {
+        const selection = document.getSelection();
+        const range = selection.getRangeAt(0);
 
-    const selection = document.getSelection();
-    const range = selection.getRangeAt(0);
-    const uid = makeid();
-    let serializedRange = marker.serializeRange(range, {
-        charsToKeepForTextBeforeAndTextAfter: 128,
-        uid,
-    });
-    if (!serializedRange) {
-        return;
-    }
-    Marker.clearSelection();
+        const uid = makeid();
 
-    const {text, textBefore, textAfter} = serializedRange;
-    const annotation = {
-        uid,
-        data: {color, notes: "", text, textBefore, textAfter},
-    };
-    state.annotations[annotation.uid] = annotation;
-    marker.paint(convertAnnotationToSerializedRange(annotation));
-    doSaveAnnotation(annotation).catch(() => {
-        marker.unpaint(convertAnnotationToSerializedRange(annotation));
-        delete state.annotations[annotation.uid];
+        let serializedRange = marker.serializeRange(range, {
+            charsToKeepForTextBeforeAndTextAfter: 128,
+            uid,
+        });
+
+        if (!serializedRange) {
+            return;
+        }
+
+        Marker.clearSelection();
+
+        const {text, textBefore, textAfter} = serializedRange;
+        const annotation = {
+            uid,
+            data: {color, notes: "", text, textBefore, textAfter},
+        };
+
+        state.annotations[annotation.uid] = annotation;
+
+        marker.paint(convertAnnotationToSerializedRange(annotation));
+
+        doSaveAnnotation(annotation).catch(() => {
+            marker.unpaint(convertAnnotationToSerializedRange(annotation));
+            delete state.annotations[annotation.uid];
+        });
     });
+
+
 }
 
 export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {

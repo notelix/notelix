@@ -7,14 +7,8 @@ import {loadAllAnnotationsData} from "./service";
 import {registerHotkeys} from "./hotkeys";
 import {reactToSelection} from "./selection";
 import {registerChromeRuntimeMessageListeners} from "./chrome";
-import {getNormalizedUrl} from "./utils/getNormalizedUrl";
-import {IGNORE_DOMAINS} from "./consts";
 
 setTimeout(() => {
-    if (IGNORE_DOMAINS.some(url => getNormalizedUrl().includes(url))) {
-        // console.debug(`${window.location.href} has been ignored on content load`);
-        return;
-    }
 
     if (document.body.className.indexOf("notelix-initialized") >= 0) {
         return;
