@@ -3,6 +3,7 @@ import {NotelixChromeStorageKey, NotelixDefaultIgnoreDomains} from "../consts";
 import {useHistory} from "react-router-dom";
 import {COMMAND_REFRESH_ANNOTATIONS} from "../../consts";
 import {sendChromeCommandToEveryTab} from "../../utils/chromeCommand";
+import {getCleanUrl} from "../../utils/getCurrentDomain";
 
 export const UserInfo = () => {
     const [userInfo, setUserInfo] = useState(null);
@@ -47,7 +48,6 @@ export const UserInfo = () => {
         });
     };
 
-
     const save = () => {
         chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
             value[NotelixChromeStorageKey].domainsToIgnore = domainsToIgnore.split(",").map((e) => e.trim());
@@ -57,6 +57,16 @@ export const UserInfo = () => {
                 history.push("/");
                 // trySetAgentSyncParams();
             });
+        });
+    };
+
+    const addCurrentDomain = async () => {
+        chrome.tabs.query({active: true}, tab => {
+            const url = getCleanUrl(tab[0].url);
+
+            if (confirm(`Do you want add "${url}" to ignore list of domains?`)) {
+                setDomainsToIgnore(`${domainsToIgnore},${url}`);
+            }
         });
     };
 
@@ -86,7 +96,8 @@ export const UserInfo = () => {
                 />
             </div>
             <div style={{marginTop: 10}}>
-                <button onClick={save}>Save Domains</button>
+                <button onClick={addCurrentDomain}>Add Current Domain</button>
+                <button onClick={save} style={{marginLeft: 180}}>Save Domains</button>
             </div>
         </div>
     );

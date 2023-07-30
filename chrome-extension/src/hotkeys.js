@@ -1,18 +1,19 @@
-import {state} from "./state";
+import { state } from "./state";
 import {
     hideAnnotatePopover,
     onDeleteAnnotationElementClick,
     onEditNotesElementClick,
-    onHighlightElementClick,
+    onHighlightElementClick
 } from "./dom";
-import {highlighterColors} from "./utils/colors";
+import { highlighterColors } from "./utils/colors";
 
 export function registerHotkeys() {
     window.addEventListener("keydown", (e) => {
-        if (e.metaKey || e.shiftKey || e.ctrlKey || e.altKey) {
+        if (!e.code || e.metaKey || e.shiftKey || e.ctrlKey || e.altKey) {
             return;
         }
-        if (e.code.startsWith("Digit")) {
+
+        if (e.code?.startsWith("Digit")) {
             if (state.annotatePopoverDom.style.display === "none") {
                 return;
             }

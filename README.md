@@ -80,10 +80,11 @@ Only use this dev server when you are trying out Notelix.
 For production use, please host your own server (see `building and running backend`), and use cron + pg_dump
 or https://github.com/wal-g/wal-g to backup your database.
 
-# Using Notelix Embedded to add it to your website without requiring users to install a browser extension
+# Using Notelix Embedded
+> To add it to your website without requiring users to install a browser extension
 
 Try [here](https://public-dev.notelix.com/embedded/).
-See [chrome-extension/embedded.html](./chrome-extension/embedded.html) for the code.
+See [chrome-extension/embedded.html](chrome-extension/embedded.html) for the code.
 
 A note about LICENSE: If you want to integrate Notelix into your project using the above method, it's okay not to
 disclose source code of your project. You only need to disclose source code for any changes made directly to Notelix.
