@@ -8,6 +8,5 @@ let conf = {
     filename: "content-script.dist.js",
   },
 };
-
 // conf.plugins.push(new BundleAnalyzerPlugin());
 module.exports = conf;

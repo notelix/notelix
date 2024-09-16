@@ -61,6 +61,8 @@ const pickBlackOrWhiteForeground = memoize((_color) => {
 });
 
 const highlighterColors = [
+  "#ff0000",
+  "#ff4500",
   "#ff6797",
   "#ffb801",
   "#eeff00",

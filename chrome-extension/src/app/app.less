@@ -1,5 +1,6 @@
 body {
   margin: 0;
+  display: flex; /* Ensure body is a flex container */
 }
 
 .notelix-app-root {
@@ -11,4 +12,23 @@ body {
       background-color: white;
     }
   }
+}
+
+#notelix-sidebar-container {
+  display: block; /* Ensure sidebar is displayed */
+  position: relative; /* Adjust positioning */
+  height: 100vh; /* Full height */
+}
+
+#root {
+  flex-grow: 1; /* Allow main content to grow */
+  margin-right: 0; /* Reset margin */
+  transition: margin-right 0.3s ease-in-out; /* Smooth transition */
+}
+
+#notelix-wrapper {
+  display: flex; /* Ensure the wrapper is a flex container */
+  flex-direction: row; /* Align children in a row */
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
 }

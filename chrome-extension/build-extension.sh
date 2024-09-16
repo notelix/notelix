@@ -1,3 +1,8 @@
+#!/bin/sh
+
+# Set the NODE_OPTIONS environment variable
+export NODE_OPTIONS=--openssl-legacy-provider
+
 rm -rf extension-build
 DIR_NAME=extension-build
 mkdir $DIR_NAME

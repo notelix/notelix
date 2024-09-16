@@ -1,5 +1,7 @@
 import { Marker } from "@notelix/web-marker";
 import trashSvg from "./icons/trash.svg";
+import collapse from "./icons/sidebar-collapse.svg"
+import expand from "./icons/sidebar-expand.svg"
 import commentsSvg from "./icons/comments.svg";
 import { state } from "./state";
 import { addOrRemoveDarkReaderClass } from "./integration/dark-reader";
@@ -17,6 +19,9 @@ import Swal from "sweetalert2";
 import { isMobileOrTablet } from "./mobile";
 import sleep from "./utils/sleep";
 import { isSelectionBackwards } from "./selection-observer";
+import ReactDOM from 'react-dom';
+import React from "react";
+import Sidebar from "./app/components/Sidebar";
 
 function prepareAnnotatePopoverDom() {
   document.body.insertAdjacentHTML(
@@ -45,11 +50,19 @@ function prepareEditAnnotationPopoverDom() {
     "beforeend",
     `<span id="notelix-edit-annotation-popover" class="notelix-button ${
       isMobileOrTablet ? "mobile-or-tablet" : ""
-    }"><span id="notelix-button-trash">${trashSvg}</span><span id="notelix-button-notes">${commentsSvg}</span></span>`
+    }">
+      <span id="notelix-button-sidebar">${expand}</span>
+      <span id="notelix-button-trash">${trashSvg}</span>
+      <span id="notelix-button-notes">${commentsSvg}</span>
+    </span>`
   );
   state.editAnnotationPopoverDom = document.getElementById(
     "notelix-edit-annotation-popover"
   );
+
+  document.getElementById("notelix-button-sidebar").onpointerdown = () => {
+    toggleSidebar(); // Call the function to toggle the sidebar
+  };
 
   document.getElementById("notelix-button-trash").onpointerdown = () => {
     onDeleteAnnotationElementClick();
@@ -253,6 +266,87 @@ export function updatePopoverPosOnHighlightSelect(rect) {
 
   if (state.popoverPos.x > document.documentElement.clientWidth - 76) {
     state.popoverPos.x = document.documentElement.clientWidth - 76;
+  }
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById("notelix-sidebar-container");
+  const wrapperId = "notelix-wrapper";
+
+  // Function to find the main content element
+  function findMainContent() {
+    // Try to find the <main> tag first
+    let mainContent = document.querySelector("main");
+    if (mainContent) return mainContent;
+
+    // Try to find a div with common content classes
+    const commonClasses = ['content', 'container', 'main', 'page', 'wrapper'];
+    for (const className of commonClasses) {
+      mainContent = document.querySelector(`.${className}`);
+      if (mainContent) return mainContent;
+    }
+
+    // Fallback to the first <div> if no specific main content found
+    // return document.querySelector("div");
+    return document.body.children[0];
+  }
+
+  if (sidebar) {
+    // Toggle visibility
+    const isVisible = sidebar.style.display !== "none";
+    sidebar.style.display = isVisible ? "none" : "block";
+    sidebar.style.width = isVisible ? "0" : "300px";
+    // Update sidebar icon
+    const sideicon = document.getElementById("notelix-button-sidebar");
+    sideicon.innerHTML = isVisible ? expand : collapse;
+
+    // Adjust main content margin
+    // const mainContent = findMainContent();
+    // if (mainContent) {
+    //   mainContent.style.marginRight = isVisible ? "0" : "300px"; // Adjust margin based on visibility
+    // }
+
+    // sidebar.remove();
+
+  } else {
+    // Create wrapper for existing content and sidebar
+    const existingContent = Array.from(document.body.children);
+    const wrapper = document.createElement("div");
+    wrapper.id = wrapperId;
+    wrapper.style.display = "flex";
+    wrapper.style.flexDirection = "row";
+    wrapper.style.width = "100%";
+    wrapper.style.height = "100%";
+
+    // Move existing content into wrapper
+    existingContent.forEach(child => {
+      wrapper.appendChild(child);
+    });
+    document.body.appendChild(wrapper);
+
+    // Create sidebar
+    const newSidebar = document.createElement("div");
+    newSidebar.id = "notelix-sidebar-container";
+    newSidebar.style.width = "300px"; // Set width for the sidebar
+    newSidebar.style.backgroundColor = "#d9e9da"; // Change as needed
+    newSidebar.style.color = "black"; // Change as needed
+    newSidebar.style.boxShadow = "-2px 0 5px rgba(0,0,0,0.5)";
+    newSidebar.style.zIndex = "9999";
+    newSidebar.style.display = "block"; // Ensure it's displayed
+    newSidebar.style.overflowY = "auto"; // Allow scrolling if needed
+    newSidebar.style.height = "100vh"; // Full height
+    newSidebar.style.position = "sticky";
+    newSidebar.style.top = "0";
+    // Add a container for React
+    const sidebarContent = document.createElement("div");
+    sidebarContent.id = "sidebar-content";
+    newSidebar.appendChild(sidebarContent); // Append the content div to the sidebar
+
+    // Append sidebar to wrapper
+    wrapper.appendChild(newSidebar); 
+
+    // Render the Sidebar component into the 'sidebar-content' div
+    ReactDOM.render(<Sidebar />, sidebarContent);
   }
 }
 
