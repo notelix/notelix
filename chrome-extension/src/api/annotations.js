@@ -41,7 +41,7 @@ const saveAnnotation = async (annotation) => {
         user: user_id
       };
 
-      if (exists.data.length == 0){
+      if (exists.data.length != 0){
         upsertData.id = exists.data[0].id;
       }
       
