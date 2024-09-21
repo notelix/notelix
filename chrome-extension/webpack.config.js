@@ -4,6 +4,9 @@ module.exports = {
     inline: true,
     port: 7777,
   },
+  cache: {
+    type: "filesystem",
+  },
   resolve: {
     extensions: [".js", ".jsx", ".ts", ".tsx"],
   },

@@ -2,21 +2,20 @@
   "name": "notelix",
   "version": "0.1.9",
   "description": "",
-  "manifest_version": 2,
+  "manifest_version": 3,
   "permissions": [
     "activeTab",
-    "storage",
+    "storage"
+  ],
+  "host_permissions": [
     "<all_urls>"
   ],
-  "browser_action": {
+  "action": {
     "default_title": "Options",
     "default_popup": "extension-options.html"
   },
   "background": {
-    "scripts": [
-      "/dist/background.dist.js"
-    ],
-    "persistent": false
+    "service_worker": "dist/background.dist.js"
   },
   "content_scripts": [
     {
@@ -26,9 +25,22 @@
         "file:///*/*.txt"
       ],
       "js": [
-        "/dist/content-script.dist.js"
+        "dist/content-script.dist.js"
       ],
       "run_at": "document_end"
     }
-  ]
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*"],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["style/extension.css", "script/extension.js"],
+      "matches": ["https://example.com/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }

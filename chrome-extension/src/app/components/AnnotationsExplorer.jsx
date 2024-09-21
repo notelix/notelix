@@ -2,6 +2,7 @@ import React from "react";
 import classnames from "classnames";
 import "./AnnotationsExplorer.less";
 import { deleteAnnotation, findAnnotations } from "../../api/annotations";
+import ThirdLevelItem from "./AnnotationItem";
 
 export default class AnnotationsExplorer extends React.Component {
   state = {
@@ -20,7 +21,7 @@ export default class AnnotationsExplorer extends React.Component {
     });
 
     this.setState({
-      firstLevelData: result.data.list,
+      firstLevelData: result.list,
       firstLevelSelection: "",
       secondLevelData: [],
       secondLevelSelection: "",
@@ -36,7 +37,7 @@ export default class AnnotationsExplorer extends React.Component {
     });
 
     this.setState({
-      secondLevelData: result.data.list,
+      secondLevelData: result.list,
       secondLevelSelection: "",
       thirdLevelData: [],
       thirdLevelSelection: "",
@@ -52,7 +53,7 @@ export default class AnnotationsExplorer extends React.Component {
     });
 
     this.setState({
-      thirdLevelData: result.data.list,
+      thirdLevelData: result.list,
       thirdLevelSelection: "",
     });
   }
@@ -147,6 +148,7 @@ export default class AnnotationsExplorer extends React.Component {
                 <div className="list-item">
                   <div className="content">
                     <ThirdLevelItem
+                      onClickAction="open"
                       data={item}
                       onDeleteAnnotation={() => {
                         if (
@@ -176,51 +178,3 @@ export default class AnnotationsExplorer extends React.Component {
   }
 }
 
-class ThirdLevelItem extends React.Component {
-  render() {
-    return (
-      <div className="third-level-item">
-        <div
-          className="hit"
-          onClick={() =>
-            window.open(
-              `${this.props.data.url}#notelix:scroll:annotation_id:${this.props.data.id}`
-            )
-          }
-        >
-          {this.props.data.data.textBefore}
-          <span
-            className="text"
-            style={{ textDecorationColor: this.props.data.data.color }}
-          >
-            {this.props.data.data.text}
-          </span>
-          {this.props.data.data.textAfter}
-
-          {!!this.props.data.data.notes && (
-            <div className="notes-wrapper">
-              <div>{this.props.data.data.notes}</div>
-            </div>
-          )}
-          <div className="url">
-            <span
-              className="color-dot"
-              style={{ background: this.props.data.data.color }}
-            />
-            {this.props.data.url}
-            <a
-              style={{ float: "right" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                this.props.onDeleteAnnotation();
-              }}
-            >
-              Delete
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
-}

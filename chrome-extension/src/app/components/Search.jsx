@@ -6,12 +6,13 @@ import {
   search,
 } from "../../api/annotations";
 import "./Search.less";
+import AnnotationItem from "./AnnotationItem";
 
 export default class Search extends React.Component {
   state = { q: "", data: null };
 
   debouncedSearch = debounce(() => {
-    search(this.state.q).then((resp) => this.setState({ data: resp.data }));
+    search(this.state.q).then((resp) => this.setState({ data: resp }));
   }, 500);
 
   onSearchResultClick = (hit) => {
@@ -38,83 +39,98 @@ export default class Search extends React.Component {
         {!!(this.state.data && this.state.q) && (
           <div className="search-result-root">
             <div className="content">
-              {!this.state.data.results.hits.length && (
+              {!this.state.data.length && (
                 <div>No results found.</div>
               )}
-              {this.state.data.results.hits.map((hit) => {
+              {this.state.data.map((hit) => {
                 return (
-                  <div
-                    className="hit"
-                    onClick={() => this.onSearchResultClick(hit)}
-                  >
-                    {hit.textBefore}
-                    <div
-                      className="text"
-                      style={{ textDecorationColor: hit.color }}
-                      dangerouslySetInnerHTML={{
-                        __html: hit._formatted.text,
-                      }}
-                    />
-                    {hit.textAfter}
-                    {!!hit.notes && (
-                      <div className="notes-wrapper">
-                        <div
-                          dangerouslySetInnerHTML={{
-                            __html: hit._formatted.notes,
-                          }}
-                        />
-                      </div>
-                    )}
-                    <div className="url">
-                      <span
-                        className="color-dot"
-                        style={{ background: hit.color }}
-                      />
-                      <span
-                        className="title"
-                        dangerouslySetInnerHTML={{
-                          __html: hit._formatted.title,
-                        }}
-                      />
-                      {hit.url}
-                    </div>
-                    <a
-                      className={"delete-button"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        if (
-                          !confirm(
-                            "Are you sure you want to delete this annotation?"
-                          )
-                        ) {
-                          return;
-                        }
-
-                        findAnnotations({
-                          groupBy: "",
-                          selectors: { id: hit.id },
-                        }).then((result) => {
-                          const annotationToDelete = result.data.list[0];
-                          deleteAnnotation(annotationToDelete).then(() => {
-                            this.setState({
-                              data: {
-                                ...this.state.data,
-                                results: {
-                                  ...this.state.data.results,
-                                  hits: this.state.data.results.hits.filter(
-                                    (x) => x.id !== hit.id
-                                  ),
-                                },
-                              },
-                            });
-                          });
+                  <AnnotationItem
+                    data={hit}
+                    onClickAction="open"
+                    onDeleteAnnotation={() => {
+                      if (!confirm("Are you sure you want to delete this annotation?")) {
+                        return;
+                      }
+                      deleteAnnotation(hit).then(() => {
+                        this.setState({
+                          data: this.state.data.filter((x) => x.id !== hit.id),
                         });
-                      }}
-                    >
-                      Delete
-                    </a>
-                  </div>
+                      });
+                    }}
+                  />
+
+                  // <div
+                  //   className="hit"
+                  //   onClick={() => this.onSearchResultClick(hit)}
+                  // >
+                  //   {hit.textBefore}
+                  //   <div
+                  //     className="text"
+                  //     style={{ textDecorationColor: hit.color }}
+                  //     dangerouslySetInnerHTML={{
+                  //       __html: hit._formatted.text,
+                  //     }}
+                  //   />
+                  //   {hit.textAfter}
+                  //   {!!hit.notes && (
+                  //     <div className="notes-wrapper">
+                  //       <div
+                  //         dangerouslySetInnerHTML={{
+                  //           __html: hit._formatted.notes,
+                  //         }}
+                  //       />
+                  //     </div>
+                  //   )}
+                  //   <div className="url">
+                  //     <span
+                  //       className="color-dot"
+                  //       style={{ background: hit.color }}
+                  //     />
+                  //     <span
+                  //       className="title"
+                  //       dangerouslySetInnerHTML={{
+                  //         __html: hit._formatted.title,
+                  //       }}
+                  //     />
+                  //     {hit.url}
+                  //   </div>
+                  //   <a
+                  //     className={"delete-button"}
+                  //     onClick={(e) => {
+                  //       e.stopPropagation();
+                  //       e.preventDefault();
+                  //       if (
+                  //         !confirm(
+                  //           "Are you sure you want to delete this annotation?"
+                  //         )
+                  //       ) {
+                  //         return;
+                  //       }
+
+                  //       findAnnotations({
+                  //         groupBy: "",
+                  //         selectors: { id: hit.id },
+                  //       }).then((result) => {
+                  //         const annotationToDelete = result.data.list[0];
+                  //         deleteAnnotation(annotationToDelete).then(() => {
+                  //           this.setState({
+                  //             data: {
+                  //               ...this.state.data,
+                  //               results: {
+                  //                 ...this.state.data,
+                  //                 hits: this.state.data.filter(
+                  //                   (x) => x.id !== hit.id
+                  //                 ),
+                  //               },
+                  //             },
+                  //           });
+                  //         });
+                  //       });
+                  //     }}
+                  //   >
+                  //     Delete
+                  //   </a>
+                  // </div>
                 );
               })}
             </div>

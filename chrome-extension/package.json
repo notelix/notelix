@@ -7,6 +7,7 @@
     "build:popup": "webpack --config ./webpack.popup.config.js",
     "build:app": "webpack --config ./webpack.app.config.js",
     "build-extension:app": "npm run build:app; rm -rf ./extension-build/dist ; cp -r ./dist ./extension-build",
+    "watch": "webpack serve --open",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "babel-polyfill": "^6.26.0",
     "classnames": "^2.3.2",
     "crypto-js": "^4.1.1",
+    "dotenv": "^16.4.5",
     "izitoast": "^1.4.0",
     "lodash": "^4.17.21",
     "milligram": "^1.4.1",
@@ -34,6 +36,7 @@
   "devDependencies": {
     "@babel/core": "^7.9.6",
     "@babel/preset-env": "^7.9.6",
+    "@webpack-cli/serve": "^2.0.5",
     "babel-loader": "^8.1.0",
     "css-loader": "^3.5.3",
     "install": "^0.13.0",
@@ -43,6 +46,6 @@
     "svg-inline-loader": "^0.8.2",
     "webpack": "^4",
     "webpack-cli": "^3",
-    "webpack-dev-server": "^3"
+    "webpack-dev-server": "^5.1.0"
   }
 }

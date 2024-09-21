@@ -1,127 +1,162 @@
-import { getEndpoint, wrapRequestApiRequireLoggedIn } from "./common";
+import { wrapRequestApiRequireLoggedIn } from "./common";
 import { decryptFields, encryptFields, getKey } from "../encryption";
+import { NotelixChromeStorageKey } from "../popup/consts";
 import CryptoJS from "crypto-js";
-import client from "./client";
+import supabase from "./supaClient";
 
-const saveAnnotation = (annotation) => {
-  return wrapRequestApiRequireLoggedIn(({ headers }) =>
-    getEndpoint("annotations/save").then(async (endpoint) => {
-      const key = await getKey();
-      const parsedKey = key ? CryptoJS.enc.Hex.parse(key) : null;
+const saveAnnotation = async (annotation) => {
+  return wrapRequestApiRequireLoggedIn( async () => {
+    const parsedKey = null;
 
-      annotation = await encryptFields({
-        key: parsedKey,
-        object: annotation,
-        fields: ["url", "host", "title"],
+    annotation = await encryptFields({
+      key: parsedKey,
+      object: annotation,
+      fields: ["url", "host", "title"],
+    });
+    annotation.data = await encryptFields({
+      key: parsedKey,
+      object: annotation.data,
+      fields: ["text", "textAfter", "textBefore", "notes"],
+      iv: annotation.uid,
+    });
+
+
+    chrome.storage.sync.get(NotelixChromeStorageKey, async (value) => {
+      const user_id = value[NotelixChromeStorageKey].notelixUser.id;
+
+      const exists = await supabase
+      .from('Annotation')
+      .select()
+      .match({
+        user: user_id,
+        uid: annotation.uid
       });
-      annotation.data = await encryptFields({
-        key: parsedKey,
-        object: annotation.data,
-        fields: ["text", "textAfter", "textBefore", "notes"],
-        iv: annotation.uid,
-      });
 
-      return client.post(endpoint, annotation, { headers: headers });
+      var upsertData = {
+        url: annotation.url,
+        host: annotation.host,
+        title: annotation.title,
+        data: annotation.data,
+        uid: annotation.uid,
+        user: user_id
+      };
+
+      if (exists.data.length == 0){
+        upsertData.id = exists.data[0].id;
+      }
+      
+      const { data, error} = await supabase
+      .from('Annotation')
+      .upsert(
+          upsertData,
+          { onConflict: 'uid' }
+        )
+        .select();
     })
-  );
-};
+  }  
+)}
 
 const deleteAnnotation = ({ url, uid }) => {
-  return wrapRequestApiRequireLoggedIn(({ headers }) =>
-    getEndpoint("annotations/delete").then((endpoint) =>
-      client.post(
-        endpoint,
-        {
-          url,
-          uid,
-        },
-        { headers: headers }
-      )
-    )
-  );
+  return wrapRequestApiRequireLoggedIn(async () => {
+    const { error } = await supabase
+      .from('Annotation')
+      .delete()
+      .match({ url, uid });
+
+    if (error) {
+      throw error;
+    }
+  });
 };
 
 const queryAnnotationsByUrl = (url, { onDataReceivedCallback }) => {
-  return wrapRequestApiRequireLoggedIn(({ headers }) =>
-    getEndpoint("annotations/queryByUrl").then((endpoint) => {
-      onDataReceivedCallback();
-      return getKey().then((key) => {
-        const parsedKey = key ? CryptoJS.enc.Hex.parse(key) : null;
+  return wrapRequestApiRequireLoggedIn(async () => {
+    onDataReceivedCallback();
 
-        return encryptFields({
-          key: parsedKey,
-          object: { url },
+    const { data, error } = await supabase
+      .from('Annotation')
+      .select()
+      .eq('url', url);
+
+    if (error) {
+      throw error;
+    }
+
+    const parsedKey = await getKey();
+    const key = parsedKey ? CryptoJS.enc.Hex.parse(parsedKey) : null;
+
+    return Promise.all(
+      data.map(async (item) => {
+        item.data = await decryptFields({
+          key: key,
+          object: item.data,
+          fields: ["notes", "text", "textAfter", "textBefore"],
+          iv: item.uid,
+        });
+
+        return decryptFields({
+          key: key,
+          object: item,
           fields: ["url"],
-        }).then(({ url }) =>
-          client
-            .post(
-              endpoint,
-              {
-                url,
-              },
-              { headers: headers }
-            )
-            .then((item) => {
-              return new Promise((resolve) => {
-                resolve(
-                  Promise.all(
-                    item.data.list.map(async (item) => {
-                      item.data = await decryptFields({
-                        key: parsedKey,
-                        object: item.data,
-                        fields: ["notes", "text", "textAfter", "textBefore"],
-                        iv: item.uid,
-                      });
-
-                      return decryptFields({
-                        key: parsedKey,
-                        object: item,
-                        fields: ["url"],
-                      });
-                    })
-                  )
-                );
-              });
-            })
-        );
-      });
-    })
-  );
+        });
+      })
+    );
+  });
 };
 
 const search = (q) => {
-  return wrapRequestApiRequireLoggedIn(({ headers }) =>
-    getEndpoint("annotations/search", {
-      involvesClientSideEncryption: true,
-    }).then((endpoint) =>
-      client.post(
-        endpoint,
-        {
-          q,
-        },
-        { headers: headers }
-      )
-    )
-  );
+  return wrapRequestApiRequireLoggedIn(async () => {
+    const { data, error } = await supabase
+      .from('Annotation')
+      .select()
+      .ilike('title', `%${q}%`);
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  });
 };
 
 const findAnnotations = (params = { selectors: {}, groupBy: "" }) => {
   const { selectors, groupBy } = params;
 
-  return wrapRequestApiRequireLoggedIn(({ headers }) =>
-    getEndpoint("annotations/find", {
-      involvesClientSideEncryption: true,
-    }).then((endpoint) =>
-      client.post(
-        endpoint,
-        {
-          selectors,
-          groupBy,
-        },
-        { headers: headers }
-      )
-    )
-  );
+  return wrapRequestApiRequireLoggedIn(async () => {
+    if (!Object.keys(params).includes('groupBy') || groupBy === ""){
+      const { data, error } = await supabase
+        .from('Annotation')
+        .select()
+        .match(selectors);
+
+      if (error) {
+        throw error;
+      }
+
+      return { list: data };
+    }
+    else {
+      if (Object.keys(selectors).length){
+        const { data, error } = await supabase
+          .rpc('title_group_annotations', {
+            "input_host": Object.values(selectors)[0]
+          });
+        if (error) {
+          throw error;
+        }
+
+        return { list: data };
+      } else {
+        const { data, error } = await supabase
+          .rpc('host_group_annotations');
+        if (error) {
+          throw error;
+        }
+
+        return { list: data };
+      }
+    }
+  });
 };
 
 export {

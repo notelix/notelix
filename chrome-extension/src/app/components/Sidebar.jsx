@@ -1,7 +1,7 @@
 import React from "react";
 import "./AnnotationsExplorer.less";
 import { deleteAnnotation, findAnnotations } from "../../api/annotations";
-
+import AnnotationItem from "./AnnotationItem";
 export default class Sidebar extends React.Component {
   state = {
     annotations: [],
@@ -20,7 +20,7 @@ export default class Sidebar extends React.Component {
     });
 
     this.setState({
-      annotations: result.data.list || [],
+      annotations: result.list || [],
     });
   }
 
@@ -34,7 +34,8 @@ export default class Sidebar extends React.Component {
                 return (
                   <div className="list-item">
                     <div className="content">
-                      <ThirdLevelItem
+                      <AnnotationItem
+                        onClickAction="scroll"
                         data={item}
                         onDeleteAnnotation={() => {
                           if (
@@ -58,59 +59,6 @@ export default class Sidebar extends React.Component {
                 );
               })}
             </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-}
-
-class ThirdLevelItem extends React.Component {
-  render() {
-    return (
-      <div className="third-level-item">
-        <div
-          className="hit"
-          onClick={() => {
-            const annotationElement = document.getElementsByTagName("web-marker-highlight");
-            // alert(this.props.data.uid);
-            for (let i = 0; i < annotationElement.length; i++) {
-              if (annotationElement[i].getAttribute("highlight-id") === this.props.data.uid) {
-                annotationElement[i].scrollIntoView({ behavior: "smooth" }); // Smooth scroll to the annotated text
-              }
-            }
-          }}
-        >
-          {this.props.data.data.textBefore}
-          <span
-            className="text"
-            style={{ textDecorationColor: this.props.data.data.color }}
-          >
-            {this.props.data.data.text}
-          </span>
-          {this.props.data.data.textAfter}
-
-          {!!this.props.data.data.notes && (
-            <div className="notes-wrapper">
-              <div>{this.props.data.data.notes}</div>
-            </div>
-          )}
-          <div className="url">
-            <span
-              className="color-dot"
-              style={{ background: this.props.data.data.color }}
-            />
-            {this.props.data.url}
-            <a
-              style={{ float: "right" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                this.props.onDeleteAnnotation();
-              }}
-            >
-              Delete
-            </a>
           </div>
         </div>
       </div>

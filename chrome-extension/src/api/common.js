@@ -1,6 +1,6 @@
 import iziToast from "izitoast/dist/js/iziToast.min";
 import "izitoast/dist/css/iziToast.min.css";
-import { NotelixChromeStorageKey } from "../popup/consts";
+import { NotelixChromeStorageKey, NotelixChromeStorageTokenKey } from "../popup/consts";
 import get from "lodash/get";
 import { sendChromeCommandToEveryTab } from "../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../consts";
@@ -29,19 +29,10 @@ export async function getEndpoint(
 }
 
 export const getHeaders = (requireLoggedIn = false) => {
-  if (window.NotelixEmbeddedConfig) {
-    return Promise.resolve({
-      Authorization: `static-token ${window.NotelixEmbeddedConfig.staticToken}`,
-    });
-  }
-
   return new Promise((resolve) => {
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      const headers = {};
-      value[NotelixChromeStorageKey] = value[NotelixChromeStorageKey] || {};
-      if (value[NotelixChromeStorageKey].notelixUser) {
-        headers["Authorization"] =
-          "jwt " + value[NotelixChromeStorageKey].notelixUser.jwt;
+    chrome.storage.sync.get(NotelixChromeStorageTokenKey, (value) => {
+      if (value) {
+        return resolve();
       } else {
         if (requireLoggedIn) {
           iziToast.warning({
@@ -51,7 +42,7 @@ export const getHeaders = (requireLoggedIn = false) => {
           throw "not logged in";
         }
       }
-      resolve(headers);
+      resolve();
     });
   });
 };
@@ -102,7 +93,7 @@ export function onRequestError(err) {
 
 export function wrapRequestApi(callback, requireLoggedIn = false) {
   return getHeaders(requireLoggedIn)
-    .then((headers) => callback({ headers }))
+    .then((headers) => callback())
     .catch(onRequestError);
 }
 
