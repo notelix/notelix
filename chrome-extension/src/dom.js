@@ -22,6 +22,7 @@ import { isSelectionBackwards } from "./selection-observer";
 import ReactDOM from 'react-dom';
 import React from "react";
 import Sidebar from "./app/components/Sidebar";
+import "./sidebar.less";
 
 function prepareAnnotatePopoverDom() {
   document.body.insertAdjacentHTML(
@@ -216,6 +217,11 @@ export function onHighlightElementClick(color) {
 }
 
 export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {
+  const sidebar = document.getElementById("notelix-sidebar-container");
+  var xOffset = 0;
+  if (sidebar){
+    xOffset = sidebar.classList.contains("visible") ? 300 : 0;
+  }
   if (selectionIsBackwards) {
     if (isMobileOrTablet) {
       state.popoverPos.y = rect.top + window.scrollY + 80;
@@ -230,9 +236,9 @@ export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {
     }
   }
   if (selectionIsBackwards) {
-    state.popoverPos.x = rect.left + window.scrollX + 70;
+    state.popoverPos.x = rect.left + window.scrollX + 70 - xOffset;
   } else {
-    state.popoverPos.x = rect.right + window.scrollX - 70;
+    state.popoverPos.x = rect.right + window.scrollX - 70 - xOffset;
   }
 
   if (isMobileOrTablet) {
@@ -249,12 +255,17 @@ export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {
 }
 
 export function updatePopoverPosOnHighlightSelect(rect) {
+  const sidebar = document.getElementById("notelix-sidebar-container");
+  var xOffset = 0;
+  if (sidebar){
+    xOffset = sidebar.classList.contains("visible") ? 300 : 0;
+  }
   if (isMobileOrTablet) {
     state.popoverPos.y = rect.top + rect.height + window.scrollY + 50;
   } else {
     state.popoverPos.y = rect.top + rect.height + window.scrollY + 40;
   }
-  state.popoverPos.x = rect.left + rect.width / 2;
+  state.popoverPos.x = rect.left + ( rect.width / 2 ) - xOffset;
 
   if (isMobileOrTablet) {
     state.popoverPos.x = document.documentElement.clientWidth / 2;
@@ -267,76 +278,55 @@ export function updatePopoverPosOnHighlightSelect(rect) {
   if (state.popoverPos.x > document.documentElement.clientWidth - 76) {
     state.popoverPos.x = document.documentElement.clientWidth - 76;
   }
+  const lg = {
+    state: state,
+    x: state.popoverPos.x,
+    y: state.popoverPos.y,
+    xOffset: xOffset,
+    rect: rect,
+  }
+  console.log(lg);
 }
 
 function toggleSidebar() {
   const sidebar = document.getElementById("notelix-sidebar-container");
   const wrapperId = "notelix-wrapper";
-
-  // Function to find the main content element
-  function findMainContent() {
-    // Try to find the <main> tag first
-    let mainContent = document.querySelector("main");
-    if (mainContent) return mainContent;
-
-    // Try to find a div with common content classes
-    const commonClasses = ['content', 'container', 'main', 'page', 'wrapper'];
-    for (const className of commonClasses) {
-      mainContent = document.querySelector(`.${className}`);
-      if (mainContent) return mainContent;
-    }
-
-    // Fallback to the first <div> if no specific main content found
-    // return document.querySelector("div");
-    return document.body.children[0];
-  }
+  const bodyWrapperId = "notelix-body-wrapper";
 
   if (sidebar) {
-    // Toggle visibility
-    const isVisible = sidebar.style.display !== "none";
-    sidebar.style.display = isVisible ? "none" : "block";
-    sidebar.style.width = isVisible ? "0" : "300px";
+    // Toggle visibility by adding/removing the 'visible' class
+    const isVisible = sidebar.classList.contains("visible");
+    sidebar.classList.toggle("visible", !isVisible); // Add or remove the 'visible' class
+
     // Update sidebar icon
     const sideicon = document.getElementById("notelix-button-sidebar");
     sideicon.innerHTML = isVisible ? expand : collapse;
 
-    // Adjust main content margin
-    // const mainContent = findMainContent();
-    // if (mainContent) {
-    //   mainContent.style.marginRight = isVisible ? "0" : "300px"; // Adjust margin based on visibility
-    // }
-
-    // sidebar.remove();
-
   } else {
     // Create wrapper for existing content and sidebar
     const existingContent = Array.from(document.body.children);
+    const bodyWrapper = document.createElement("div");
+    bodyWrapper.id = bodyWrapperId;
+    bodyWrapper.style = document.body.style;
+    bodyWrapper.style.width = "100%";
+    bodyWrapper.style.position = "relative";
+
+    // Move existing content into wrapper
+    existingContent.forEach(child => {
+      bodyWrapper.appendChild(child);
+    });
     const wrapper = document.createElement("div");
     wrapper.id = wrapperId;
     wrapper.style.display = "flex";
     wrapper.style.flexDirection = "row";
-    wrapper.style.width = "100%";
-    wrapper.style.height = "100%";
 
-    // Move existing content into wrapper
-    existingContent.forEach(child => {
-      wrapper.appendChild(child);
-    });
-    document.body.appendChild(wrapper);
+    
 
     // Create sidebar
     const newSidebar = document.createElement("div");
     newSidebar.id = "notelix-sidebar-container";
-    newSidebar.style.width = "300px"; // Set width for the sidebar
-    newSidebar.style.backgroundColor = "#d9e9da"; // Change as needed
-    newSidebar.style.color = "black"; // Change as needed
-    newSidebar.style.boxShadow = "-2px 0 5px rgba(0,0,0,0.5)";
-    newSidebar.style.zIndex = "9999";
-    newSidebar.style.display = "block"; // Ensure it's displayed
-    newSidebar.style.overflowY = "auto"; // Allow scrolling if needed
-    newSidebar.style.height = "100vh"; // Full height
-    newSidebar.style.position = "sticky";
-    newSidebar.style.top = "0";
+
+
     // Add a container for React
     const sidebarContent = document.createElement("div");
     sidebarContent.id = "sidebar-content";
@@ -344,9 +334,16 @@ function toggleSidebar() {
 
     // Append sidebar to wrapper
     wrapper.appendChild(newSidebar); 
-
+    wrapper.appendChild(bodyWrapper);
+    document.body.appendChild(wrapper);
     // Render the Sidebar component into the 'sidebar-content' div
     ReactDOM.render(<Sidebar />, sidebarContent);
+
+    // Optionally, add the 'visible' class immediately to show the sidebar
+    // Alternatively, delay it to allow for CSS transition
+    setTimeout(() => {
+      newSidebar.classList.add("visible");
+    }, 10); // Small delay to trigger the transition
   }
 }
 

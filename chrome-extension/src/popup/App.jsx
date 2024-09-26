@@ -7,14 +7,16 @@ import { SignUp } from "./pages/SignUp";
 import { UserInfo } from "./pages/UserInfo";
 import { Index } from "./pages";
 import { ChangePassword } from "./pages/ChangePassword";
+import { changePasswordRequest } from "../api/user";
 
 const App = () => {
   return (
-    <HashRouter>
+    <div>
+      <HashRouter>
       <Switch>
-        <Route path="/set-server">
+        {/* <Route path="/set-server">
           <SetServer />
-        </Route>
+        </Route> */}
         <Route path="/signup">
           <SignUp />
         </Route>
@@ -24,14 +26,21 @@ const App = () => {
         <Route path="/login">
           <LogIn />
         </Route>
-        <Route path="/change-password">
-          <ChangePassword />
-        </Route>
         <Route path="/">
           <Index />
         </Route>
       </Switch>
     </HashRouter>
+    {/* <button
+      style={{
+        marginTop: "3px"
+      }}
+      onClick={async () => {
+        await changePasswordRequest();
+      }}>
+        Reset Password
+    </button> */}
+    </div>
   );
 };
 

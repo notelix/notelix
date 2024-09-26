@@ -38,7 +38,7 @@ export const LogIn = () => {
     <div>
       <h1>Login</h1>
 
-      <div>
+      {/* <div>
         {notelixServer}{" "}
         <a
           onClick={(e) => {
@@ -58,7 +58,7 @@ export const LogIn = () => {
         >
           Change Server
         </a>
-      </div>
+      </div> */}
       <input
         type="text"
         placeholder={"username"}

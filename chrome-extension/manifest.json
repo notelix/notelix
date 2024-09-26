@@ -1,7 +1,7 @@
 {
   "name": "notelix",
   "version": "0.1.9",
-  "description": "",
+  "description": "A Note and Highlighting Tool for the Web",
   "manifest_version": 3,
   "permissions": [
     "activeTab",

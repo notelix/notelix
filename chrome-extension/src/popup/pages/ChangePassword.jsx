@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { NotelixChromeStorageKey } from "../consts";
 import { getKey } from "../../encryption";
 import { makeClientSideEncryptionParams } from "../../encryption/utils";
-import { changePassword } from "../../api/user";
+import { changePassword, changePasswordRequest } from "../../api/user";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 
@@ -49,26 +49,26 @@ export const ChangePassword = () => {
             return;
           }
 
-          getKey().then((key) => {
+          getKey().then(async (key) => {
             const newClientSideEncryptionParams = key
               ? makeClientSideEncryptionParams(newPassword, { key })
               : null;
-
-            changePassword({
-              newClientSideEncryptionParams,
-              oldPassword,
-              newPassword,
-            }).then(() => {
-              alert("Password changed successfully");
-              chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-                delete value[NotelixChromeStorageKey].notelixUser;
-                delete value[NotelixChromeStorageKey].notelixPassword;
-                chrome.storage.sync.set(value, () => {
-                  sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-                  history.push("/login");
-                });
-              });
-            });
+            await changePasswordRequest();
+            // changePassword({
+            //   newClientSideEncryptionParams,
+            //   oldPassword,
+            //   newPassword,
+            // }).then(() => {
+            //   alert("Password changed successfully");
+            //   chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
+            //     delete value[NotelixChromeStorageKey].notelixUser;
+            //     delete value[NotelixChromeStorageKey].notelixPassword;
+            //     chrome.storage.sync.set(value, () => {
+            //       sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
+            //       history.push("/login");
+            //     });
+            //   });
+            // });
           });
         }}
       >

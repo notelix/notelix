@@ -30,7 +30,7 @@ export default class Sidebar extends React.Component {
         <div className={"annotations-explorer-root"}>
           <div className="columns">
             <div className="column" style={{ flex: "1 1 auto" }}>
-              {this.state.annotations.map((item) => {
+              {/* {this.state.annotations.map((item) => {
                 return (
                   <div className="list-item">
                     <div className="content">
@@ -45,7 +45,7 @@ export default class Sidebar extends React.Component {
                           ) {
                             return;
                           }
-                          deleteAnnotation(item).then(() => {
+                          deleteAnnotation({ uid: item.uid }).then(() => {
                             this.setState({
                               annotations: this.state.annotations.filter(
                                 (x) => x.id !== item.id
@@ -57,7 +57,7 @@ export default class Sidebar extends React.Component {
                     </div>
                   </div>
                 );
-              })}
+              })} */}
             </div>
           </div>
         </div>

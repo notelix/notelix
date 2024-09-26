@@ -121,8 +121,9 @@ export const marker = new Marker({
             state.annotations[state.selectedAnnotationId]
           )
         );
-        updatePopoverPosOnHighlightSelect(range.getBoundingClientRect());
-        showEditAnnotationPopover();
+        const rect = range.getBoundingClientRect(); // Get the bounding rectangle of the highlight
+        updatePopoverPosOnHighlightSelect(rect); // Update the popover position based on the highlight
+        showEditAnnotationPopover(); // Show the edit popover
       });
     },
     onHighlightHoverStateChange: (context, element, hovering) => {
@@ -135,6 +136,9 @@ export const marker = new Marker({
         }
         element.style.backgroundColor =
           state.annotations[context.serializedRange.uid].data.color + "44";
+        element.style.color = pickBlackOrWhiteForeground(
+          element.style.backgroundColor
+        );
       } else {
         const inlineNotesElement = document.getElementById(
           "notes-" + context.serializedRange.uid
@@ -152,7 +156,9 @@ export const marker = new Marker({
       element.style["text-decoration-thickness"] = "2px";
       const annotation = state.annotations[context.serializedRange.uid];
       element.style.textDecorationColor = annotation.data.color;
-      element.style.backgroundColor = annotation.data.color + "22";
+      element.style.backgroundColor = annotation.data.color;
+      // element.style.backgroundColor = annotation.data.color + "22";
+      element.style.color = pickBlackOrWhiteForeground(annotation.data.color);
     },
     afterPaintHighlight: (context) => {
       paintNotes(context);

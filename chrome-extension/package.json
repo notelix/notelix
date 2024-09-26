@@ -6,6 +6,7 @@
     "build:background": "webpack --config ./webpack.background.config.js",
     "build:popup": "webpack --config ./webpack.popup.config.js",
     "build:app": "webpack --config ./webpack.app.config.js",
+    "build:reset-password": "webpack --config ./webpack.reset-password.config.js",
     "build-extension:app": "npm run build:app; rm -rf ./extension-build/dist ; cp -r ./dist ./extension-build",
     "watch": "webpack serve --open",
     "test": "echo \"Error: no test specified\" && exit 1"

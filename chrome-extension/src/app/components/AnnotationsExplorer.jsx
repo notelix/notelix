@@ -28,6 +28,7 @@ export default class AnnotationsExplorer extends React.Component {
       thirdLevelData: [],
       thirdLevelSelection: "",
     });
+    document.getElementById("loading-spinner").style.display = "none";
   }
 
   async getSecondLevelData() {
@@ -88,7 +89,11 @@ export default class AnnotationsExplorer extends React.Component {
             className="column"
             style={{ flex: "0 0 12vw", maxWidth: "12vw" }}
           >
+            <div id="loading-spinner" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div className="spinner">Loading...</div>
+            </div>
             {this.state.firstLevelData.map((item) => {
+              // document.getElementById("loading-spinner").style.display = "none";
               return (
                 <div
                   onClick={() => this.setFirstLevelSelection(item.host)}
@@ -158,7 +163,7 @@ export default class AnnotationsExplorer extends React.Component {
                         ) {
                           return;
                         }
-                        deleteAnnotation(item).then(() => {
+                        deleteAnnotation({ uid: item.uid }).then(() => {
                           this.setState({
                             thirdLevelData: this.state.thirdLevelData.filter(
                               (x) => x.id !== item.id

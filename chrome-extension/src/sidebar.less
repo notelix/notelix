@@ -1,0 +1,43 @@
+
+#notelix-sidebar-container {
+    display: block;
+    position: sticky;
+    top: 0;
+    left: 0;
+    width: 0px;
+    height: 100vh;
+    background-color: #d9e9da;
+    color: black;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.5);
+  
+    
+    transform: translateX(-100%);
+    opacity: 0;
+    transition: transform 0.3s ease-out, opacity 0.3s ease-out, width 0.3s ease-out;
+    
+    &.visible {
+      transform: translateX(0);
+      width: 300px;
+      opacity: 1;
+    }
+  
+    overflow-y: auto;
+  }
+  
+  #notelix-wrapper {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+  }
+  
+  #notelix-body-wrapper {
+    flex-grow: 1;
+    transition: margin-left 0.3s ease-in-out;
+  }
+  
+  // /* Optional: Adjust main content when sidebar is visible */
+  // #notelix-sidebar-container.visible + #notelix-body-wrapper {
+  //   margin-left: 300px;
+  // }
+  

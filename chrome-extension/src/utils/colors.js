@@ -69,6 +69,7 @@ const highlighterColors = [
   "#7ae400",
   "#02b5e1",
   "#812dff",
+  "#fdffb4",
 ];
 
 export { darkenColor, highlighterColors, pickBlackOrWhiteForeground };

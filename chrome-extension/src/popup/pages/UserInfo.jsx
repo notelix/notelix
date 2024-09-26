@@ -4,6 +4,7 @@ import { useHistory } from "react-router-dom";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
+import { changePasswordRequest } from "../../api/user";
 
 export const UserInfo = () => {
   const [notelixServer, setNotelixServer] = useState("");
@@ -21,8 +22,10 @@ export const UserInfo = () => {
     return <div />;
   }
 
-  const changePassword = () => {
-    history.push("/change-password");
+  const changePassword = async () => {
+    await changePasswordRequest();
+    alert("password reset link sent to your Email.")
+    // history.push("/change-password");
   };
 
   const showApp = () => {
@@ -46,14 +49,14 @@ export const UserInfo = () => {
 
   return (
     <div>
-      <div>Notelix Server: {notelixServer}</div>
+      {/* <div>Notelix Server: {notelixServer}</div> */}
       <div>
         Logged In as <b>{userInfo.name}</b>
       </div>
 
       <div style={{ marginTop: 6 }}>
         <a onClick={showApp}>App</a>
-        <a style={{ marginLeft: 20 }} onClick={changePassword}>
+        <a style={{ marginLeft: 20 }} onClick={async () => await changePassword()}>
           Change Password
         </a>
         <a style={{ marginLeft: 20 }} onClick={logout}>

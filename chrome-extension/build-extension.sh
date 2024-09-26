@@ -11,6 +11,7 @@ npm run build:content-script
 npm run build:background
 npm run build:popup
 npm run build:app
+npm run build:reset-password
 cp -r ./dist $DIR_NAME
 cp -r ./public $DIR_NAME
 cp extension-options* $DIR_NAME
