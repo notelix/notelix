@@ -6,7 +6,7 @@ import commentsSvg from "./icons/comments.svg";
 import { state } from "./state";
 import { addOrRemoveDarkReaderClass } from "./integration/dark-reader";
 import { highlighterColors } from "./utils/colors";
-import { doSaveAnnotation } from "./service";
+import { doSaveAnnotation, loadAllAnnotationsData } from "./service";
 import makeid from "./utils/makeid";
 import { getNormalizedUrl } from "./utils/getNormalizedUrl";
 import {
@@ -341,6 +341,7 @@ function toggleSidebar() {
 
     // Optionally, add the 'visible' class immediately to show the sidebar
     // Alternatively, delay it to allow for CSS transition
+    loadAllAnnotationsData();
     setTimeout(() => {
       newSidebar.classList.add("visible");
     }, 10); // Small delay to trigger the transition
