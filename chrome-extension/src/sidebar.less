@@ -6,8 +6,8 @@
     left: 0;
     width: 0px;
     height: 100vh;
-    background-color: #d9e9da;
-    color: black;
+    background-color: #0f0f0f;
+    color: #9198a1;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.5);
   
     
@@ -22,22 +22,80 @@
     }
   
     overflow-y: auto;
+}
+
+#notelix-wrapper {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+}
+
+#notelix-body-wrapper {
+  flex-grow: 1;
+  transition: margin-left 0.3s ease-in-out;
+}
+  
+#sidebar-dragger {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 10px; /* Width of the dragger */
+  height: 100%; /* Full height */
+  cursor: ew-resize; /* Change cursor to indicate draggable */
+  background-color: transparent; /* Make it transparent */
+}
+
+#sidebar-item-main {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 3px;
+  margin: 2px;
+}
+
+#sidebar-item-notes {
+  border-top: 2px solid #bacadf;
+  width: 100%;
+  &:hover {
+    cursor: pointer;
+    color: black;
+    transform: scale(1.05);
   }
-  
-  #notelix-wrapper {
-    display: flex;
-    flex-direction: row;
-    width: 100%;
-    height: 100%;
-  }
-  
-  #notelix-body-wrapper {
-    flex-grow: 1;
-    transition: margin-left 0.3s ease-in-out;
-  }
-  
-  // /* Optional: Adjust main content when sidebar is visible */
-  // #notelix-sidebar-container.visible + #notelix-body-wrapper {
-  //   margin-left: 300px;
-  // }
-  
+}
+
+#sidebar-item-notes p {
+  font-size: 0.75rem;
+  color: #9CA3AF;
+}
+
+#sidebar-item-delete {
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  align-self: center;
+}
+
+#sidebar-item-annotation {
+  padding: 10px;
+  flex: auto;
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  border-left-width: 3px;
+  border-left-style: solid;
+  &:hover {
+  border-left-width: 10px;
+}
+}
+
+#sidebar-root {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+#sidebar-root h5 {
+  margin: 20px;
+}
+

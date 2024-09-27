@@ -1,10 +1,10 @@
-* [X] fill sidebar with annotations (popupoverHighligh will have issues because highlight is loaded in sidebar, so popup pops up somewhere else!)
-
-* [ ] sidebar style change
 * [ ] reset password has issues
-* [ ] sidebar edge dragable
 * [ ] option to add custom color to highlight
-* [X] annotations will disapear on sidebar open!
+* [Y] (recheck after fixing sidebar content + style) annotations will disapear on sidebar open!
+* [Y] sidebar style change
+* [X] sidebar edge dragable
+
+* [X] fill sidebar with annotations (popupoverHighligh will have issues because highlight is loaded in sidebar, so popup pops up somewhere else!)
 * [X] change highlight style
 =================================================================
 

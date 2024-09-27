@@ -301,6 +301,7 @@ function toggleSidebar() {
     // Update sidebar icon
     const sideicon = document.getElementById("notelix-button-sidebar");
     sideicon.innerHTML = isVisible ? expand : collapse;
+    loadAllAnnotationsData();
 
   } else {
     // Create wrapper for existing content and sidebar
@@ -326,18 +327,12 @@ function toggleSidebar() {
     const newSidebar = document.createElement("div");
     newSidebar.id = "notelix-sidebar-container";
 
-
-    // Add a container for React
-    const sidebarContent = document.createElement("div");
-    sidebarContent.id = "sidebar-content";
-    newSidebar.appendChild(sidebarContent); // Append the content div to the sidebar
-
     // Append sidebar to wrapper
     wrapper.appendChild(newSidebar); 
     wrapper.appendChild(bodyWrapper);
     document.body.appendChild(wrapper);
     // Render the Sidebar component into the 'sidebar-content' div
-    ReactDOM.render(<Sidebar />, sidebarContent);
+    ReactDOM.render(<Sidebar />, newSidebar);
 
     // Optionally, add the 'visible' class immediately to show the sidebar
     // Alternatively, delay it to allow for CSS transition
