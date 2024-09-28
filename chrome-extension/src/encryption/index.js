@@ -52,14 +52,13 @@ export function decryptKey(encryptedCfg, password) {
   return JSON.parse(originalText).key;
 }
 
-export function encryptFields({ object, fields = [], iv = "" }) {
-  return new Promise(async (resolve) => {
+export function encryptFields({ key, object, fields = [], iv = "" }) {
+  return new Promise((resolve) => {
     if (window.NotelixEmbeddedConfig) {
       resolve(object);
       return;
     }
-    
-    const key = await getKey();
+
     if (!key) {
       resolve(object);
     } else {
@@ -79,9 +78,8 @@ export function encryptFields({ object, fields = [], iv = "" }) {
   });
 }
 
-export function decryptFields({ object, fields, iv }) {
-  return new Promise(async (resolve) => {
-    const key = await getKey();
+export function decryptFields({ key, object, fields, iv }) {
+  return new Promise(async(resolve) => {
     if (!key) {
       resolve(object);
     } else {

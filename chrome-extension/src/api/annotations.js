@@ -6,12 +6,17 @@ import supabase from "./supaClient";
 
 const saveAnnotation = async (annotation) => {
   return wrapRequestApiRequireLoggedIn( async () => {
+    const key = await getKey();
+    const parsedKey = key ? CryptoJS.enc.Hex.parse(key) : null;
+
 
     annotation = await encryptFields({
+      key: parsedKey,
       object: annotation,
       fields: ["url", "host", "title"],
     });
     annotation.data = await encryptFields({
+      key: parsedKey,
       object: annotation.data,
       fields: ["text", "textAfter", "textBefore", "notes"],
       iv: annotation.uid,
@@ -97,6 +102,9 @@ const queryAnnotationsByUrl = (url, { onDataReceivedCallback }) => {
 
 
 const getDecryptedUserAnnotations = async (user) => {
+  const parsedKey = await getKey();
+  const key = parsedKey ? CryptoJS.enc.Hex.parse(parsedKey) : null;
+
   const annotations = await supabase
   .from('Annotation')
   .select()
@@ -109,12 +117,14 @@ const getDecryptedUserAnnotations = async (user) => {
   return await Promise.all(
     annotations.data.map(async (item) => {
       item.data = await decryptFields({
+        key: key,
         object: item.data,
         fields: ["notes", "text", "textAfter", "textBefore"],
         iv: item.uid,
       });
 
       return decryptFields({
+        key: key,
         object: item,
         fields: ["url", "host", "title"],
       });
@@ -134,8 +144,11 @@ const search = (q) => {
     }
 
     if (user.client_side_encryption) {
+      // Fetch all annotations from storage
       
       const annotates = await getDecryptedUserAnnotations(user);
+      // Filter annotations based on the search query
+      // console.log(annotates);
       const filteredAnnotations = annotates.filter(annotation =>
         annotation.title && annotation.title.toLowerCase().includes(q.toLowerCase())
       );
