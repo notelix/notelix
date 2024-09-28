@@ -17,12 +17,12 @@ const signUp = async (data) => {
       }
     );
   }
-  const { user, serror } = await supabase.auth.signUp({
+  const signup = await supabase.auth.signUp({
     email: data.username,
     password: data.password,
   });
-  if (serror) throw error;
-  return user;
+  if (signup.error) { alert(signup.error.message); throw signup.error};
+  return signup.data;
 };
 
 const changePasswordRequest = async () => {
@@ -39,15 +39,21 @@ const changePasswordRequest = async () => {
 const changePassword = async (credentials) => {
   const value = await chrome.storage.sync.get(NotelixChromeStorageKey);
   const user = value[NotelixChromeStorageKey].notelixUser;
+  
+  const userUpdate = await supabase
+  .from('User')
+  .update({
+    client_side_encryption: credentials.newClientSideEncryptionParams
+  })
+  .eq('id', user.id)
+  .select();
+  if (userUpdate.error) {alert(userUpdate.error.message); throw userUpdate.error};
+
   const { data, error } = await supabase.auth.updateUser({
     password: credentials.newPassword,
   });
   if (error) {alert(error.message); throw error};
-  const userUpdate = await supabase
-  .from('User')
-  .update({client_side_encryption: credentials.newClientSideEncryptionParams})
-  .eq('id', user.id);
-  if (userUpdate.error) {alert(userUpdate.error.message); throw userUpdate.error};
+  
   return data;
 };
 
@@ -95,7 +101,8 @@ const login = async (credentials) => {
       .from('User')
       .insert(
         { name: credentials.username, client_side_encryption: clientSideEncryption } // Adjust fields as necessary
-      );
+      )
+      .select();
     delete storage[credentials.username];
     chrome.storage.sync.set({
       [NotelixChromeStorageKey]: storage
@@ -104,7 +111,7 @@ const login = async (credentials) => {
       alert(firstTimeInsert.error.message);
       throw firstTimeInsert.error;
     }
-    return firstTimeInsert.data;
+    return firstTimeInsert.data[0];
   }
   return data[0];
 };

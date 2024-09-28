@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import "../../sidebar.less";
 import { deleteAnnotation, findAnnotations } from "../../api/annotations";
 import SidebarItem from "./SidebarItem";
+import { NotelixChromeStorageKey } from "../../popup/consts";
+import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 
 export default class Sidebar extends React.Component {
   state = {
@@ -12,12 +14,19 @@ export default class Sidebar extends React.Component {
   async componentDidMount() {
     await this.fetchAnnotations();
     this.initDrag();
+    this.registerMessageListener(); // Register the message listener
   }
 
-  componentDidMount() {
-    this.fetchAnnotations();
-    this.initDrag();
-  };
+  registerMessageListener() {
+    chrome.runtime.onMessage.addListener(async(request) => {
+      if (request.command === COMMAND_REFRESH_ANNOTATIONS) {
+        this.setState({
+          annotations: [],
+        });
+        await this.fetchAnnotations();
+      }
+    });
+  }
 
   async fetchAnnotations() {
     const result = await findAnnotations({

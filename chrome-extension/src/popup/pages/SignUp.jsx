@@ -21,39 +21,39 @@ export const SignUp = () => {
 
     const server = await getServer();
     if (server === NotelixDefaultServer) {
-      if (
-        !confirm(
-          "You are using Notelix's public development server. While this server is free-to-use, it ** doesn't provide any guarantee regarding availability or data safety **. In fact, this database will be reset when there is major Notelix API change. (expected every year)."
-        )
-      ) {
-        return;
-      }
-      if (
-        !confirm(
-          "Only use this dev server when you are trying out Notelix. For production use, please refer to https://github.com/notelix/notelix and host your own server."
-        )
-      ) {
-        return;
-      }
+      // if (
+      //   !confirm(
+      //     "You are using Notelix's public development server. While this server is free-to-use, it ** doesn't provide any guarantee regarding availability or data safety **. In fact, this database will be reset when there is major Notelix API change. (expected every year)."
+      //   )
+      // ) {
+      //   return;
+      // }
+      // if (
+      //   !confirm(
+      //     "Only use this dev server when you are trying out Notelix. For production use, please refer to https://github.com/notelix/notelix and host your own server."
+      //   )
+      // ) {
+      //   return;
+      // }
     }
 
     let client_side_encryption = null;
     if (enableClientSideEncryption) {
-      if (
-        !confirm(
-          "client-side encryption is enabled, you must remember your password, or else nobody will be able to access your data!"
-        )
-      ) {
-        return;
-      }
+      // if (
+      //   !confirm(
+      //     "client-side encryption is enabled, you must remember your password, or else nobody will be able to access your data!"
+      //   )
+      // ) {
+      //   return;
+      // }
 
-      if (
-        !confirm(
-          "With client-side encryption enabled, if you wish to use advanced features such as searching, you will need to run a local agent! (using docker-compose)"
-        )
-      ) {
-        return;
-      }
+      // if (
+      //   !confirm(
+      //     "With client-side encryption enabled, if you wish to use advanced features such as searching, you will need to run a local agent! (using docker-compose)"
+      //   )
+      // ) {
+      //   return;
+      // }
 
       client_side_encryption = makeClientSideEncryptionParams(password);
     }
@@ -73,8 +73,8 @@ export const SignUp = () => {
     <div>
       <h1>Sign Up</h1>
       <input
-        type="text"
-        placeholder={"username"}
+        type="email"
+        placeholder={"Email"}
         value={username}
         onChange={(e) => setUsername(e.target.value)}
       />

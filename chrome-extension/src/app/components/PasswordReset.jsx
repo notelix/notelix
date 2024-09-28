@@ -47,18 +47,19 @@ export default class PasswordReset extends React.Component {
         <button
           className="submit-button"
           disabled={!this.state.newPassword || !this.state.repeatNewPassword}
-          onClick={() => {
+          onClick={async () => {
             if (this.state.newPassword !== this.state.repeatNewPassword) {
               alert("Passwords don't match");
               return;
             }
 
-            getKey().then(async (key) => {
+            getKey().then((key) => {
               const newClientSideEncryptionParams = key
                 ? makeClientSideEncryptionParams(this.state.newPassword, { key })
                 : null;
+  
               changePassword({
-                newClientSideEncryptionParams,
+                newClientSideEncryptionParams: newClientSideEncryptionParams,
                 newPassword: this.state.newPassword,
               }).then(() => {
                 alert("Password changed successfully");
@@ -67,7 +68,7 @@ export default class PasswordReset extends React.Component {
                   delete value[NotelixChromeStorageKey].notelixPassword;
                   chrome.storage.sync.set(value, () => {
                     sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-                    // history.push("/login");
+                    history.push("/login");
                   });
                 });
               });

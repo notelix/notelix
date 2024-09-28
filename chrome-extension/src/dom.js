@@ -278,14 +278,6 @@ export function updatePopoverPosOnHighlightSelect(rect) {
   if (state.popoverPos.x > document.documentElement.clientWidth - 76) {
     state.popoverPos.x = document.documentElement.clientWidth - 76;
   }
-  const lg = {
-    state: state,
-    x: state.popoverPos.x,
-    y: state.popoverPos.y,
-    xOffset: xOffset,
-    rect: rect,
-  }
-  console.log(lg);
 }
 
 function toggleSidebar() {

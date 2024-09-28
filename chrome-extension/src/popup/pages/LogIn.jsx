@@ -5,6 +5,7 @@ import { login } from "../../api/user";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
+import { getKey } from "../../encryption";
 
 export const LogIn = () => {
   const history = useHistory();
@@ -60,8 +61,8 @@ export const LogIn = () => {
         </a>
       </div> */}
       <input
-        type="text"
-        placeholder={"username"}
+        type="email"
+        placeholder={"Email"}
         value={username}
         onChange={(e) => setUsername(e.target.value)}
       />

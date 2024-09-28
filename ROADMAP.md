@@ -1,4 +1,4 @@
-* [ ] reset password has issues
+* [X] reset password has issues
 * [ ] option to add custom color to highlight
 * [Y] (recheck after fixing sidebar content + style) annotations will disapear on sidebar open!
 * [Y] sidebar style change
