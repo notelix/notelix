@@ -6,7 +6,6 @@ import { marker } from "./marker";
 import { loadAllAnnotationsData } from "./service";
 import { registerHotkeys } from "./hotkeys";
 import { reactToSelection } from "./selection";
-import { doTrySetAgentSyncParamsLoop } from "./api/agent";
 import { registerChromeRuntimeMessageListeners } from "./chrome";
 
 setTimeout(() => {
@@ -34,7 +33,6 @@ setTimeout(() => {
   marker.addEventListeners();
   registerHotkeys();
   reactToSelection();
-  doTrySetAgentSyncParamsLoop();
 
   window.NotelixAPI = {
     loadAllAnnotationsData,
