@@ -1,11 +1,6 @@
 import { useHistory } from "react-router-dom";
 import React, { useState } from "react";
-import { NotelixChromeStorageKey } from "../consts";
-import { getKey } from "../../encryption";
-import { makeClientSideEncryptionParams } from "../../encryption/utils";
-import { changePassword, changePasswordRequest } from "../../api/user";
-import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
-import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
+import { changePasswordRequest } from "../../api/user";
 
 export const ChangePassword = () => {
   const history = useHistory();
@@ -42,35 +37,8 @@ export const ChangePassword = () => {
       />
 
       <button
-        // disabled={!oldPassword || !newPassword || !repeatNewPassword}
         onClick={async () => {
-          // if (newPassword !== repeatNewPassword) {
-          //   alert("passwords don't match");
-          //   return;
-          // }
           await changePasswordRequest();
-
-          // getKey().then(async (key) => {
-          //   const newClientSideEncryptionParams = key
-          //     ? makeClientSideEncryptionParams(newPassword, { key })
-          //     : null;
-          //   await changePasswordRequest();
-          //   // changePassword({
-          //   //   newClientSideEncryptionParams,
-          //   //   oldPassword,
-          //   //   newPassword,
-          //   // }).then(() => {
-          //   //   alert("Password changed successfully");
-          //   //   chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-          //   //     delete value[NotelixChromeStorageKey].notelixUser;
-          //   //     delete value[NotelixChromeStorageKey].notelixPassword;
-          //   //     chrome.storage.sync.set(value, () => {
-          //   //       sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-          //   //       history.push("/login");
-          //   //     });
-          //   //   });
-          //   // });
-          // });
         }}
       >
         Submit

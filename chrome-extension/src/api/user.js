@@ -1,8 +1,3 @@
-import {
-  getEndpoint,
-  wrapRequestApi,
-  wrapRequestApiRequireLoggedIn,
-} from "./common";
 import { NotelixChromeStorageKey, NotelixChromeStorageTokenKey } from "../popup/consts";
 import supabase from './supaClient';
 

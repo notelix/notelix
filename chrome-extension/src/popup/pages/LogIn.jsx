@@ -5,7 +5,6 @@ import { login } from "../../api/user";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
-import { getKey } from "../../encryption";
 
 export const LogIn = () => {
   const history = useHistory();
@@ -38,28 +37,6 @@ export const LogIn = () => {
   return (
     <div>
       <h1>Login</h1>
-
-      {/* <div>
-        {notelixServer}{" "}
-        <a
-          onClick={(e) => {
-            e.preventDefault();
-
-            if (!confirm("Do you want to change to another Notelix server?")) {
-              return;
-            }
-            chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-              delete value[NotelixChromeStorageKey].notelixServer;
-              chrome.storage.sync.set(value, () => {
-                history.push("/set-server");
-              });
-            });
-          }}
-          style={{ float: "right", marginBottom: 8 }}
-        >
-          Change Server
-        </a>
-      </div> */}
       <input
         type="email"
         placeholder={"Email"}

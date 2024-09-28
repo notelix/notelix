@@ -1,8 +1,4 @@
 import { createClient } from '@supabase/supabase-js'
-// require('dotenv').config(); // Load environment variables
-
-// const supabaseUrl = process.env.SUPABASE_URL;
-// const supabaseKey = process.env.SUPABASE_KEY;
 const supabaseUrl = 'https://zcbvihahgaqwivvnxufr.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjYnZpaGFoZ2Fxd2l2dm54dWZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjY1MDA0NTksImV4cCI6MjA0MjA3NjQ1OX0.FWjL--CiHBBH_m8HNeuoUlDPputhKeFG9eS4MUwa7IE';
 

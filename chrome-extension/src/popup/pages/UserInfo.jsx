@@ -25,7 +25,6 @@ export const UserInfo = () => {
   const changePassword = async () => {
     await changePasswordRequest();
     alert("password reset link sent to your Email.")
-    // history.push("/change-password");
   };
 
   const showApp = () => {
@@ -49,7 +48,6 @@ export const UserInfo = () => {
 
   return (
     <div>
-      {/* <div>Notelix Server: {notelixServer}</div> */}
       <div>
         Logged In as <b>{userInfo.name}</b>
       </div>

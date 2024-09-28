@@ -70,44 +70,5 @@ export default class SidebarItem extends React.Component {
             </div>
         </div>
         );
-        // <div className="sidebar-annotate-item">
-        //   <div
-        //     className="hit"
-        //     onClick={handleClick} // Use the handleClick function
-        //   >
-        //     {/* {this.props.data.data.textBefore} */}
-        //     <span
-        //       className="text"
-        //       style={{ textDecorationColor: this.props.data.data.color }}
-        //     >
-        //       {this.props.data.data.text}
-        //     </span>
-        //     {/* {this.props.data.data.textAfter} */}
-
-        //     {!!this.props.data.data.notes && (
-        //       <div className="notes-wrapper">
-        //         <div>{this.props.data.data.notes}</div>
-        //       </div>
-        //     )}
-        //     <div className="url">
-        //       <span
-        //         className="color-dot"
-        //         style={{ background: this.props.data.data.color }}
-        //       />
-        //       {/* {this.props.data.url} */}
-        //       <a
-        //         style={{ float: "right" }}
-        //         onClick={(e) => {
-        //           e.stopPropagation();
-        //           e.preventDefault();
-        //           this.props.onDeleteAnnotation();
-        //         }}
-        //       >
-        //         Delete
-        //       </a>
-        //     </div>
-        //   </div>
-        // </div>
-      // );
     }
   }
