@@ -74,7 +74,14 @@ curl --fail --silent --output /dev/null \
   --header "Authorization: Bearer ${MEILISEARCH_API_KEY}" \
   "${MEILISEARCH_HOST}/indexes"
 
-node ./tools/ensure-pg-db.js
+integration_database_creator_pids=()
+for _attempt in 1 2 3 4 5; do
+  node ./tools/ensure-pg-db.js &
+  integration_database_creator_pids+=("$!")
+done
+for integration_database_creator_pid in "${integration_database_creator_pids[@]}"; do
+  wait "${integration_database_creator_pid}"
+done
 npm run build
 npm run migration:run:compiled &
 integration_migration_pid_one=$!

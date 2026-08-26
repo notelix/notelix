@@ -1,85 +1,130 @@
 const ormconfig = require('../ormconfig');
 const { Client } = require('pg');
-const net = require('net');
 
-// https://github.com/sindresorhus/is-port-reachable/blob/main/license
-async function isPortReachable(port, { host, timeout = 1000 } = {}) {
-  if (typeof host !== 'string') {
-    throw new TypeError('Specify a `host`');
-  }
-
-  const promise = new Promise((resolve, reject) => {
-    const socket = new net.Socket();
-
-    const onError = () => {
-      socket.destroy();
-      reject();
-    };
-
-    socket.setTimeout(timeout);
-    socket.once('error', onError);
-    socket.once('timeout', onError);
-
-    socket.connect(port, host, () => {
-      socket.end();
-      resolve();
-    });
-  });
-
-  try {
-    await promise;
-    return true;
-  } catch {
-    return false;
-  }
-}
+const retryableConnectionCodes = new Set([
+  '57P03',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+]);
 
 function sleep(delay) {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(), delay);
-  });
+  return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
-(async () => {
+function readBoolean(name, fallback) {
+  const value = process.env[name];
+  if (value === undefined || value === '') {
+    return fallback;
+  }
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+  throw new Error(`${name} must be true or false`);
+}
+
+function quoteIdentifier(identifier) {
+  return `"${identifier.replace(/"/g, '""')}"`;
+}
+
+function clientOptions(database) {
+  return {
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  };
+}
+
+async function connectToDatabase(database, allowMissing = false) {
   while (true) {
-    console.log('checking postgres port reachable..');
-    const result = await isPortReachable(ormconfig.port, {
-      host: ormconfig.host,
-      timeout: 1000,
-    });
-    if (result) {
-      console.log('postgres port reachable');
-      break;
-    } else {
-      console.log('postgres port not reachable yet..');
+    const client = new Client(clientOptions(database));
+    try {
+      await client.connect();
+      return client;
+    } catch (error) {
+      await client.end().catch(() => undefined);
+      if (allowMissing && error.code === '3D000') {
+        return null;
+      }
+      if (!retryableConnectionCodes.has(error.code)) {
+        throw error;
+      }
+      console.log(
+        `waiting for PostgreSQL at ${ormconfig.host}:${ormconfig.port}`,
+      );
       await sleep(1000);
     }
   }
+}
 
-  await sleep(3000);
-  const client = new Client({
-    user: ormconfig.username,
-    host: ormconfig.host,
-    password: ormconfig.password,
-    port: ormconfig.port,
-  });
-  await client.connect();
-
-  const existingDatabases = await client.query(
-    'SELECT datname FROM pg_database WHERE datistemplate = false;',
-  );
-
-  if (existingDatabases.rows.some((x) => x.datname === ormconfig.database)) {
+async function ensureDatabase() {
+  const autoCreate = readBoolean('DB_AUTO_CREATE', true);
+  const targetClient = await connectToDatabase(ormconfig.database, true);
+  if (targetClient) {
     console.log(`${ormconfig.database} database already exists`);
-  } else {
-    const escapedDatabaseName = ormconfig.database.replace(/"/g, '""');
-    await client.query(
-      `CREATE DATABASE "${escapedDatabaseName}"
-     WITH OWNER "postgres" 
-     ENCODING 'UTF8' 
-     LC_COLLATE = 'en_US.utf8' 
-     LC_CTYPE = 'en_US.utf8';`,
+    await targetClient.end();
+    return;
+  }
+
+  if (!autoCreate) {
+    throw new Error(
+      `${ormconfig.database} database does not exist and DB_AUTO_CREATE is disabled`,
     );
   }
-  await client.end();
-})();
+
+  const adminDatabase = process.env.DB_ADMIN_DATABASE || 'postgres';
+  const adminClient = await connectToDatabase(adminDatabase);
+  let lockAcquired = false;
+  try {
+    const lockName = `notelix-create-database:${ormconfig.database}`;
+    await adminClient.query(
+      'SELECT pg_advisory_lock(hashtextextended($1, 0))',
+      [lockName],
+    );
+    lockAcquired = true;
+
+    const existing = await adminClient.query(
+      'SELECT 1 FROM pg_database WHERE datname = $1',
+      [ormconfig.database],
+    );
+    if (existing.rowCount > 0) {
+      console.log(`${ormconfig.database} database already exists`);
+      return;
+    }
+
+    const databaseIdentifier = quoteIdentifier(ormconfig.database);
+    const ownerIdentifier = quoteIdentifier(ormconfig.username);
+    await adminClient.query(
+      `CREATE DATABASE ${databaseIdentifier} WITH OWNER ${ownerIdentifier}`,
+    );
+    console.log(`${ormconfig.database} database created`);
+  } finally {
+    try {
+      if (lockAcquired) {
+        await adminClient.query(
+          'SELECT pg_advisory_unlock(hashtextextended($1, 0))',
+          [`notelix-create-database:${ormconfig.database}`],
+        );
+      }
+    } finally {
+      await adminClient.end();
+    }
+  }
+}
+
+if (require.main === module) {
+  ensureDatabase().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+module.exports = { ensureDatabase, quoteIdentifier, readBoolean };

@@ -119,6 +119,13 @@ The backend also supports host-side development against containers or other
 service instances through `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_DATABASE`,
 `MEILISEARCH_HOST`, `MEILISEARCH_ANNOTATIONS_INDEX`, and `PORT`.
 
+At startup, the backend first connects directly to `DB_DATABASE`. If it does not
+exist and `DB_AUTO_CREATE` is `true`, creation is serialized across replicas and
+uses `DB_ADMIN_DATABASE` (default `postgres`) as the maintenance database. The
+new database is owned by `DB_USERNAME`. For least-privilege production setups,
+provision the database separately, grant the application role access only to
+that database, and set `DB_AUTO_CREATE=false`.
+
 Requests are rate limited per client IP. `RATE_LIMIT_MAX` and
 `RATE_LIMIT_TTL_MS` configure the general request budget. Login, signup, and
 password changes have tighter fixed limits. When the backend is behind a
