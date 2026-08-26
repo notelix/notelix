@@ -4,6 +4,12 @@ import {
   NotelixEncryptionKeyStorageKey,
 } from "./popup/consts";
 
+const authenticationStateVersion = 1;
+
+function normalizeServer(server) {
+  return (server || "").trim().replace(/\/+$/, "");
+}
+
 function storageGet(area, key) {
   return new Promise((resolve, reject) => {
     area.get(key, (value) => {
@@ -53,13 +59,30 @@ function setSyncedConfig(config) {
   });
 }
 
+async function clearLocalCredentials() {
+  await Promise.all([
+    storageRemove(chrome.storage.local, NotelixAuthStorageKey),
+    storageRemove(chrome.storage.local, NotelixEncryptionKeyStorageKey),
+  ]);
+}
+
 export async function getUser() {
-  const localUser = await storageGet(
+  const localAuthenticationState = await storageGet(
     chrome.storage.local,
     NotelixAuthStorageKey
   );
-  if (localUser) {
-    return localUser;
+  if (localAuthenticationState) {
+    const currentServer = normalizeServer(await getServer());
+    if (
+      localAuthenticationState.version === authenticationStateVersion &&
+      localAuthenticationState.server === currentServer &&
+      localAuthenticationState.user
+    ) {
+      return localAuthenticationState.user;
+    }
+
+    await clearLocalCredentials();
+    return null;
   }
 
   const syncedConfig = await getSyncedConfig();
@@ -78,7 +101,15 @@ export async function getUser() {
 }
 
 export function setUser(user) {
-  return storageSet(chrome.storage.local, { [NotelixAuthStorageKey]: user });
+  return getServer().then((server) =>
+    storageSet(chrome.storage.local, {
+      [NotelixAuthStorageKey]: {
+        version: authenticationStateVersion,
+        server: normalizeServer(server),
+        user,
+      },
+    })
+  );
 }
 
 export async function clearUser() {
@@ -90,18 +121,28 @@ export async function clearUser() {
 }
 
 export async function getServer() {
-  return (await getSyncedConfig()).notelixServer || null;
+  const server = (await getSyncedConfig()).notelixServer;
+  return server ? normalizeServer(server) : null;
 }
 
 export async function setServer(server) {
   const syncedConfig = await getSyncedConfig();
-  syncedConfig.notelixServer = server;
+  const normalizedServer = normalizeServer(server);
+  if (normalizeServer(syncedConfig.notelixServer) !== normalizedServer) {
+    await clearLocalCredentials();
+    delete syncedConfig.notelixUser;
+    delete syncedConfig.notelixPassword;
+  }
+  syncedConfig.notelixServer = normalizedServer;
   await setSyncedConfig(syncedConfig);
 }
 
 export async function clearServer() {
   const syncedConfig = await getSyncedConfig();
+  await clearLocalCredentials();
   delete syncedConfig.notelixServer;
+  delete syncedConfig.notelixUser;
+  delete syncedConfig.notelixPassword;
   await setSyncedConfig(syncedConfig);
 }
 

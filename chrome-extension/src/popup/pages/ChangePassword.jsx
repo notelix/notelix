@@ -10,6 +10,7 @@ import { changePassword } from "../../api/user";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { clearUser } from "../../storage";
+import { resetAgentData } from "../../api/agentControl";
 
 export const ChangePassword = () => {
   const navigate = useNavigate();
@@ -66,6 +67,7 @@ export const ChangePassword = () => {
               await clearEncryptionKey();
               await clearLegacyPassword();
               await clearUser();
+              await resetAgentData().catch(() => undefined);
               sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
               navigate("/login");
             });

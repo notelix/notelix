@@ -14,6 +14,7 @@ import {
   getServer as getStoredServer,
   getUser,
 } from "../storage";
+import { resetAgentData } from "./agentControl";
 
 export async function getEndpoint(
   path,
@@ -48,7 +49,10 @@ export const getHeaders = async (requireLoggedIn = false) => {
   const user = await getUser();
   if (user) {
     headers.Authorization = `jwt ${user.jwt}`;
-  } else if (requireLoggedIn) {
+  } else {
+    await resetAgentData().catch(() => undefined);
+  }
+  if (!user && requireLoggedIn) {
     iziToast.warning({
       message: `notelix: Please login first, by clicking on the Notelix extension in the top-right corner of the Chrome window`,
       position: "topRight",
@@ -82,6 +86,7 @@ export function onRequestError(err) {
         await clearEncryptionKey();
         await clearLegacyPassword();
         await clearUser();
+        await resetAgentData().catch(() => undefined);
         sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
       } else {
         iziToast.error({

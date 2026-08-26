@@ -45,7 +45,10 @@ export const LogIn = () => {
             if (!confirm("Do you want to change to another Notelix server?")) {
               return;
             }
-            clearServer().then(() => navigate("/set-server"));
+            clearServer().then(async () => {
+              await trySetAgentSyncParams();
+              navigate("/set-server");
+            });
           }}
           style={{ float: "right", marginBottom: 8 }}
         >

@@ -177,12 +177,75 @@ async function main() {
         sync: await read(chrome.storage.sync),
       };
     });
-    assert.equal(authenticatedStorage.local["notelix-auth"].jwt, "smoke-jwt");
+    assert.equal(
+      authenticatedStorage.local["notelix-auth"].user.jwt,
+      "smoke-jwt",
+    );
+    assert.equal(
+      authenticatedStorage.local["notelix-auth"].server,
+      baseUrl,
+    );
     assert.equal(authenticatedStorage.sync.notelix.notelixUser, undefined);
     assert.equal(authenticatedStorage.sync.notelix.notelixPassword, undefined);
     assert.equal(
       JSON.stringify(authenticatedStorage).includes("smoke-password"),
       false,
+    );
+
+    await popup.evaluate(
+      () =>
+        new Promise((resolve) => {
+          chrome.storage.local.set(
+            { "notelix-encryption-key": "smoke-encryption-key" },
+            resolve,
+          );
+        }),
+    );
+    await popup.goto(
+      `chrome-extension://${extensionId}/extension-options.html#/login`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await popup.waitForFunction(
+      () => document.querySelector("h1")?.textContent === "Login",
+    );
+    const serverChangeConfirmed = new Promise((resolve) => {
+      popup.once("dialog", async (dialog) => {
+        await dialog.accept();
+        resolve();
+      });
+    });
+    await popup.evaluate(() =>
+      [...document.querySelectorAll("a")]
+        .find((link) => link.textContent === "Change Server")
+        .click(),
+    );
+    await serverChangeConfirmed;
+    await popup.waitForFunction(
+      () => document.querySelector("h1")?.textContent === "Setup",
+    );
+    const serverChangeStorage = await popup.evaluate(async () => {
+      const read = (area) =>
+        new Promise((resolve) => area.get(null, (value) => resolve(value)));
+      return {
+        local: await read(chrome.storage.local),
+        sync: await read(chrome.storage.sync),
+      };
+    });
+    assert.equal(serverChangeStorage.local["notelix-auth"], undefined);
+    assert.equal(
+      serverChangeStorage.local["notelix-encryption-key"],
+      undefined,
+    );
+    assert.equal(serverChangeStorage.sync.notelix.notelixServer, undefined);
+    await popup.evaluate(
+      (serverUrl) =>
+        new Promise((resolve) => {
+          chrome.storage.sync.set(
+            { notelix: { notelixServer: serverUrl } },
+            resolve,
+          );
+        }),
+      baseUrl,
     );
 
     const responses = await popup.evaluate(async (baseUrl) => {

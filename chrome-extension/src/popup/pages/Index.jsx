@@ -2,7 +2,12 @@ import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { NotelixDefaultServer } from "../consts";
 import { clearUser, getServer, getUser, setServer } from "../../storage";
-import { getKey } from "../../encryption";
+import {
+  clearEncryptionKey,
+  clearLegacyPassword,
+  getKey,
+} from "../../encryption";
+import { resetAgentData } from "../../api/agentControl";
 
 export const Index = () => {
   const navigate = useNavigate();
@@ -22,7 +27,10 @@ export const Index = () => {
           await getKey();
           navigate("/user-info");
         } catch {
+          await clearEncryptionKey();
+          await clearLegacyPassword();
           await clearUser();
+          await resetAgentData().catch(() => undefined);
           navigate("/login");
         }
       }

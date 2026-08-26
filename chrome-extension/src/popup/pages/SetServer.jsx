@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { NotelixDefaultServer } from "../consts";
 import { getMetaVersion } from "../../api/meta";
 import { setServer as saveServer } from "../../storage";
+import { trySetAgentSyncParams } from "../../api/agent";
 
 export const SetServer = () => {
   const navigate = useNavigate();
@@ -31,7 +32,10 @@ export const SetServer = () => {
                 throw "invalid server response";
               }
 
-              saveServer(_server).then(() => navigate("/login"));
+              saveServer(_server).then(async () => {
+                await trySetAgentSyncParams();
+                navigate("/login");
+              });
             })
             .catch(() => {
               alert("Failed to connect to server");
