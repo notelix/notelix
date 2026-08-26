@@ -1,5 +1,6 @@
 const ormconfig = require('../ormconfig');
 const { Client } = require('pg');
+const { readBoundedIntegerEnvironment } = require('../runtime-config');
 
 const retryableConnectionCodes = new Set([
   '57P03',
@@ -44,8 +45,25 @@ function clientOptions(database) {
 }
 
 async function connectToDatabase(database, allowMissing = false) {
+  const connectTimeoutMs = readBoundedIntegerEnvironment(
+    'DB_CONNECT_TIMEOUT_MS',
+    120000,
+    1000,
+    3600000,
+  );
+  const retryIntervalMs = readBoundedIntegerEnvironment(
+    'DB_CONNECT_RETRY_INTERVAL_MS',
+    1000,
+    100,
+    30000,
+  );
+  const deadline = Date.now() + connectTimeoutMs;
   while (true) {
-    const client = new Client(clientOptions(database));
+    const remainingMs = Math.max(1, deadline - Date.now());
+    const client = new Client({
+      ...clientOptions(database),
+      connectionTimeoutMillis: Math.min(5000, remainingMs),
+    });
     try {
       await client.connect();
       return client;
@@ -57,10 +75,17 @@ async function connectToDatabase(database, allowMissing = false) {
       if (!retryableConnectionCodes.has(error.code)) {
         throw error;
       }
+      const retryDelayMs = Math.min(retryIntervalMs, deadline - Date.now());
+      if (retryDelayMs <= 0) {
+        throw new Error(
+          `PostgreSQL at ${ormconfig.host}:${ormconfig.port} was unavailable after ${connectTimeoutMs}ms`,
+          { cause: error },
+        );
+      }
       console.log(
         `waiting for PostgreSQL at ${ormconfig.host}:${ormconfig.port}`,
       );
-      await sleep(1000);
+      await sleep(retryDelayMs);
     }
   }
 }

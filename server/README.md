@@ -157,6 +157,12 @@ uses `DB_ADMIN_DATABASE` (default `postgres`) as the maintenance database. The
 new database is owned by `DB_USERNAME`. For least-privilege production setups,
 provision the database separately, grant the application role access only to
 that database, and set `DB_AUTO_CREATE=false`.
+Database bootstrap retries transient connection failures for up to two minutes
+by default, with individual connection attempts bounded to five seconds.
+`DB_CONNECT_TIMEOUT_MS` accepts 1000 to 3600000 milliseconds and
+`DB_CONNECT_RETRY_INTERVAL_MS` accepts 100 to 30000 milliseconds. Exhausting
+the deadline exits the process so the container restart policy can retry and
+operators receive a clear failure instead of an indefinitely hung startup.
 
 Requests are rate limited per client IP. `RATE_LIMIT_MAX` and
 `RATE_LIMIT_TTL_MS` configure the general request budget. Login, signup, and
