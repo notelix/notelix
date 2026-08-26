@@ -14,13 +14,15 @@ services:
       retries: 30
 
   meilisearch:
-    image: getmeili/meilisearch:v0.25.2
+    image: getmeili/meilisearch:v1.51.0
     environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: notelix-integration-meili-master-key
       MEILI_NO_ANALYTICS: 'true'
     ports:
       - '127.0.0.1:${NOTELIX_TEST_MEILI_PORT:-18577}:7700'
     tmpfs:
-      - /data.ms
+      - /meili_data
     healthcheck:
       test:
         [

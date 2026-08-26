@@ -1,10 +1,18 @@
 ## server
 
-# `.env` file
+# environment files
 
+Generate separate database and Meilisearch secrets for production:
+
+```bash
+cp .env.prod.example .env.prod
+sed -i "s/replace-with-a-random-secret/$(openssl rand -hex 32)/" .env.prod
+sed -i "s/replace-with-another-random-secret/$(openssl rand -hex 32)/" .env.prod
 ```
-DB_PASSWORD=123456
-```
+
+Use `.env.agent.example` and `.env.dev.example` the same way for the agent and
+development stacks. Do not reuse secrets between environments or commit the
+generated `.env.*` files.
 
 # docker
 
@@ -35,10 +43,29 @@ NOTELIX_AGENT_IMAGE=ghcr.io/notelix/notelix:agent docker-compose -f docker-compo
 docker build . -f ./Dockerfile.prod -t notelix:prod
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod up -d
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod down
-docker volume rm notelix-prod_postgres-data
-docker volume rm notelix-prod_meili
-docker volume rm notelix-prod_data
 ```
+
+The production and agent stacks require `MEILI_MASTER_KEY` and run
+Meilisearch in authenticated production mode. The backend and search service
+use this value for authenticated requests over their Docker network;
+Meilisearch is not published to the host in the production stack.
+
+## upgrading the search service from Meilisearch 0.x
+
+Meilisearch data files are not compatible across these versions. Notelix uses
+Postgres as the source of truth and treats Meilisearch as a rebuildable search
+index. The current compose files therefore use a new `meili-v1` volume and
+leave the old `meili` volume untouched for recovery.
+
+After the first start on Meilisearch 1.x, rebuild the index:
+
+```bash
+docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod exec backend npm run meili:reindex
+```
+
+Verify searches before removing any old Meilisearch volume. For users with
+client-side encryption, restart the local agent and allow it to synchronize;
+the server cannot rebuild their encrypted search documents.
 
 # rebuild Meilisearch index
 
@@ -64,9 +91,6 @@ docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agen
 docker build . -f ./Dockerfile.dev -t notelix:dev
 docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev up -d
 docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev down
-docker volume rm notelix-dev_postgres-data
-docker volume rm notelix-dev_meili
-docker volume rm notelix-dev_data
 ```
 
 # local integration tests
@@ -90,9 +114,6 @@ service instances through `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_DATABASE`,
 docker build . -f ./Dockerfile.agent -t notelix:agent
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent up -d
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent down
-docker volume rm notelix-agent_postgres-data
-docker volume rm notelix-agent_meili
-docker volume rm notelix-agent_data
 ```
 
 # agent: sync from server
