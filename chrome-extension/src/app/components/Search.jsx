@@ -6,13 +6,22 @@ import {
   search,
 } from "../../api/annotations";
 import "./Search.less";
+import { SafeHighlight } from "./SafeHighlight";
 
 export default class Search extends React.Component {
   state = { q: "", data: null };
 
-  debouncedSearch = debounce(() => {
-    search(this.state.q).then((resp) => this.setState({ data: resp.data }));
+  debouncedSearch = debounce((query) => {
+    search(query).then((resp) => {
+      if (this.state.q === query) {
+        this.setState({ data: resp.data });
+      }
+    });
   }, 500);
+
+  componentWillUnmount() {
+    this.debouncedSearch.cancel();
+  }
 
   onSearchResultClick = (hit) => {
     window.open(`${hit.url}#notelix:scroll:annotation_id:${hit.id}`);
@@ -30,8 +39,9 @@ export default class Search extends React.Component {
           type="text"
           value={this.state.q}
           onChange={(e) => {
-            this.setState({ q: e.target.value });
-            this.debouncedSearch();
+            const q = e.target.value;
+            this.setState({ q });
+            this.debouncedSearch(q);
           }}
         />
 
@@ -44,6 +54,7 @@ export default class Search extends React.Component {
               {this.state.data.results.hits.map((hit) => {
                 return (
                   <div
+                    key={hit.id}
                     className="hit"
                     onClick={() => this.onSearchResultClick(hit)}
                   >
@@ -51,18 +62,15 @@ export default class Search extends React.Component {
                     <div
                       className="text"
                       style={{ textDecorationColor: hit.color }}
-                      dangerouslySetInnerHTML={{
-                        __html: hit._formatted.text,
-                      }}
-                    />
+                    >
+                      <SafeHighlight value={hit._formatted.text} />
+                    </div>
                     {hit.textAfter}
                     {!!hit.notes && (
                       <div className="notes-wrapper">
-                        <div
-                          dangerouslySetInnerHTML={{
-                            __html: hit._formatted.notes,
-                          }}
-                        />
+                        <div>
+                          <SafeHighlight value={hit._formatted.notes} />
+                        </div>
                       </div>
                     )}
                     <div className="url">
@@ -70,12 +78,9 @@ export default class Search extends React.Component {
                         className="color-dot"
                         style={{ background: hit.color }}
                       />
-                      <span
-                        className="title"
-                        dangerouslySetInnerHTML={{
-                          __html: hit._formatted.title,
-                        }}
-                      />
+                      <span className="title">
+                        <SafeHighlight value={hit._formatted.title} />
+                      </span>
                       {hit.url}
                     </div>
                     <a

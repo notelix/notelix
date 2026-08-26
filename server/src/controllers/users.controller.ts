@@ -1,16 +1,17 @@
 import {
+  Body,
   ConflictException,
   Controller,
   ForbiddenException,
   Get,
   Post,
-  Req,
-  Request,
 } from '@nestjs/common';
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { User } from '../models/user.entity';
 import * as bcrypt from 'bcrypt';
 import JwtService from '../services/jwt';
+import { ChangePasswordDto, LoginDto, SignUpDto } from '../dto/users.dto';
+import { Throttle } from '@nestjs/throttler';
 
 function userResponse(user: User) {
   return {
@@ -20,6 +21,15 @@ function userResponse(user: User) {
     created_at: user.created_at,
     updated_at: user.updated_at,
   };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'driverError' in error &&
+    (error as { driverError?: { code?: string } }).driverError?.code === '23505'
+  );
 }
 
 @Controller('users')
@@ -36,36 +46,43 @@ export class UsersController {
   }
 
   @Post('/signup')
-  async SignUp(@Req() request: Request): Promise<any> {
-    const username = request.body['username'];
-    const password = await bcrypt.hash(request.body['password'], 10);
-    const enableClientSideEncryption =
-      request.body['enableClientSideEncryption'];
+  @Throttle({ default: { limit: 5, ttl: 10 * 60 * 1000 } })
+  async SignUp(@Body() request: SignUpDto): Promise<any> {
+    const username = request.username.trim();
+    const enableClientSideEncryption = request.enableClientSideEncryption;
 
-    const existingUser = await User.findOne({ name: username });
+    const existingUser = await User.findOne({ where: { name: username } });
     if (existingUser) {
       throw new ConflictException(`username ${username} already taken`);
     }
 
     const user = new User();
     user.name = username;
-    user.password = password;
+    user.password = await bcrypt.hash(request.password, 10);
     if (enableClientSideEncryption) {
-      user.client_side_encryption = request.body['client_side_encryption'];
+      user.client_side_encryption = request.client_side_encryption;
     } else {
       user.client_side_encryption = '';
     }
-    await user.save();
+    try {
+      await user.save();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException(`username ${username} already taken`);
+      }
+      throw error;
+    }
 
     return {};
   }
 
   @Post('/login')
-  async Login(@Req() request: Request): Promise<any> {
-    const username = request.body['username'];
-    const password = request.body['password'];
+  @Throttle({ default: { limit: 10, ttl: 60 * 1000 } })
+  async Login(@Body() request: LoginDto): Promise<any> {
+    const username = request.username.trim();
+    const password = request.password;
 
-    const user = await User.findOne({ name: username });
+    const user = await User.findOne({ where: { name: username } });
     if (!user) {
       throw new ForbiddenException(`user ${username} does not exist`);
     }
@@ -80,11 +97,11 @@ export class UsersController {
   }
 
   @Post('/change-password')
-  async ChangePassword(@Req() request: Request): Promise<any> {
-    const newClientSideEncryptionParams =
-      request.body['newClientSideEncryptionParams'];
-    const oldPassword = request.body['oldPassword'];
-    const newPassword = request.body['newPassword'];
+  @Throttle({ default: { limit: 5, ttl: 10 * 60 * 1000 } })
+  async ChangePassword(@Body() request: ChangePasswordDto): Promise<any> {
+    const newClientSideEncryptionParams = request.newClientSideEncryptionParams;
+    const oldPassword = request.oldPassword;
+    const newPassword = request.newPassword;
     const user = await this.authenticationService.getAuthenticatedUser();
 
     if (!(await bcrypt.compare(oldPassword, user.password))) {
