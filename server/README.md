@@ -86,8 +86,9 @@ docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod e
 ```
 
 Verify searches before removing any old Meilisearch volume. For users with
-client-side encryption, restart the local agent and allow it to synchronize;
-the server cannot rebuild their encrypted search documents.
+client-side encryption, restart the local agent. It rebuilds a missing index
+from its decrypted PostgreSQL copy before resuming from its persisted sync
+cursor; the server cannot rebuild those encrypted search documents.
 
 # rebuild Meilisearch index
 
@@ -117,6 +118,10 @@ lose a later update. Existing annotations are queued when the migration runs.
 `SEARCH_SYNC_SCHEMA_INTERVAL_MS` tune the defaults shown in
 `.env.prod.example`. The worker also recreates the index schema and requeues
 current annotations if the search index disappears while the API stays online.
+The agent performs the same schema check before each enabled sync cycle and
+rebuilds a recreated index from local PostgreSQL in bounded batches. This keeps
+existing decrypted annotations searchable after losing only the agent's
+Meilisearch volume without forcing a full server re-list.
 
 # start dev
 
@@ -131,7 +136,9 @@ docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev down
 The integration test validates the production, development, and agent Compose
 topology, starts isolated temporary Postgres and Meilisearch containers, runs
 the backend on the host, and exercises the user, annotation, sync-history, and
-search APIs. Test containers and data are removed when the test finishes.
+search APIs. It also deletes the agent search index and verifies both startup
+and in-process recovery. Test containers and data are removed when the test
+finishes.
 
 ```bash
 npm run test:integration

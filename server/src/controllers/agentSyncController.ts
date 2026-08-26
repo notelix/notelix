@@ -25,6 +25,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { AppDataSource } from '../database';
+import { ensureAgentAnnotationSearchIndexReady } from '../services/agentSearchIndex';
 
 const defaultAnnotationChangeHistoryLatestIdSavePath =
   '/data/.annotation_change_history_latest_id';
@@ -537,6 +538,8 @@ export class AgentSyncController
     const generation = this.configGeneration;
     const sourceIdentity = this.config.sourceIdentity;
     this.assertCurrentSync(generation, sourceIdentity);
+    await ensureAgentAnnotationSearchIndexReady();
+    this.assertCurrentSync(generation, sourceIdentity);
     const syncState = this.getAgentSyncState(sourceIdentity);
     if (syncState?.version === syncSnapshotStateVersion) {
       this.logger.debug(
@@ -798,6 +801,7 @@ export class AgentSyncController
 
   private async resetData() {
     this.logger.log('Resetting synchronized annotation data');
+    await ensureAgentAnnotationSearchIndexReady();
     this.clearAgentSyncState();
     await AppDataSource.manager.query('DELETE FROM "annotation_search_outbox"');
     await AnnotationChangeHistory.getRepository().clear();

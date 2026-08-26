@@ -15,6 +15,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { AppDataSource } from '../src/database';
+import * as agentSearchIndex from '../src/services/agentSearchIndex';
 
 describe('Agent control API', () => {
   let app: INestApplication;
@@ -63,6 +64,9 @@ describe('Agent control API', () => {
 
   beforeEach(async () => {
     delete process.env.RUN_MODE;
+    jest
+      .spyOn(agentSearchIndex, 'ensureAgentAnnotationSearchIndexReady')
+      .mockResolvedValue(undefined);
     const directory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'notelix-agent-test-'),
     );

@@ -9,10 +9,14 @@ integration_compose=(
 )
 integration_server_log="$(mktemp)"
 integration_secondary_server_log="$(mktemp)"
+integration_agent_server_log="$(mktemp)"
+integration_agent_state_path="$(mktemp)"
 integration_server_pid=""
 integration_secondary_server_pid=""
+integration_agent_server_pid=""
 integration_server_port="${NOTELIX_TEST_SERVER_PORT:-18575}"
 integration_secondary_server_port="${NOTELIX_TEST_SECONDARY_SERVER_PORT:-18578}"
+integration_agent_server_port="${NOTELIX_TEST_AGENT_SERVER_PORT:-18579}"
 integration_db_port="${NOTELIX_TEST_DB_PORT:-18576}"
 integration_meili_port="${NOTELIX_TEST_MEILI_PORT:-18577}"
 integration_meili_key="notelix-integration-meili-master-key"
@@ -29,6 +33,10 @@ cleanup() {
     kill "${integration_secondary_server_pid}" >/dev/null 2>&1 || true
     wait "${integration_secondary_server_pid}" >/dev/null 2>&1 || true
   fi
+  if [[ -n "${integration_agent_server_pid}" ]]; then
+    kill "${integration_agent_server_pid}" >/dev/null 2>&1 || true
+    wait "${integration_agent_server_pid}" >/dev/null 2>&1 || true
+  fi
 
   "${integration_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 
@@ -37,8 +45,11 @@ cleanup() {
     sed -n '1,240p' "${integration_server_log}" >&2
     echo "Notelix secondary server log:" >&2
     sed -n '1,240p' "${integration_secondary_server_log}" >&2
+    echo "Notelix agent server log:" >&2
+    sed -n '1,240p' "${integration_agent_server_log}" >&2
   fi
-  rm -f "${integration_server_log}" "${integration_secondary_server_log}"
+  rm -f "${integration_server_log}" "${integration_secondary_server_log}" \
+    "${integration_agent_server_log}" "${integration_agent_state_path}"
   exit "${integration_exit_code}"
 }
 trap cleanup EXIT
@@ -62,6 +73,7 @@ export MEILISEARCH_API_KEY="${integration_meili_key}"
 export MEILISEARCH_ANNOTATIONS_INDEX=annotations_integration
 export TEST_SERVER_URL="http://127.0.0.1:${integration_server_port}"
 export TEST_SECONDARY_SERVER_URL="http://127.0.0.1:${integration_secondary_server_port}"
+export TEST_AGENT_SERVER_URL="http://127.0.0.1:${integration_agent_server_port}"
 
 meili_unauthenticated_status="$(
   curl --silent --output /dev/null --write-out '%{http_code}' \
@@ -143,3 +155,14 @@ node ./tools/test-search-outbox.js verify-save
 node ./tools/test-search-outbox.js delete
 "${integration_compose[@]}" up --detach --wait meilisearch
 node ./tools/test-search-outbox.js verify-delete
+
+export MEILISEARCH_ANNOTATIONS_INDEX=annotations_agent_recovery
+node ./tools/test-agent-search-recovery.js prepare
+RUN_MODE=AGENT \
+  PORT="${integration_agent_server_port}" \
+  AGENT_SYNC_STATE_PATH="${integration_agent_state_path}" \
+  AGENT_SYNC_URL_OVERRIDE=http://127.0.0.1:1 \
+  node ./dist/main.js >"${integration_agent_server_log}" 2>&1 &
+integration_agent_server_pid=$!
+node ./tools/test-agent-search-recovery.js verify-startup
+node ./tools/test-agent-search-recovery.js verify-runtime

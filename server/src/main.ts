@@ -18,6 +18,7 @@ import {
   AnnotationSearchSyncService,
   enqueueAllAnnotationSearchUpdates,
 } from './services/annotationSearchSync';
+import { rebuildAgentAnnotationSearchIndex } from './services/agentSearchIndex';
 
 function readPositiveInteger(name: string, fallback: number): number {
   const value = process.env[name];
@@ -73,7 +74,7 @@ async function bootstrap() {
   await bootstrapSQL();
   await bootstrapMeiliSearch(
     process.env.RUN_MODE === 'AGENT'
-      ? undefined
+      ? rebuildAgentAnnotationSearchIndex
       : () => enqueueAllAnnotationSearchUpdates(AppDataSource.manager),
   );
   const app = await NestFactory.create(AppModule);
