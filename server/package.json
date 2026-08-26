@@ -30,7 +30,7 @@
     "axios": "^0.21.1",
     "bcrypt": "^5.0.1",
     "crypto-js": "^4.1.1",
-    "jsonwebtoken": "^8.5.1",
+    "jsonwebtoken": "^9.0.3",
     "meilisearch": "^0.24.0",
     "pg": "^8.7.3",
     "reflect-metadata": "^0.1.13",
