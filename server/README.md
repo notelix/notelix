@@ -196,7 +196,15 @@ Container health checks use the readiness endpoint. Dependency checks are
 bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
 100 to 30000 milliseconds.
 
-Meilisearch update tasks are bounded to 30 seconds by default.
+Database pools default to 10 connections. `DB_POOL_MAX` accepts 1 to 100,
+`DB_POOL_ACQUIRE_TIMEOUT_MS` accepts 100 to 600000 milliseconds, and
+`DB_QUERY_TIMEOUT_MS` accepts 100 to 3600000 milliseconds. PostgreSQL query
+execution, stalled query reads, and waits for a pool connection are bounded so
+dependency outages cannot accumulate work indefinitely.
+
+Meilisearch HTTP requests are bounded to 10 seconds by default;
+`MEILISEARCH_REQUEST_TIMEOUT_MS` accepts values from 100 to 600000
+milliseconds. Meilisearch update tasks are bounded to 30 seconds by default.
 `MEILISEARCH_TASK_TIMEOUT_MS` accepts values from 100 to 600000 milliseconds.
 
 Static access tokens are stored as one-way SHA-256 digests; raw tokens and

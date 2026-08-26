@@ -2,10 +2,23 @@ import { MeiliSearch } from 'meilisearch';
 import { Annotation } from '../models/annotation.entity';
 import { readBoundedIntegerEnvironment } from '../../runtime-config';
 
-const client = new MeiliSearch({
-  host: process.env.MEILISEARCH_HOST || 'http://meilisearch:7700',
-  apiKey: process.env.MEILISEARCH_API_KEY,
-});
+export function createMeilisearchSdkClient(
+  environment: NodeJS.ProcessEnv = process.env,
+): MeiliSearch {
+  return new MeiliSearch({
+    host: environment.MEILISEARCH_HOST || 'http://meilisearch:7700',
+    apiKey: environment.MEILISEARCH_API_KEY,
+    timeout: readBoundedIntegerEnvironment(
+      'MEILISEARCH_REQUEST_TIMEOUT_MS',
+      10000,
+      100,
+      600000,
+      environment,
+    ),
+  });
+}
+
+const client = createMeilisearchSdkClient();
 
 const annotationIndexName =
   process.env.MEILISEARCH_ANNOTATIONS_INDEX || 'annotations';

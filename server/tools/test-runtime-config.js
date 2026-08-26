@@ -23,6 +23,23 @@ const cases = [
     message: 'DB_PORT must be an integer between 1 and 65535',
   },
   {
+    name: 'database pool size',
+    environment: { DB_POOL_MAX: '0' },
+    message: 'DB_POOL_MAX must be an integer between 1 and 100',
+  },
+  {
+    name: 'database pool acquisition timeout',
+    environment: { DB_POOL_ACQUIRE_TIMEOUT_MS: '1e3' },
+    message:
+      'DB_POOL_ACQUIRE_TIMEOUT_MS must be an integer between 100 and 600000',
+  },
+  {
+    name: 'database query timeout',
+    environment: { DB_QUERY_TIMEOUT_MS: '0' },
+    message:
+      'DB_QUERY_TIMEOUT_MS must be an integer between 100 and 3600000',
+  },
+  {
     name: 'HTTP port',
     environment: { PORT: '0' },
     message: 'PORT must be an integer between 1 and 65535',
@@ -32,6 +49,12 @@ const cases = [
     environment: { MEILISEARCH_TASK_TIMEOUT_MS: 'NaN' },
     message:
       'MEILISEARCH_TASK_TIMEOUT_MS must be an integer between 100 and 600000',
+  },
+  {
+    name: 'Meilisearch request timeout',
+    environment: { MEILISEARCH_REQUEST_TIMEOUT_MS: '600001' },
+    message:
+      'MEILISEARCH_REQUEST_TIMEOUT_MS must be an integer between 100 and 600000',
   },
   {
     name: 'rate limit duration',

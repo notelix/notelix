@@ -5,13 +5,21 @@ import {
   readPortEnvironment,
 } from '../runtime-config';
 import { validateAgentControlOrigins } from '../src/agentControl';
+import { createMeilisearchSdkClient } from '../src/meilisearch';
 
 describe('Runtime numeric configuration', () => {
   const originalDatabasePort = process.env.DB_PORT;
+  const originalDatabasePoolMax = process.env.DB_POOL_MAX;
+  const originalDatabasePoolAcquireTimeout =
+    process.env.DB_POOL_ACQUIRE_TIMEOUT_MS;
+  const originalDatabaseQueryTimeout = process.env.DB_QUERY_TIMEOUT_MS;
   const originalMeiliTaskTimeout = process.env.MEILISEARCH_TASK_TIMEOUT_MS;
+  const originalMeiliRequestTimeout =
+    process.env.MEILISEARCH_REQUEST_TIMEOUT_MS;
 
   afterEach(() => {
     jest.resetModules();
+    jest.restoreAllMocks();
     if (originalDatabasePort === undefined) {
       delete process.env.DB_PORT;
     } else {
@@ -21,6 +29,27 @@ describe('Runtime numeric configuration', () => {
       delete process.env.MEILISEARCH_TASK_TIMEOUT_MS;
     } else {
       process.env.MEILISEARCH_TASK_TIMEOUT_MS = originalMeiliTaskTimeout;
+    }
+    if (originalDatabasePoolMax === undefined) {
+      delete process.env.DB_POOL_MAX;
+    } else {
+      process.env.DB_POOL_MAX = originalDatabasePoolMax;
+    }
+    if (originalDatabasePoolAcquireTimeout === undefined) {
+      delete process.env.DB_POOL_ACQUIRE_TIMEOUT_MS;
+    } else {
+      process.env.DB_POOL_ACQUIRE_TIMEOUT_MS =
+        originalDatabasePoolAcquireTimeout;
+    }
+    if (originalDatabaseQueryTimeout === undefined) {
+      delete process.env.DB_QUERY_TIMEOUT_MS;
+    } else {
+      process.env.DB_QUERY_TIMEOUT_MS = originalDatabaseQueryTimeout;
+    }
+    if (originalMeiliRequestTimeout === undefined) {
+      delete process.env.MEILISEARCH_REQUEST_TIMEOUT_MS;
+    } else {
+      process.env.MEILISEARCH_REQUEST_TIMEOUT_MS = originalMeiliRequestTimeout;
     }
   });
 
@@ -131,6 +160,29 @@ describe('Runtime numeric configuration', () => {
     );
   });
 
+  it('passes bounded pool and query deadlines to PostgreSQL', () => {
+    process.env.DB_POOL_MAX = '7';
+    process.env.DB_POOL_ACQUIRE_TIMEOUT_MS = '1500';
+    process.env.DB_QUERY_TIMEOUT_MS = '45000';
+
+    jest.isolateModules(() => {
+      const config = jest.requireActual<{
+        poolSize: number;
+        extra: {
+          connectionTimeoutMillis: number;
+          statement_timeout: number;
+          query_timeout: number;
+        };
+      }>('../ormconfig');
+      expect(config.poolSize).toBe(7);
+      expect(config.extra).toEqual({
+        connectionTimeoutMillis: 1500,
+        statement_timeout: 45000,
+        query_timeout: 45000,
+      });
+    });
+  });
+
   it('fails while loading Meilisearch with an unsafe task timeout', () => {
     process.env.MEILISEARCH_TASK_TIMEOUT_MS = '0';
 
@@ -139,5 +191,27 @@ describe('Runtime numeric configuration', () => {
     ).toThrow(
       'MEILISEARCH_TASK_TIMEOUT_MS must be an integer between 100 and 600000',
     );
+  });
+
+  it('aborts a stalled Meilisearch HTTP request at its configured deadline', async () => {
+    let requestSignal: AbortSignal | undefined;
+    jest.spyOn(global, 'fetch').mockImplementation(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          requestSignal = init?.signal || undefined;
+          requestSignal?.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          });
+        }),
+    );
+    const client = createMeilisearchSdkClient({
+      MEILISEARCH_HOST: 'http://meilisearch.invalid',
+      MEILISEARCH_REQUEST_TIMEOUT_MS: '100',
+    });
+
+    const startedAt = Date.now();
+    await expect(client.health()).rejects.toThrow();
+    expect(Date.now() - startedAt).toBeLessThan(1000);
+    expect(requestSignal?.aborted).toBe(true);
   });
 });

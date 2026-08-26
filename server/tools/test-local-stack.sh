@@ -126,6 +126,10 @@ done
 npm run build
 node ./tools/test-runtime-config.js
 node ./tools/test-database-connect-timeout.js
+DB_POOL_MAX=2 \
+  DB_POOL_ACQUIRE_TIMEOUT_MS=200 \
+  DB_QUERY_TIMEOUT_MS=200 \
+  node ./tools/test-database-operation-timeouts.js
 node ./tools/test-meili-reindex-atomic.js
 npm run migration:run:compiled &
 integration_migration_pid_one=$!

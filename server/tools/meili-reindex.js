@@ -32,6 +32,12 @@ const updateIntervalMs = readBoundedIntegerEnvironment(
   100,
   30000,
 );
+const requestTimeoutMs = readBoundedIntegerEnvironment(
+  'MEILISEARCH_REQUEST_TIMEOUT_MS',
+  10000,
+  100,
+  600000,
+);
 const includeClientSideEncrypted = readBooleanEnvironment(
   'MEILI_REINDEX_INCLUDE_CLIENT_SIDE_ENCRYPTED',
   runMode === 'AGENT',
@@ -44,6 +50,9 @@ function createPostgresClient() {
     database: ormconfig.database,
     password: ormconfig.password,
     port: ormconfig.port,
+    connectionTimeoutMillis: ormconfig.extra.connectionTimeoutMillis,
+    statement_timeout: ormconfig.extra.statement_timeout,
+    query_timeout: ormconfig.extra.query_timeout,
   });
 }
 
@@ -51,6 +60,7 @@ function createMeiliClient() {
   return new MeiliSearch({
     host: meiliHost,
     apiKey: process.env.MEILISEARCH_API_KEY,
+    timeout: requestTimeoutMs,
   });
 }
 
