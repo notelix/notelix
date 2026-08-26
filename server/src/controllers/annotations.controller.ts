@@ -1,11 +1,10 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Logger,
   NotFoundException,
   Post,
-  Req,
-  Request,
 } from '@nestjs/common';
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { Annotation } from '../models/annotation.entity';
@@ -15,6 +14,14 @@ import AnnotationChangeHistoryService from '../services/annotationChangeHistory'
 import { meilisearchClient } from '../meilisearch';
 import { isRunModeAgent } from './agentSyncController';
 import { AppDataSource } from '../database';
+import {
+  DeleteAnnotationDto,
+  FindAnnotationsDto,
+  ListDiffDto,
+  QueryAnnotationsByUrlDto,
+  SaveAnnotationDto,
+  SearchAnnotationsDto,
+} from '../dto/annotations.dto';
 
 const annotationColumnSql = {
   id: 'id',
@@ -43,9 +50,9 @@ export class AnnotationsController {
   ) {}
 
   @Post('/save')
-  async Save(@Req() request: Request): Promise<any> {
+  async Save(@Body() request: SaveAnnotationDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const uid = request.body['uid'];
+    const uid = request.uid;
 
     const { annotation, history } = await AppDataSource.transaction(
       async (manager) => {
@@ -58,11 +65,11 @@ export class AnnotationsController {
           annotation = new Annotation();
         }
         annotation.user = user;
-        annotation.data = request.body['data'] || {};
+        annotation.data = request.data || {};
         annotation.uid = uid;
-        annotation.url = request.body['url'] || '';
-        annotation.title = request.body['title'] || '';
-        annotation.host = request.body['host'] || '';
+        annotation.url = request.url || '';
+        annotation.title = request.title || '';
+        annotation.host = request.host || '';
         delete annotation.data.uid;
         delete annotation.data.url;
         delete annotation.data.title;
@@ -105,7 +112,7 @@ export class AnnotationsController {
   }
 
   @Post('/delete')
-  async Delete(@Req() request: Request): Promise<any> {
+  async Delete(@Body() request: DeleteAnnotationDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
     const { annotation, history } = await AppDataSource.transaction(
       async (manager) => {
@@ -113,7 +120,7 @@ export class AnnotationsController {
         const annotation = await annotationRepository.findOne({
           where: {
             user: { id: user.id },
-            uid: request.body['uid'],
+            uid: request.uid,
           },
         });
 
@@ -147,12 +154,12 @@ export class AnnotationsController {
   }
 
   @Post('/queryByUrl')
-  async QueryByUrl(@Req() request: Request): Promise<any> {
+  async QueryByUrl(@Body() request: QueryAnnotationsByUrlDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
     const list = await Annotation.find({
       where: {
         user: { id: user.id },
-        url: request.body['url'],
+        url: request.url,
       },
     });
 
@@ -177,9 +184,9 @@ export class AnnotationsController {
   }
 
   @Post('/listDiff')
-  async ListDiff(@Req() request: Request): Promise<any> {
+  async ListDiff(@Body() request: ListDiffDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const sinceId = request.body['sinceId'];
+    const sinceId = request.sinceId;
     const cachedSinceId =
       this.annotationChangeHistoryService.getCachedAnnotationChangeHistoryLatestId(
         user.id,
@@ -229,13 +236,13 @@ export class AnnotationsController {
   }
 
   @Post('/search')
-  async Search(@Req() request: Request): Promise<any> {
+  async Search(@Body() request: SearchAnnotationsDto): Promise<any> {
     let userId = 0;
     if (!isRunModeAgent()) {
       const user = await this.authenticationService.getAuthenticatedUser();
       userId = user.id;
     }
-    const q = request.body['q'];
+    const q = request.q;
     if (!q || !q.trim()) {
       return { results: { hits: [] } };
     }
@@ -244,13 +251,13 @@ export class AnnotationsController {
   }
 
   @Post('/find')
-  async Find(@Req() request: Request): Promise<any> {
+  async Find(@Body() request: FindAnnotationsDto): Promise<any> {
     let userId = 0;
     if (!isRunModeAgent()) {
       const user = await this.authenticationService.getAuthenticatedUser();
       userId = user.id;
     }
-    const requestedSelectors = request.body['selectors'] || {};
+    const requestedSelectors = request.selectors || {};
     if (
       typeof requestedSelectors !== 'object' ||
       Array.isArray(requestedSelectors)
@@ -258,7 +265,7 @@ export class AnnotationsController {
       throw new BadRequestException('selectors must be an object');
     }
     const selectors = { ...requestedSelectors };
-    const groupBy = request.body['groupBy'] || '';
+    const groupBy = request.groupBy || '';
     selectors['userId'] = userId;
 
     const selectorsKeyAndValues = Object.entries(selectors);

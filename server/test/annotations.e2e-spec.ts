@@ -7,6 +7,7 @@ import { meilisearchClient } from '../src/meilisearch';
 import { Annotation } from '../src/models/annotation.entity';
 import AnnotationChangeHistoryService from '../src/services/annotationChangeHistory';
 import { AppDataSource } from '../src/database';
+import { createValidationPipe } from '../src/application';
 
 describe('Annotations API durability', () => {
   let app: INestApplication;
@@ -75,6 +76,7 @@ describe('Annotations API durability', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(createValidationPipe());
     await app.init();
   });
 
@@ -233,5 +235,19 @@ describe('Annotations API durability', () => {
       .expect(400);
 
     expect(databaseQuery).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed annotation and diff payloads before persistence', async () => {
+    await request(app.getHttpServer())
+      .post('/annotations/save')
+      .send({ uid: 'x'.repeat(65), data: {} })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/annotations/listDiff')
+      .send({ sinceId: 1.5 })
+      .expect(400);
+
+    expect(manager.transaction).not.toHaveBeenCalled();
   });
 });

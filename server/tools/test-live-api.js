@@ -40,7 +40,11 @@ function request(path, body, headers = {}) {
           } catch (_error) {
             // Preserve non-JSON responses for useful assertion messages.
           }
-          resolve({ status: response.statusCode, body: parsedBody });
+          resolve({
+            status: response.statusCode,
+            body: parsedBody,
+            headers: response.headers,
+          });
         });
       },
     );
@@ -89,10 +93,25 @@ async function waitForSearch(headers, query, expectedHits) {
 async function main() {
   await waitForServer();
 
+  const metadata = await request('/meta/version');
+  assert.strictEqual(metadata.headers['x-content-type-options'], 'nosniff');
+  assert.strictEqual(metadata.headers['x-frame-options'], 'SAMEORIGIN');
+  assert.strictEqual(metadata.headers['access-control-allow-origin'], '*');
+
   const username = `integration-${Date.now()}`;
   const password = 'integration-password';
   const uid = 'integration-annotation';
   const url = 'https://example.com/integration';
+
+  assert.strictEqual(
+    (
+      await request('/users/signup', {
+        username: `${username}-invalid`,
+        password: 'short',
+      })
+    ).status,
+    400,
+  );
 
   assert.strictEqual(
     (await request('/users/signup', { username, password })).status,
@@ -106,6 +125,26 @@ async function main() {
   assert.ok(login.body.jwt);
 
   const headers = { Authorization: `jwt ${login.body.jwt}` };
+  assert.strictEqual(
+    (
+      await request(
+        '/annotations/find',
+        { selectors: { 'host; DROP TABLE annotation': 'example.com' } },
+        headers,
+      )
+    ).status,
+    400,
+  );
+  assert.strictEqual(
+    (
+      await request(
+        '/annotations/save',
+        { uid: 'x'.repeat(65), data: {} },
+        headers,
+      )
+    ).status,
+    400,
+  );
   const save = await request(
     '/annotations/save',
     {

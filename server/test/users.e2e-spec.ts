@@ -6,6 +6,7 @@ import { AuthenticationService } from '../src/authenticators/authentication.serv
 import { UsersController } from '../src/controllers/users.controller';
 import { User } from '../src/models/user.entity';
 import JwtService from '../src/services/jwt';
+import { createValidationPipe } from '../src/application';
 
 describe('Users API', () => {
   let app: INestApplication;
@@ -35,6 +36,7 @@ describe('Users API', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(createValidationPipe());
     await app.init();
   });
 
@@ -110,5 +112,21 @@ describe('Users API', () => {
       'new-encrypted-client-key',
     );
     expect(response.body).not.toHaveProperty('password');
+  });
+
+  it('rejects malformed and unexpected signup fields', async () => {
+    await request(app.getHttpServer())
+      .post('/users/signup')
+      .send({ username: 'alice', password: 'short' })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/users/signup')
+      .send({
+        username: 'alice',
+        password: 'long-enough-password',
+        administrator: true,
+      })
+      .expect(400);
   });
 });

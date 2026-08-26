@@ -11,6 +11,7 @@ import AnnotationChangeHistoryService from './services/annotationChangeHistory';
 import { AgentSyncController } from './controllers/agentSyncController';
 import { bootstrapMeiliSearch } from './meilisearch';
 import { AppDataSource, DatabaseLifecycle } from './database';
+import { configureApplication } from './application';
 
 @Module({
   imports: [],
@@ -41,8 +42,7 @@ async function bootstrap() {
   await bootstrapSQL();
   await bootstrapMeiliSearch();
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
-  app.enableShutdownHooks();
+  configureApplication(app);
   await app.listen(Number(process.env.PORT || 3000));
 }
 

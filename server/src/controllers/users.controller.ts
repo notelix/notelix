@@ -1,16 +1,16 @@
 import {
+  Body,
   ConflictException,
   Controller,
   ForbiddenException,
   Get,
   Post,
-  Req,
-  Request,
 } from '@nestjs/common';
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { User } from '../models/user.entity';
 import * as bcrypt from 'bcrypt';
 import JwtService from '../services/jwt';
+import { ChangePasswordDto, LoginDto, SignUpDto } from '../dto/users.dto';
 
 function userResponse(user: User) {
   return {
@@ -36,11 +36,10 @@ export class UsersController {
   }
 
   @Post('/signup')
-  async SignUp(@Req() request: Request): Promise<any> {
-    const username = request.body['username'];
-    const password = await bcrypt.hash(request.body['password'], 10);
-    const enableClientSideEncryption =
-      request.body['enableClientSideEncryption'];
+  async SignUp(@Body() request: SignUpDto): Promise<any> {
+    const username = request.username;
+    const password = await bcrypt.hash(request.password, 10);
+    const enableClientSideEncryption = request.enableClientSideEncryption;
 
     const existingUser = await User.findOne({ where: { name: username } });
     if (existingUser) {
@@ -51,7 +50,7 @@ export class UsersController {
     user.name = username;
     user.password = password;
     if (enableClientSideEncryption) {
-      user.client_side_encryption = request.body['client_side_encryption'];
+      user.client_side_encryption = request.client_side_encryption;
     } else {
       user.client_side_encryption = '';
     }
@@ -61,9 +60,9 @@ export class UsersController {
   }
 
   @Post('/login')
-  async Login(@Req() request: Request): Promise<any> {
-    const username = request.body['username'];
-    const password = request.body['password'];
+  async Login(@Body() request: LoginDto): Promise<any> {
+    const username = request.username;
+    const password = request.password;
 
     const user = await User.findOne({ where: { name: username } });
     if (!user) {
@@ -80,11 +79,10 @@ export class UsersController {
   }
 
   @Post('/change-password')
-  async ChangePassword(@Req() request: Request): Promise<any> {
-    const newClientSideEncryptionParams =
-      request.body['newClientSideEncryptionParams'];
-    const oldPassword = request.body['oldPassword'];
-    const newPassword = request.body['newPassword'];
+  async ChangePassword(@Body() request: ChangePasswordDto): Promise<any> {
+    const newClientSideEncryptionParams = request.newClientSideEncryptionParams;
+    const oldPassword = request.oldPassword;
+    const newPassword = request.newPassword;
     const user = await this.authenticationService.getAuthenticatedUser();
 
     if (!(await bcrypt.compare(oldPassword, user.password))) {
