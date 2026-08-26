@@ -1,14 +1,18 @@
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
-import { NotelixChromeStorageKey } from "../consts";
-import { getKey } from "../../encryption";
+import {
+  clearEncryptionKey,
+  clearLegacyPassword,
+  getKey,
+} from "../../encryption";
 import { makeClientSideEncryptionParams } from "../../encryption/utils";
 import { changePassword } from "../../api/user";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
+import { clearUser } from "../../storage";
 
 export const ChangePassword = () => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [repeatNewPassword, setRepeatNewPassword] = useState("");
@@ -58,16 +62,13 @@ export const ChangePassword = () => {
               newClientSideEncryptionParams,
               oldPassword,
               newPassword,
-            }).then(() => {
+            }).then(async () => {
               alert("Password changed successfully");
-              chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-                delete value[NotelixChromeStorageKey].notelixUser;
-                delete value[NotelixChromeStorageKey].notelixPassword;
-                chrome.storage.sync.set(value, () => {
-                  sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-                  history.push("/login");
-                });
-              });
+              await clearEncryptionKey();
+              await clearLegacyPassword();
+              await clearUser();
+              sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
+              navigate("/login");
             });
           });
         }}
