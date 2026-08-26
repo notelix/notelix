@@ -36,7 +36,8 @@ Then `Load unpacked` from `chrome://extensions/`
 
 ```
 cd ./server
-echo "DB_PASSWORD=$(echo $RANDOM$RANDOM$RANDOM | md5sum | head -c 32)" > .env.dev
+cp .env.dev.example .env.dev
+sed -i "s/replace-with-a-random-secret/$(openssl rand -hex 32)/" .env.dev
 docker network create notelix
 
 # start server in dev mode
@@ -53,7 +54,9 @@ docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev up -
 
 ```
 cd server
-echo "DB_PASSWORD=123456" > .env.agent
+cp .env.agent.example .env.agent
+sed -i "s/replace-with-a-random-secret/$(openssl rand -hex 32)/" .env.agent
+sed -i "s/replace-with-another-random-secret/$(openssl rand -hex 32)/" .env.agent
 docker network create notelix
 docker build . -f ./Dockerfile.agent -t notelix:agent
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent up -d

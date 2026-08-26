@@ -1,10 +1,19 @@
 import iziToast from "izitoast/dist/js/iziToast.min";
 import "izitoast/dist/css/iziToast.min.css";
-import { NotelixChromeStorageKey } from "../popup/consts";
+import { NotelixDefaultServer } from "../popup/consts";
 import get from "lodash/get";
 import { sendChromeCommandToEveryTab } from "../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../consts";
-import { clientSideEncryptionEnabled } from "../encryption";
+import {
+  clearEncryptionKey,
+  clearLegacyPassword,
+  clientSideEncryptionEnabled,
+} from "../encryption";
+import {
+  clearUser,
+  getServer as getStoredServer,
+  getUser,
+} from "../storage";
 
 export async function getEndpoint(
   path,
@@ -28,48 +37,36 @@ export async function getEndpoint(
   });
 }
 
-export const getHeaders = (requireLoggedIn = false) => {
+export const getHeaders = async (requireLoggedIn = false) => {
   if (window.NotelixEmbeddedConfig) {
     return Promise.resolve({
       Authorization: `static-token ${window.NotelixEmbeddedConfig.staticToken}`,
     });
   }
 
-  return new Promise((resolve) => {
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      const headers = {};
-      value[NotelixChromeStorageKey] = value[NotelixChromeStorageKey] || {};
-      if (value[NotelixChromeStorageKey].notelixUser) {
-        headers["Authorization"] =
-          "jwt " + value[NotelixChromeStorageKey].notelixUser.jwt;
-      } else {
-        if (requireLoggedIn) {
-          iziToast.warning({
-            message: `notelix: Please login first, by clicking on the Notelix extension in the top-right corner of the Chrome window`,
-            position: "topRight",
-          });
-          throw "not logged in";
-        }
-      }
-      resolve(headers);
+  const headers = {};
+  const user = await getUser();
+  if (user) {
+    headers.Authorization = `jwt ${user.jwt}`;
+  } else if (requireLoggedIn) {
+    iziToast.warning({
+      message: `notelix: Please login first, by clicking on the Notelix extension in the top-right corner of the Chrome window`,
+      position: "topRight",
     });
-  });
+    throw new Error("not logged in");
+  }
+  return headers;
 };
 
-export function getServer() {
-  return new Promise((resolve) => {
-    if (window.NotelixEmbeddedConfig) {
-      resolve(window.NotelixEmbeddedConfig.server);
-      return;
-    }
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      resolve(value[NotelixChromeStorageKey].notelixServer);
-    });
-  });
+export async function getServer() {
+  if (window.NotelixEmbeddedConfig) {
+    return window.NotelixEmbeddedConfig.server;
+  }
+  return (await getStoredServer()) || NotelixDefaultServer;
 }
 
 export function onRequestError(err) {
-  setTimeout(() => {
+  setTimeout(async () => {
     if (err.toString() === "Error: Extension context invalidated.") {
       iziToast.warning({
         message: `notelix: Please refresh the page before using this plugin`,
@@ -82,13 +79,10 @@ export function onRequestError(err) {
           position: "topRight",
         });
 
-        chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-          delete value[NotelixChromeStorageKey].notelixUser;
-          delete value[NotelixChromeStorageKey].notelixPassword;
-          chrome.storage.sync.set(value, () => {
-            sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-          });
-        });
+        await clearEncryptionKey();
+        await clearLegacyPassword();
+        await clearUser();
+        sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
       } else {
         iziToast.error({
           message: `notelix: ${err.toString()}`,

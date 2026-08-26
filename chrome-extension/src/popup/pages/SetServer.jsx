@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
-import { NotelixChromeStorageKey, NotelixDefaultServer } from "../consts";
+import { NotelixDefaultServer } from "../consts";
 import { getMetaVersion } from "../../api/meta";
+import { setServer as saveServer } from "../../storage";
 
 export const SetServer = () => {
   const navigate = useNavigate();
@@ -30,14 +31,7 @@ export const SetServer = () => {
                 throw "invalid server response";
               }
 
-              chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-                value[NotelixChromeStorageKey] =
-                  value[NotelixChromeStorageKey] || {};
-                value[NotelixChromeStorageKey].notelixServer = _server;
-                chrome.storage.sync.set(value, () => {
-                  navigate("/login");
-                });
-              });
+              saveServer(_server).then(() => navigate("/login"));
             })
             .catch(() => {
               alert("Failed to connect to server");

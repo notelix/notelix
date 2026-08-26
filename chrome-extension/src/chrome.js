@@ -5,8 +5,8 @@ import {
   convertAnnotationToSerializedRange,
   marker,
 } from "./marker";
-import { NotelixChromeStorageKey } from "./popup/consts";
 import { loadAllAnnotationsData } from "./service";
+import { getUser } from "./storage";
 
 export function registerChromeRuntimeMessageListeners() {
   if (window.NotelixEmbeddedConfig) {
@@ -22,9 +22,8 @@ export function registerChromeRuntimeMessageListeners() {
           );
           delete state.annotations[key];
         });
-        chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-          value[NotelixChromeStorageKey] = value[NotelixChromeStorageKey] || {};
-          if (value[NotelixChromeStorageKey].notelixUser) {
+        getUser().then((user) => {
+          if (user) {
             loadAllAnnotationsData();
           }
         });

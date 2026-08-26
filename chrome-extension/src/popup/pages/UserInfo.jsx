@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { NotelixChromeStorageKey } from "../consts";
 import { useNavigate } from "react-router-dom";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
+import { clearEncryptionKey, clearLegacyPassword } from "../../encryption";
+import { clearUser, getServer, getUser } from "../../storage";
 
 export const UserInfo = () => {
   const [notelixServer, setNotelixServer] = useState("");
@@ -11,10 +12,8 @@ export const UserInfo = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      setUserInfo(value[NotelixChromeStorageKey].notelixUser);
-      setNotelixServer(value[NotelixChromeStorageKey].notelixServer);
-    });
+    getUser().then(setUserInfo);
+    getServer().then(setNotelixServer);
   }, []);
 
   if (!userInfo) {
@@ -29,19 +28,16 @@ export const UserInfo = () => {
     window.open("/app.html");
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (!confirm("Do you want to logout?")) {
       return;
     }
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      delete value[NotelixChromeStorageKey].notelixUser;
-      delete value[NotelixChromeStorageKey].notelixPassword;
-      chrome.storage.sync.set(value, () => {
-        sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-        navigate("/");
-        trySetAgentSyncParams();
-      });
-    });
+    await clearEncryptionKey();
+    await clearLegacyPassword();
+    await clearUser();
+    sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
+    navigate("/");
+    trySetAgentSyncParams();
   };
 
   return (
