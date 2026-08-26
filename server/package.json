@@ -37,7 +37,6 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "meilisearch": "^0.24.0",
-    "node-fetch": "^2.7.0",
     "pg": "^8.7.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",

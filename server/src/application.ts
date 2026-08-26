@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import { isAgentControlOriginAllowed } from './agentControl';
 
 export function createValidationPipe(): ValidationPipe {
   return new ValidationPipe({
@@ -24,6 +25,13 @@ function getCorsOrigins(): string | string[] {
 export function configureApplication(app: INestApplication): void {
   app.use(helmet());
   app.useGlobalPipes(createValidationPipe());
-  app.enableCors({ origin: getCorsOrigins() });
+  if (process.env.RUN_MODE === 'AGENT' && !process.env.CORS_ORIGINS) {
+    app.enableCors({
+      origin: (origin, callback) =>
+        callback(null, isAgentControlOriginAllowed(origin)),
+    });
+  } else {
+    app.enableCors({ origin: getCorsOrigins() });
+  }
   app.enableShutdownHooks();
 }

@@ -9,7 +9,6 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
-import { meilisearchClient } from '../meilisearch';
 
 @Entity()
 @Index(['user', 'url', 'host'])
@@ -46,10 +45,6 @@ export class Annotation extends BaseEntity {
 
   // typeorm bug?.. if we just called save() to insert a record, value of `.id` is ignored, and id was set to auto-increment
   static async agentSyncPersist(annotation) {
-    setTimeout(async () => {
-      await meilisearchClient.IndexAnnotation(annotation);
-    });
-
     const existing = await Annotation.findOne({
       where: { id: annotation.id },
     });

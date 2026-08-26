@@ -97,6 +97,19 @@ async function main() {
   assert.strictEqual(metadata.headers['x-content-type-options'], 'nosniff');
   assert.strictEqual(metadata.headers['x-frame-options'], 'SAMEORIGIN');
   assert.strictEqual(metadata.headers['access-control-allow-origin'], '*');
+  assert.strictEqual(
+    (
+      await request('/agentsync/set', {
+        config: {
+          enabled: true,
+          url: 'https://notelix.example',
+          token: 'signed-jwt',
+          clientSideEncryptionKey: null,
+        },
+      })
+    ).status,
+    403,
+  );
 
   const username = `integration-${Date.now()}`;
   const password = 'integration-password';

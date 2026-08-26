@@ -1,13 +1,13 @@
 import {
+  Body,
   Controller,
   ForbiddenException,
+  OnApplicationShutdown,
   OnModuleInit,
   Post,
   Req,
-  Request,
 } from '@nestjs/common';
-import * as jwt from 'jsonwebtoken';
-import fetch from 'node-fetch';
+import { Request } from 'express';
 import sleep from '../utils/sleep';
 import {
   AnnotationChangeHistory,
@@ -18,6 +18,8 @@ import { Annotation } from '../models/annotation.entity';
 import { decryptFields } from '../encryption';
 import * as CryptoJS from 'crypto-js';
 import { meilisearchClient } from '../meilisearch';
+import { SetAgentSyncDto } from '../dto/agent.dto';
+import { isAgentControlOriginAllowed } from '../agentControl';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const fs = require('fs');
@@ -35,16 +37,30 @@ function assertRunModeAgent() {
   }
 }
 
-@Controller('agentsync')
-export class AgentSyncController implements OnModuleInit {
-  config = {
+function assertAgentControlOrigin(request: Request) {
+  const origin = request.headers.origin;
+  if (!isAgentControlOriginAllowed(origin)) {
+    throw new ForbiddenException('origin is not allowed to control the agent');
+  }
+}
+
+function emptyAgentConfig() {
+  return {
     enabled: false,
-    decodedJwt: null as any,
     token: '',
     url: '',
     clientSideEncryptionKey: '',
     clientSideEncryptionKeyHexParsed: null as any,
   };
+}
+
+@Controller('agentsync')
+export class AgentSyncController
+  implements OnModuleInit, OnApplicationShutdown
+{
+  config = emptyAgentConfig();
+  private stopping = false;
+  private syncLoopPromise?: Promise<void>;
 
   decryptAnnotation = async (annotation) => {
     if (!this.config.clientSideEncryptionKey) {
@@ -67,29 +83,35 @@ export class AgentSyncController implements OnModuleInit {
   applyDiff = async (diff: any) => {
     switch (diff.kind) {
       case AnnotationChangeHistoryKindSave:
-        await Annotation.agentSyncPersist(
-          await this.decryptAnnotation(diff.data),
-        );
+        const annotation = await this.decryptAnnotation(diff.data);
+        await Annotation.agentSyncPersist(annotation);
+        await meilisearchClient.IndexAnnotation(annotation);
         break;
       case AnnotationChangeHistoryKindDelete:
         const id = diff.data.id;
         await Annotation.remove(diff.data);
-        setTimeout(() => {
-          meilisearchClient.UnIndexAnnotation({ ...diff.data, id });
-        });
+        await meilisearchClient.UnIndexAnnotation({ ...diff.data, id });
         break;
     }
   };
 
   async onModuleInit() {
-    setTimeout(async () => {
-      this.syncLoop();
-    });
+    if (isRunModeAgent()) {
+      this.syncLoopPromise = this.syncLoop();
+    }
+  }
+
+  async onApplicationShutdown() {
+    this.stopping = true;
+    await this.syncLoopPromise;
   }
 
   private async syncLoop() {
-    while (true) {
+    while (!this.stopping) {
       await sleep(3000);
+      if (this.stopping) {
+        return;
+      }
       if (!this.config.enabled) {
         continue;
       }
@@ -102,24 +124,25 @@ export class AgentSyncController implements OnModuleInit {
   }
 
   @Post('/resetData')
-  async ResetData(): Promise<any> {
+  async ResetData(@Req() request: Request): Promise<any> {
     assertRunModeAgent();
-    this.config = {
-      enabled: false,
-      decodedJwt: null as any,
-      token: '',
-      url: '',
-      clientSideEncryptionKey: '',
-      clientSideEncryptionKeyHexParsed: null as any,
-    };
-    this.resetData();
+    assertAgentControlOrigin(request);
+    this.config = emptyAgentConfig();
+    await this.resetData();
+    return { ok: true };
   }
 
   @Post('/set')
-  async Set(@Req() request: Request): Promise<any> {
+  async Set(
+    @Req() httpRequest: Request,
+    @Body() request: SetAgentSyncDto,
+  ): Promise<any> {
     assertRunModeAgent();
-    this.config = request.body['config'] || {};
-    this.config.decodedJwt = jwt.decode(this.config.token || '', {});
+    assertAgentControlOrigin(httpRequest);
+    this.config = {
+      ...emptyAgentConfig(),
+      ...request.config,
+    };
     if (this.config.clientSideEncryptionKey) {
       this.config.clientSideEncryptionKeyHexParsed = CryptoJS.enc.Hex.parse(
         this.config.clientSideEncryptionKey,
@@ -130,7 +153,7 @@ export class AgentSyncController implements OnModuleInit {
       this.config.url = urlOverride;
     }
 
-    return this.config;
+    return { ok: true, enabled: this.config.enabled };
   }
 
   private async sync() {
@@ -154,9 +177,9 @@ export class AgentSyncController implements OnModuleInit {
       const data = await resp.json();
       console.log('/list ok, persisting', data.list.length, 'items');
       for (const annotation of data.list) {
-        await Annotation.agentSyncPersist(
-          await this.decryptAnnotation(annotation),
-        );
+        const decryptedAnnotation = await this.decryptAnnotation(annotation);
+        await Annotation.agentSyncPersist(decryptedAnnotation);
+        await meilisearchClient.IndexAnnotation(decryptedAnnotation);
       }
       this.saveAnnotationChangeHistoryLatestId(
         data.annotationChangeHistoryLatestId,
