@@ -21,6 +21,34 @@ integration_db_port="${NOTELIX_TEST_DB_PORT:-18576}"
 integration_meili_port="${NOTELIX_TEST_MEILI_PORT:-18577}"
 integration_meili_key="notelix-integration-meili-master-key"
 
+stop_meilisearch() {
+  "${integration_compose[@]}" stop --timeout 5 meilisearch
+  local attempt container_id
+  container_id="$("${integration_compose[@]}" ps --all --quiet meilisearch)"
+  for ((attempt = 1; attempt <= 50; attempt += 1)); do
+    if [[ -z "${container_id}" ]] ||
+      [[ "$(docker inspect --format '{{.State.Status}}' "${container_id}" 2>/dev/null || true)" == "exited" ]]; then
+      return
+    fi
+    sleep 0.1
+  done
+  echo "Meilisearch test container did not stop completely" >&2
+  return 1
+}
+
+start_meilisearch() {
+  local attempt
+  for attempt in 1 2 3; do
+    if "${integration_compose[@]}" up --detach --wait meilisearch; then
+      return
+    fi
+    echo "Retrying Meilisearch test container startup" >&2
+    sleep 1
+  done
+  echo "Meilisearch test container did not become healthy" >&2
+  return 1
+}
+
 cleanup() {
   integration_exit_code=$?
   trap - EXIT INT TERM
@@ -125,7 +153,7 @@ integration_secondary_server_pid=$!
 node ./tools/test-live-api.js
 node ./tools/meili-reindex.js
 
-"${integration_compose[@]}" stop --timeout 5 meilisearch
+stop_meilisearch
 node <<'NODE'
 const assert = require('assert');
 
@@ -151,12 +179,12 @@ assertDegradedReadiness().catch((error) => {
 NODE
 
 node ./tools/test-search-outbox.js save
-"${integration_compose[@]}" up --detach --wait meilisearch
+start_meilisearch
 node ./tools/test-search-outbox.js verify-save
 
-"${integration_compose[@]}" stop --timeout 5 meilisearch
+stop_meilisearch
 node ./tools/test-search-outbox.js delete
-"${integration_compose[@]}" up --detach --wait meilisearch
+start_meilisearch
 node ./tools/test-search-outbox.js verify-delete
 
 export MEILISEARCH_ANNOTATIONS_INDEX=annotations_agent_recovery
