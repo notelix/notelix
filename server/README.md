@@ -201,6 +201,10 @@ Database pools default to 10 connections. `DB_POOL_MAX` accepts 1 to 100,
 `DB_QUERY_TIMEOUT_MS` accepts 100 to 3600000 milliseconds. PostgreSQL query
 execution, stalled query reads, and waits for a pool connection are bounded so
 dependency outages cannot accumulate work indefinitely.
+Migration runners wait up to two minutes for the singleton advisory lock;
+`DB_MIGRATION_LOCK_TIMEOUT_MS` accepts 1000 to 3600000 milliseconds. Exceeding
+the deadline fails startup so the container restart policy can retry instead of
+leaving a backend permanently stuck before it serves traffic.
 
 Meilisearch HTTP requests are bounded to 10 seconds by default;
 `MEILISEARCH_REQUEST_TIMEOUT_MS` accepts values from 100 to 600000

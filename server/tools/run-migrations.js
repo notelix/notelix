@@ -1,14 +1,35 @@
 const { AppDataSource } = require('../dist/database');
+const { readBoundedIntegerEnvironment } = require('../runtime-config');
 
 const migrationLockName = 'notelix-database-migrations';
 const migrationLockRetryMs = 250;
+const migrationLockTimeoutMs = readBoundedIntegerEnvironment(
+  'DB_MIGRATION_LOCK_TIMEOUT_MS',
+  120000,
+  1000,
+  3600000,
+);
 
 function sleep(delay) {
   return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
-async function acquireMigrationLock(queryRunner) {
+async function acquireMigrationLock(
+  queryRunner,
+  {
+    timeoutMs = migrationLockTimeoutMs,
+    retryMs = migrationLockRetryMs,
+    now = () => performance.now(),
+    wait = sleep,
+  } = {},
+) {
+  const startedAt = now();
   while (true) {
+    if (now() - startedAt >= timeoutMs) {
+      throw new Error(
+        `Timed out after ${timeoutMs}ms waiting for PostgreSQL migration lock`,
+      );
+    }
     const result = await queryRunner.query(
       'SELECT pg_try_advisory_lock(hashtext($1)) AS acquired',
       [migrationLockName],
@@ -16,7 +37,13 @@ async function acquireMigrationLock(queryRunner) {
     if (result[0]?.acquired) {
       return;
     }
-    await sleep(migrationLockRetryMs);
+    const remainingMs = timeoutMs - (now() - startedAt);
+    if (remainingMs <= 0) {
+      throw new Error(
+        `Timed out after ${timeoutMs}ms waiting for PostgreSQL migration lock`,
+      );
+    }
+    await wait(Math.min(retryMs, remainingMs));
   }
 }
 
@@ -51,7 +78,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+module.exports = { acquireMigrationLock, migrationLockName };
