@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+integration_server_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+integration_compose=(
+  docker compose
+  --project-name notelix-integration
+  --file "${integration_server_dir}/docker-compose.test.yml"
+)
+integration_server_log="$(mktemp)"
+integration_server_pid=""
+integration_server_port="${NOTELIX_TEST_SERVER_PORT:-18575}"
+integration_db_port="${NOTELIX_TEST_DB_PORT:-18576}"
+integration_meili_port="${NOTELIX_TEST_MEILI_PORT:-18577}"
+
+cleanup() {
+  integration_exit_code=$?
+  trap - EXIT INT TERM
+
+  if [[ -n "${integration_server_pid}" ]]; then
+    kill "${integration_server_pid}" >/dev/null 2>&1 || true
+    wait "${integration_server_pid}" >/dev/null 2>&1 || true
+  fi
+
+  "${integration_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+
+  if [[ ${integration_exit_code} -ne 0 ]]; then
+    echo "Notelix server log:" >&2
+    sed -n '1,240p' "${integration_server_log}" >&2
+  fi
+  rm -f "${integration_server_log}"
+  exit "${integration_exit_code}"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+cd "${integration_server_dir}"
+"${integration_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+"${integration_compose[@]}" up --detach --wait
+
+export NODE_ENV=test
+export PORT="${integration_server_port}"
+export DB_HOST=127.0.0.1
+export DB_PORT="${integration_db_port}"
+export DB_USERNAME=postgres
+export DB_PASSWORD=notelix-integration-password
+export DB_DATABASE=notelix_integration
+export MEILISEARCH_HOST="http://127.0.0.1:${integration_meili_port}"
+export MEILISEARCH_ANNOTATIONS_INDEX=annotations_integration
+export TEST_SERVER_URL="http://127.0.0.1:${integration_server_port}"
+
+node ./tools/ensure-pg-db.js
+npm run schema:sync
+node ./dist/main.js >"${integration_server_log}" 2>&1 &
+integration_server_pid=$!
+
+node ./tools/test-live-api.js

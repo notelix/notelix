@@ -52,6 +52,7 @@ function sleep(delay) {
       break;
     } else {
       console.log('postgres port not reachable yet..');
+      await sleep(1000);
     }
   }
 
@@ -68,11 +69,12 @@ function sleep(delay) {
     'SELECT datname FROM pg_database WHERE datistemplate = false;',
   );
 
-  if (existingDatabases.rows.some((x) => x.datname === 'notelix')) {
-    console.log('notelix database already exists');
+  if (existingDatabases.rows.some((x) => x.datname === ormconfig.database)) {
+    console.log(`${ormconfig.database} database already exists`);
   } else {
+    const escapedDatabaseName = ormconfig.database.replace(/"/g, '""');
     await client.query(
-      `CREATE DATABASE "${ormconfig.database}"
+      `CREATE DATABASE "${escapedDatabaseName}"
      WITH OWNER "postgres" 
      ENCODING 'UTF8' 
      LC_COLLATE = 'en_US.utf8' 

@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_PASSWORD: notelix-integration-password
+    ports:
+      - '127.0.0.1:${NOTELIX_TEST_DB_PORT:-18576}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  meilisearch:
+    image: getmeili/meilisearch:v0.25.2
+    environment:
+      MEILI_NO_ANALYTICS: 'true'
+    ports:
+      - '127.0.0.1:${NOTELIX_TEST_MEILI_PORT:-18577}:7700'
+    tmpfs:
+      - /data.ms
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget --quiet --spider http://127.0.0.1:7700/health || exit 1',
+        ]
+      interval: 1s
+      timeout: 3s
+      retries: 30

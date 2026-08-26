@@ -2,11 +2,13 @@ import { MeiliSearch } from 'meilisearch';
 import { Annotation } from '../models/annotation.entity';
 
 const client = new MeiliSearch({
-  host: 'http://meilisearch:7700',
+  host: process.env.MEILISEARCH_HOST || 'http://meilisearch:7700',
   apiKey: process.env.MEILISEARCH_API_KEY,
 });
 
-const annotationIndex = client.index('annotations');
+const annotationIndex = client.index(
+  process.env.MEILISEARCH_ANNOTATIONS_INDEX || 'annotations',
+);
 
 function toMeiliEntry(annotation: Annotation) {
   return {
