@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:14
+    image: postgres:17.11-alpine
     environment:
       POSTGRES_PASSWORD: notelix-integration-password
     ports:

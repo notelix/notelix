@@ -52,6 +52,10 @@ function toMeiliEntry(annotation: Annotation) {
 }
 
 class MeilisearchClient {
+  async health() {
+    return client.health();
+  }
+
   async IndexAnnotation(annotation) {
     return waitForTask(
       await annotationIndex.addDocuments([toMeiliEntry(annotation)]),

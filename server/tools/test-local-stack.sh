@@ -88,3 +88,28 @@ integration_server_pid=$!
 
 node ./tools/test-live-api.js
 node ./tools/meili-reindex.js
+
+"${integration_compose[@]}" stop --timeout 5 meilisearch
+node <<'NODE'
+const assert = require('assert');
+
+async function assertDegradedReadiness() {
+  const serverUrl = process.env.TEST_SERVER_URL;
+  const liveness = await fetch(`${serverUrl}/meta/health`);
+  assert.strictEqual(liveness.status, 200);
+  assert.deepStrictEqual(await liveness.json(), { status: 'ok' });
+
+  const readiness = await fetch(`${serverUrl}/meta/ready`);
+  assert.strictEqual(readiness.status, 503);
+  assert.deepStrictEqual(await readiness.json(), {
+    status: 'unavailable',
+    checks: { postgres: 'up', meilisearch: 'down' },
+  });
+  console.log('Degraded readiness test passed.');
+}
+
+assertDegradedReadiness().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+NODE
