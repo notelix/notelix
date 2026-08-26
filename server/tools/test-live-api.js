@@ -140,6 +140,39 @@ async function assertStaticTokenIsProtected(staticToken) {
   }
 }
 
+async function assertAnnotationHistoryIsProtected(username) {
+  const client = new Client({
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  });
+  await client.connect();
+  try {
+    const persisted = await client.query(
+      `
+        SELECT history."data", account."password"
+        FROM "annotation_change_history" history
+        JOIN "user" account ON account."id" = history."userId"
+        WHERE account."name" = $1
+        ORDER BY history."id"
+      `,
+      [username],
+    );
+    assert.ok(persisted.rowCount >= 3);
+    for (const row of persisted.rows) {
+      assert.strictEqual(Object.hasOwn(row.data, 'user'), false);
+      assert.strictEqual(
+        JSON.stringify(row.data).includes(row.password),
+        false,
+      );
+    }
+  } finally {
+    await client.end();
+  }
+}
+
 async function main() {
   await Promise.all(
     [serverUrl, secondaryServerUrl].filter(Boolean).map(waitForServer),
@@ -363,6 +396,7 @@ async function main() {
   assert.strictEqual(listDiff.body.ok, true);
   assert.strictEqual(listDiff.body.diff.length, 1);
   assert.strictEqual(listDiff.body.diff[0].kind, 1);
+  assert.strictEqual(Object.hasOwn(listDiff.body.diff[0].data, 'user'), false);
   const saveHistoryId = listDiff.body.diff[0].id;
   assert.strictEqual(
     fullSnapshot.body.annotationChangeHistoryLatestId,
@@ -396,6 +430,10 @@ async function main() {
   assert.strictEqual(replicaDiff.body.diff.length, 1);
   assert.strictEqual(replicaDiff.body.diff[0].kind, 1);
   assert.strictEqual(
+    Object.hasOwn(replicaDiff.body.diff[0].data, 'user'),
+    false,
+  );
+  assert.strictEqual(
     replicaDiff.body.diff[0].data.title,
     'Integration test updated',
   );
@@ -422,6 +460,11 @@ async function main() {
   assert.strictEqual(deleteDiff.body.ok, true);
   assert.strictEqual(deleteDiff.body.diff.length, 1);
   assert.strictEqual(deleteDiff.body.diff[0].kind, 2);
+  assert.strictEqual(
+    Object.hasOwn(deleteDiff.body.diff[0].data, 'user'),
+    false,
+  );
+  await assertAnnotationHistoryIsProtected(username);
   await waitForSearch(headers, 'searchable text', 0);
 
   let rateLimited = false;

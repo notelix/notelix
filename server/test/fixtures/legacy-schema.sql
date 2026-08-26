@@ -75,6 +75,12 @@ INSERT INTO "annotation" ("uid", "url", "data", "userId")
 VALUES ('legacy-uid', 'https://example.com/legacy', '{}', 1);
 INSERT INTO "annotation_change_history"
   ("kind", "annotationId", "uid", "data", "userId")
-VALUES (1, 1, 'legacy-uid', '{}', 1);
+VALUES (
+  1,
+  1,
+  'legacy-uid',
+  '{"id":1,"uid":"legacy-uid","user":{"id":1,"name":"legacy-user","password":"legacy-hash","client_side_encryption":"legacy-encryption-metadata"}}',
+  1
+);
 INSERT INTO "static_token" ("staticToken", "userId")
 VALUES ('llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll', 1);

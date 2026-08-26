@@ -3,6 +3,9 @@ import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { createValidationPipe } from '../src/application';
 import { AgentSyncController } from '../src/controllers/agentSyncController';
+import { meilisearchClient } from '../src/meilisearch';
+import { Annotation } from '../src/models/annotation.entity';
+import { AnnotationChangeHistoryKindSave } from '../src/models/annotationChangeHistory.entity';
 
 describe('Agent control API', () => {
   let app: INestApplication;
@@ -27,6 +30,7 @@ describe('Agent control API', () => {
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
     if (originalRunMode === undefined) {
       delete process.env.RUN_MODE;
     } else {
@@ -80,5 +84,32 @@ describe('Agent control API', () => {
         },
       })
       .expect(400);
+  });
+
+  it('applies annotation-only history snapshots without a user object', async () => {
+    const snapshot = {
+      id: 12,
+      uid: 'annotation-uid',
+      url: 'https://example.com/article',
+      title: 'Article',
+      host: 'example.com',
+      data: { text: 'highlighted text' },
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-02T00:00:00.000Z',
+    };
+    const persist = jest
+      .spyOn(Annotation, 'agentSyncPersist')
+      .mockResolvedValue(undefined);
+    const index = jest
+      .spyOn(meilisearchClient, 'IndexAnnotation')
+      .mockResolvedValue(undefined);
+
+    await new AgentSyncController().applyDiff({
+      kind: AnnotationChangeHistoryKindSave,
+      data: snapshot,
+    });
+
+    expect(persist).toHaveBeenCalledWith(snapshot);
+    expect(index).toHaveBeenCalledWith(snapshot);
   });
 });

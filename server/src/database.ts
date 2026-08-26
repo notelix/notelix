@@ -9,6 +9,7 @@ import { User } from './models/user.entity';
 import { InitializeProductionSchema1787745600000 } from './migrations/1787745600000-InitializeProductionSchema';
 import { ProtectAuthenticationSecrets1787752800000 } from './migrations/1787752800000-ProtectAuthenticationSecrets';
 import { OptimizeAnnotationSync1787839200000 } from './migrations/1787839200000-OptimizeAnnotationSync';
+import { ScrubAnnotationHistorySecrets1787925600000 } from './migrations/1787925600000-ScrubAnnotationHistorySecrets';
 
 export const AppDataSource = new DataSource({
   ...ormConfig,
@@ -24,6 +25,7 @@ export const AppDataSource = new DataSource({
     InitializeProductionSchema1787745600000,
     ProtectAuthenticationSecrets1787752800000,
     OptimizeAnnotationSync1787839200000,
+    ScrubAnnotationHistorySecrets1787925600000,
   ],
   synchronize: false,
 });

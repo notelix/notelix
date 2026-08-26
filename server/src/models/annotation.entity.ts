@@ -81,4 +81,12 @@ export class Annotation extends BaseEntity {
       data: annotation.data,
     };
   }
+
+  static SyncSnapshot(annotation: Annotation) {
+    return {
+      ...Annotation.Neat(annotation),
+      created_at: annotation.created_at,
+      updated_at: annotation.updated_at,
+    };
+  }
 }

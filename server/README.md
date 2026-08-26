@@ -137,6 +137,10 @@ tokens continue to work after migration. Generate them with a cryptographically
 secure source such as `openssl rand -hex 32`, transmit them only over HTTPS, and
 never commit them or share one token between users.
 
+Annotation synchronization history contains annotation-only snapshots. The
+history security migration removes legacy embedded user objects, including
+password hashes and client-side encryption metadata, from existing rows.
+
 JWTs expire after 30 days by default; set `JWT_EXPIRES_IN` to another
 `jsonwebtoken` duration when a shorter policy is required. Changing a password
 increments the account's token version and immediately revokes every previously

@@ -83,7 +83,19 @@ async function main() {
       { name: 'InitializeProductionSchema1787745600000' },
       { name: 'ProtectAuthenticationSecrets1787752800000' },
       { name: 'OptimizeAnnotationSync1787839200000' },
+      { name: 'ScrubAnnotationHistorySecrets1787925600000' },
     ]);
+
+    const historyPayload = await client.query(
+      'SELECT "data" FROM "annotation_change_history"',
+    );
+    assert.deepStrictEqual(historyPayload.rows, [
+      { data: { id: 1, uid: 'legacy-uid' } },
+    ]);
+    assert.strictEqual(
+      JSON.stringify(historyPayload.rows).includes('legacy-hash'),
+      false,
+    );
 
     const legacyToken = 'l'.repeat(64);
     const tokenDigest = createHash('sha256')

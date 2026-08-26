@@ -16,7 +16,7 @@ export default class AnnotationChangeHistoryService {
     let history = new AnnotationChangeHistory();
     history.uid = annotation.uid;
     history.annotationId = annotation.id;
-    history.data = annotation;
+    history.data = Annotation.SyncSnapshot(annotation);
     history.user = annotation.user;
     history.kind = AnnotationChangeHistoryKindSave;
     history = manager
@@ -32,7 +32,7 @@ export default class AnnotationChangeHistoryService {
     let history = new AnnotationChangeHistory();
     history.uid = annotation.uid;
     history.annotationId = annotation.id;
-    history.data = annotation;
+    history.data = Annotation.SyncSnapshot(annotation);
     history.user = annotation.user;
     history.kind = AnnotationChangeHistoryKindDelete;
     history = manager
