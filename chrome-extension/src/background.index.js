@@ -1,4 +1,27 @@
-function handleApiCall(request, sendResponse) {
+import { getServer } from "./storage";
+import { NotelixDefaultServer } from "./popup/consts";
+import { isApiRequestAllowed } from "./apiRequestPolicy";
+
+const rejectedRequestMessage = "background API request is not allowed";
+
+async function handleApiCall(request, sender, sendResponse) {
+  try {
+    const configuredServer = (await getServer()) || NotelixDefaultServer;
+    const allowServerProbe = sender.url?.startsWith(chrome.runtime.getURL(""));
+    if (
+      sender.id !== chrome.runtime.id ||
+      !isApiRequestAllowed(request.params, configuredServer, {
+        allowServerProbe,
+      })
+    ) {
+      sendResponse({ err: rejectedRequestMessage });
+      return;
+    }
+  } catch (_error) {
+    sendResponse({ err: rejectedRequestMessage });
+    return;
+  }
+
   fetch(request.params.url, {
     method: request.params.method,
     body:
@@ -30,10 +53,11 @@ function handleApiCall(request, sendResponse) {
 }
 
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  switch (request.cmd) {
+  switch (request?.cmd) {
     case "apiCall":
-      handleApiCall(request, sendResponse);
-      break;
+      handleApiCall(request, sender, sendResponse);
+      return true;
+    default:
+      return false;
   }
-  return true;
 });

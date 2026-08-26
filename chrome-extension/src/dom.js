@@ -13,10 +13,10 @@ import {
   marker,
 } from "./marker";
 import { deleteAnnotation } from "./api/annotations";
-import Swal from "sweetalert2";
 import { isMobileOrTablet } from "./mobile";
 import sleep from "./utils/sleep";
 import { isSelectionBackwards } from "./selection-observer";
+import { isTrustedUserInteraction } from "./trustedUserInteraction";
 
 function prepareAnnotatePopoverDom() {
   document.body.insertAdjacentHTML(
@@ -34,7 +34,10 @@ function prepareAnnotatePopoverDom() {
     "notelix-annotate-popover"
   );
   state.annotatePopoverDom.childNodes.forEach((node) => {
-    node.onpointerdown = () => {
+    node.onpointerdown = (event) => {
+      if (!isTrustedUserInteraction(event)) {
+        return;
+      }
       onHighlightElementClick(node.getAttribute("data-color"));
     };
   });
@@ -51,11 +54,17 @@ function prepareEditAnnotationPopoverDom() {
     "notelix-edit-annotation-popover"
   );
 
-  document.getElementById("notelix-button-trash").onpointerdown = () => {
+  document.getElementById("notelix-button-trash").onpointerdown = (event) => {
+    if (!isTrustedUserInteraction(event)) {
+      return;
+    }
     onDeleteAnnotationElementClick();
   };
 
-  document.getElementById("notelix-button-notes").onpointerdown = () => {
+  document.getElementById("notelix-button-notes").onpointerdown = (event) => {
+    if (!isTrustedUserInteraction(event)) {
+      return;
+    }
     onEditNotesElementClick();
   };
 }
@@ -104,14 +113,12 @@ export async function onEditNotesElementClick() {
   hideAnnotatePopover();
   hideEditAnnotationPopover();
   await sleep(200);
-  const { value } = await Swal.fire({
-    input: "textarea",
-    inputLabel: "Write some notes..",
-    inputValue: annotation.data.notes || "",
-    allowOutsideClick: false,
-  });
+  const value = window.prompt(
+    "Write some notes..",
+    annotation.data.notes || ""
+  );
 
-  if (value === undefined) {
+  if (value === null) {
     return;
   }
 
@@ -149,14 +156,9 @@ export async function onDeleteAnnotationElementClick() {
     hideAnnotatePopover();
     hideEditAnnotationPopover();
     await sleep(200);
-    const { isConfirmed } = await Swal.fire({
-      title: "Are you sure?",
-      text: "The notes will also be deleted with it",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes",
-    });
-    if (!isConfirmed) {
+    if (
+      !window.confirm("Are you sure? The notes will also be deleted with it")
+    ) {
       return;
     }
     clearInlineNotes(state.selectedAnnotationId);

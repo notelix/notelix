@@ -6,9 +6,13 @@ import {
   onHighlightElementClick,
 } from "./dom";
 import { highlighterColors } from "./utils/colors";
+import { isTrustedUserInteraction } from "./trustedUserInteraction";
 
 export function registerHotkeys() {
   window.addEventListener("keydown", (e) => {
+    if (!isTrustedUserInteraction(e)) {
+      return;
+    }
     if (e.metaKey || e.shiftKey || e.ctrlKey || e.altKey) {
       return;
     }

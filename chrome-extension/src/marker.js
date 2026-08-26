@@ -7,6 +7,7 @@ import {
 } from "./dom";
 import { pickBlackOrWhiteForeground } from "./utils/colors";
 import commentsSvg from "./icons/comments.svg";
+import { isTrustedUserInteraction } from "./trustedUserInteraction";
 
 function convertAnnotationToSerializedRange(annotation) {
   return {
@@ -27,13 +28,82 @@ function paintNotes(context) {
       (x) => x.getAttribute("highlight-id") === context.serializedRange.uid
     )[0];
 
-    const inlineNotesRootElement = document.createElement("div");
+    const inlineNotesRootElement = document.createElement("span");
+    inlineNotesRootElement.id = "notes-" + context.serializedRange.uid;
+    inlineNotesRootElement.className =
+      "web-marker-black-listed-element notelix-notes-inline";
+    inlineNotesRootElement.setAttribute("aria-label", "Edit Notelix note");
+    const shadowRoot = inlineNotesRootElement.attachShadow({ mode: "closed" });
+    const shadowStyle = document.createElement("style");
+    shadowStyle.textContent = `
+      .comments-svg { display: inline-block; width: 38px; height: 26px; }
+      .comments-svg svg {
+        position: relative; top: 2px; box-sizing: content-box; width: 1em;
+        padding: 0 2px 0 4px; transition: transform 0.2s ease-in-out;
+      }
+      .comments-svg:hover svg { transform: scale(1.15); }
+      .text {
+        font-family: sans-serif; text-decoration: none; font-style: normal;
+        font-weight: normal; white-space: nowrap; display: inline;
+        padding: 4px 8px; position: absolute; z-index: 1;
+        top: calc(-1em - 11px); left: 0; border-radius: 2px;
+        font-size: 11px; overflow: hidden; text-overflow: ellipsis;
+        line-height: 12px;
+      }
+      .caret {
+        display: inline-block; width: 10px; height: 10px;
+        transform: rotate(45deg); position: absolute; top: -9px;
+        z-index: 0; left: 6px;
+      }
+      .expanded {
+        pointer-events: none; position: fixed; left: 0; width: 100vw;
+        padding: 20px; box-sizing: border-box; text-align: center;
+        z-index: 2147483647;
+      }
+      .expanded > div {
+        padding: 20px; backdrop-filter: blur(5px);
+        background-color: #FFFFFFBB; box-shadow: 0 0 4px #00000055;
+        border-radius: 4px; font: 16px sans-serif; color: black;
+      }
+    `;
+    const commentsElement = document.createElement("span");
+    commentsElement.className = "comments-svg";
+    commentsElement.innerHTML = commentsSvg;
+    commentsElement.getElementsByTagName("svg")[0].style.fill =
+      annotation.data.color;
+    const inlineNotesTextElement = document.createElement("span");
+    inlineNotesTextElement.className = "text";
+    inlineNotesTextElement.innerText = annotation.data.notes.replace(
+      /\n/g,
+      " "
+    );
+    inlineNotesTextElement.style.setProperty(
+      "background",
+      annotation.data.color,
+      "important"
+    );
+    inlineNotesTextElement.style.setProperty("max-width", "300px", "important");
+    inlineNotesTextElement.style.color = pickBlackOrWhiteForeground(
+      annotation.data.color
+    );
+    const inlineNotesCaretElement = document.createElement("span");
+    inlineNotesCaretElement.className = "caret";
+    inlineNotesCaretElement.style.setProperty(
+      "background",
+      annotation.data.color,
+      "important"
+    );
     const expandedNotesElement = document.createElement("div");
-    expandedNotesElement.className = "notelix-expanded-notes";
+    expandedNotesElement.className = "expanded";
     const expandedNotesTextElement = document.createElement("div");
-    expandedNotesElement.appendChild(expandedNotesTextElement);
     expandedNotesTextElement.innerText = annotation.data.notes;
-    expandedNotesTextElement.style.backgroundColor = "#FFFFFFBB";
+    expandedNotesElement.appendChild(expandedNotesTextElement);
+    shadowRoot.append(
+      shadowStyle,
+      commentsElement,
+      inlineNotesTextElement,
+      inlineNotesCaretElement
+    );
 
     inlineNotesRootElement.addEventListener("mouseover", () => {
       const clientRect = inlineNotesTextElement.getBoundingClientRect();
@@ -44,68 +114,31 @@ function paintNotes(context) {
         expandedNotesElement.style.removeProperty("top");
         expandedNotesElement.style.bottom = "0px";
       }
-      document.body.appendChild(expandedNotesElement);
+      shadowRoot.appendChild(expandedNotesElement);
     });
     inlineNotesRootElement.addEventListener("mouseleave", () => {
-      if (expandedNotesElement) {
-        expandedNotesElement.parentElement.removeChild(expandedNotesElement);
-      }
+      expandedNotesElement.remove();
     });
     inlineNotesRootElement.addEventListener("click", (e) => {
+      if (!isTrustedUserInteraction(e)) {
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
       state.selectedAnnotationId = context.serializedRange.uid;
       onEditNotesElementClick();
-      expandedNotesElement.parentElement.removeChild(expandedNotesElement);
+      expandedNotesElement.remove();
     });
-    inlineNotesRootElement.id = "notes-" + context.serializedRange.uid;
-    inlineNotesRootElement.className =
-      "web-marker-black-listed-element notelix-notes-inline";
-    const inlineNotesTextElement = document.createElement("div");
-    inlineNotesTextElement.innerText = annotation.data.notes.replace(
-      /\n/g,
-      " "
-    );
-    inlineNotesTextElement.className = "text";
-    inlineNotesTextElement.style.setProperty(
-      "background",
-      annotation.data.color,
-      "important"
-    );
-    const textWidth = 300;
-    inlineNotesTextElement.style.setProperty(
-      "max-width",
-      `${textWidth}px`,
-      "important"
-    );
-    inlineNotesTextElement.style.color = pickBlackOrWhiteForeground(
-      annotation.data.color
-    );
-    inlineNotesRootElement.innerHTML = `<span class="comments-svg" style="background-color: transparent;border-color:transparent"><span style="visibility: hidden;display: inline-block;white-space:nowrap;width: 0;">notes</span>${commentsSvg}</span>`;
     inlineNotesRootElement.style.backgroundColor = "transparent";
-    inlineNotesRootElement.appendChild(inlineNotesTextElement);
     firstHighlightElement.prepend(inlineNotesRootElement);
-    inlineNotesRootElement.getElementsByTagName("svg")[0].style.fill =
-      annotation.data.color;
 
-    const inlineNotesCaretElement = document.createElement("div");
-    inlineNotesCaretElement.className = "caret";
-    inlineNotesCaretElement.style.setProperty(
-      "background",
-      annotation.data.color,
-      "important"
-    );
-    inlineNotesRootElement.appendChild(inlineNotesCaretElement);
-
-    if (inlineNotesTextElement) {
-      // prevent text from growing out of the screen bounds
-      const clientRect = inlineNotesTextElement.getBoundingClientRect();
-      const maxRight = document.documentElement.clientWidth;
-      if (clientRect.right > maxRight) {
-        const diff = maxRight - clientRect.right;
-        inlineNotesTextElement.style.marginLeft = diff + "px";
-      }
+    // Prevent text from growing out of the screen bounds.
+    const clientRect = inlineNotesTextElement.getBoundingClientRect();
+    const maxRight = document.documentElement.clientWidth;
+    if (clientRect.right > maxRight) {
+      const diff = maxRight - clientRect.right;
+      inlineNotesTextElement.style.marginLeft = diff + "px";
     }
   }
 }
@@ -113,7 +146,10 @@ function paintNotes(context) {
 export const marker = new Marker({
   rootElement: document.body,
   eventHandler: {
-    onHighlightClick: (context, element) => {
+    onHighlightClick: (context, element, event) => {
+      if (!isTrustedUserInteraction(event)) {
+        return;
+      }
       setTimeout(() => {
         state.selectedAnnotationId = context.serializedRange.uid;
         const range = marker.deserializeRange(

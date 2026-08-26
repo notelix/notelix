@@ -123,80 +123,9 @@
   filter: brightness(1);
   transition: all 0.15s ease-in-out;
 
-  .comments-svg {
-
-    svg {
-      position: relative;
-      top: 2px;
-      box-sizing: content-box !important;
-      width: 1em;
-      padding: 0 2px 0 4px;
-      fill: #000000;
-      transition: all 0.2s ease-in-out;
-    }
-
-    &:hover {
-      svg {
-        transform: scale(1.15);
-      }
-    }
-  }
-
-  .text {
-    font-family: sans-serif;
-    text-decoration: none;
-    font-style: normal;
-    font-weight: normal;
-    white-space: nowrap;
-    display: inline;
-    padding: 4px 8px;
-    position: absolute;
-    z-index: 1;
-    top: calc(-1em - 11px);
-    left: 0;
-    border-radius: 2px;
-    font-size: 11px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 12px;
-  }
-
-  .caret {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    transform: rotate(45deg);
-    position: absolute;
-    top: -9px;
-
-    z-index: 0;
-    left: 6px;
-  }
-
   &:hover {
     filter: brightness(1.05);
     z-index: 100;
-  }
-}
-
-.notelix-expanded-notes {
-  pointer-events: none;
-  position: fixed;
-  left: 0;
-  width: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-  text-align: center;
-  z-index: 1000;
-
-  & > div {
-    padding: 20px;
-    backdrop-filter: blur(5px);
-    background-color: #FFFFFFBB !important;
-    box-shadow: 0 0 4px #00000055;
-    border-radius: 4px;
-    font-size: 16px;
-    color: black !important;
   }
 }
 
@@ -211,8 +140,4 @@ body.selection-changing {
       pointer-events: none !important;
     }
   }
-}
-
-.swal2-popup {
-  font-size: 14px !important;
 }

@@ -17,17 +17,37 @@ const candidates = [
 ].filter(Boolean);
 const executablePath = candidates.find((candidate) => fs.existsSync(candidate));
 const headless = process.env.NOTELIX_HEADLESS === "true";
+const privateNote = "private smoke note must not reach page scripts";
+const annotationRequests = [];
 
 if (!executablePath) {
   throw new Error(
-    "Chrome/Chromium was not found; pass its path as the first argument or CHROME_PATH",
+    "Chrome/Chromium was not found; pass its path as the first argument or CHROME_PATH"
   );
 }
 if (!fs.existsSync(path.join(extensionPath, "manifest.json"))) {
   throw new Error("extension-build is missing; run `yarn package` first");
 }
 
-const server = http.createServer((request, response) => {
+function readJsonBody(request) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    request.setEncoding("utf8");
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", () => {
+      try {
+        resolve(body ? JSON.parse(body) : null);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    request.on("error", reject);
+  });
+}
+
+const server = http.createServer(async (request, response) => {
   if (request.url === "/embedded") {
     response.writeHead(200, { "Content-Type": "text/html" });
     response.end(fs.readFileSync(path.join(root, "embedded.html"), "utf8"));
@@ -54,14 +74,55 @@ const server = http.createServer((request, response) => {
         name: "smoke-user",
         jwt: "smoke-jwt",
         client_side_encryption: "",
-      }),
+      })
     );
     return;
   }
 
-  if (request.url === "/annotations/queryByUrl") {
+  if (request.url === "/meta/version") {
     response.writeHead(200, { "Content-Type": "application/json" });
-    response.end(JSON.stringify({ list: [] }));
+    response.end(JSON.stringify({ notelix: true }));
+    return;
+  }
+
+  if (request.url === "/annotations/queryByUrl") {
+    annotationRequests.push({
+      method: request.method,
+      url: request.url,
+      body: await readJsonBody(request),
+    });
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        list: [
+          {
+            id: 7,
+            uid: "smoke-annotation",
+            url: "",
+            title: "Notelix smoke",
+            host: "127.0.0.1",
+            data: {
+              color: "#fff59d",
+              notes: privateNote,
+              text: "annotate me",
+              textBefore: "",
+              textAfter: "",
+            },
+          },
+        ],
+      })
+    );
+    return;
+  }
+
+  if (["/annotations/save", "/annotations/delete"].includes(request.url)) {
+    annotationRequests.push({
+      method: request.method,
+      url: request.url,
+      body: await readJsonBody(request),
+    });
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({}));
     return;
   }
 
@@ -105,7 +166,7 @@ async function main() {
       (target) =>
         target.type() === "service_worker" &&
         target.url().startsWith("chrome-extension://"),
-      { timeout: 15000 },
+      { timeout: 15000 }
     );
     const extensionId = new URL(workerTarget.url()).host;
     const worker = await workerTarget.worker();
@@ -118,10 +179,10 @@ async function main() {
         new Promise((resolve) => {
           chrome.storage.sync.set(
             { notelix: { notelixServer: serverUrl } },
-            resolve,
+            resolve
           );
         }),
-      baseUrl,
+      baseUrl
     );
 
     const popup = await browser.newPage();
@@ -129,10 +190,10 @@ async function main() {
     popup.on("pageerror", (error) => popupErrors.push(error.message));
     await popup.goto(
       `chrome-extension://${extensionId}/extension-options.html`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "domcontentloaded" }
     );
     await popup.waitForFunction(
-      () => document.querySelector("h1")?.textContent === "Login",
+      () => document.querySelector("h1")?.textContent === "Login"
     );
     const initialStorage = await popup.evaluate(async () => {
       const read = (area) =>
@@ -147,14 +208,14 @@ async function main() {
     assert.equal(initialStorage.sync.notelix.notelixPassword, undefined);
     await popup.click('a[href="#/signup"]');
     await popup.waitForFunction(
-      () => document.querySelector("h1")?.textContent === "Sign Up",
+      () => document.querySelector("h1")?.textContent === "Sign Up"
     );
     await popup.goto(
       `chrome-extension://${extensionId}/extension-options.html`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "domcontentloaded" }
     );
     await popup.waitForFunction(
-      () => document.querySelector("h1")?.textContent === "Login",
+      () => document.querySelector("h1")?.textContent === "Login"
     );
     await popup.type('input[placeholder="username"]', "smoke-user");
     await popup.type('input[placeholder="password"]', "smoke-password");
@@ -167,7 +228,7 @@ async function main() {
     await popup.click("button");
     await dialogHandled;
     await popup.waitForFunction(() =>
-      document.body.textContent.includes("Logged In as smoke-user"),
+      document.body.textContent.includes("Logged In as smoke-user")
     );
     const authenticatedStorage = await popup.evaluate(async () => {
       const read = (area) =>
@@ -179,17 +240,14 @@ async function main() {
     });
     assert.equal(
       authenticatedStorage.local["notelix-auth"].user.jwt,
-      "smoke-jwt",
+      "smoke-jwt"
     );
-    assert.equal(
-      authenticatedStorage.local["notelix-auth"].server,
-      baseUrl,
-    );
+    assert.equal(authenticatedStorage.local["notelix-auth"].server, baseUrl);
     assert.equal(authenticatedStorage.sync.notelix.notelixUser, undefined);
     assert.equal(authenticatedStorage.sync.notelix.notelixPassword, undefined);
     assert.equal(
       JSON.stringify(authenticatedStorage).includes("smoke-password"),
-      false,
+      false
     );
 
     await popup.evaluate(
@@ -197,16 +255,16 @@ async function main() {
         new Promise((resolve) => {
           chrome.storage.local.set(
             { "notelix-encryption-key": "smoke-encryption-key" },
-            resolve,
+            resolve
           );
-        }),
+        })
     );
     await popup.goto(
       `chrome-extension://${extensionId}/extension-options.html#/login`,
-      { waitUntil: "domcontentloaded" },
+      { waitUntil: "domcontentloaded" }
     );
     await popup.waitForFunction(
-      () => document.querySelector("h1")?.textContent === "Login",
+      () => document.querySelector("h1")?.textContent === "Login"
     );
     const serverChangeConfirmed = new Promise((resolve) => {
       popup.once("dialog", async (dialog) => {
@@ -217,11 +275,11 @@ async function main() {
     await popup.evaluate(() =>
       [...document.querySelectorAll("a")]
         .find((link) => link.textContent === "Change Server")
-        .click(),
+        .click()
     );
     await serverChangeConfirmed;
     await popup.waitForFunction(
-      () => document.querySelector("h1")?.textContent === "Setup",
+      () => document.querySelector("h1")?.textContent === "Setup"
     );
     const serverChangeStorage = await popup.evaluate(async () => {
       const read = (area) =>
@@ -234,18 +292,40 @@ async function main() {
     assert.equal(serverChangeStorage.local["notelix-auth"], undefined);
     assert.equal(
       serverChangeStorage.local["notelix-encryption-key"],
-      undefined,
+      undefined
     );
     assert.equal(serverChangeStorage.sync.notelix.notelixServer, undefined);
+    await popup.click('input[placeholder="Notelix Server Address"]');
+    await popup.keyboard.down("Control");
+    await popup.keyboard.press("A");
+    await popup.keyboard.up("Control");
+    await popup.type('input[placeholder="Notelix Server Address"]', baseUrl);
+    assert.equal(
+      await popup.$eval(
+        'input[placeholder="Notelix Server Address"]',
+        (input) => input.value
+      ),
+      baseUrl
+    );
+    await popup.click("button");
+    await popup.waitForFunction(
+      () => document.querySelector("h1")?.textContent === "Login"
+    );
     await popup.evaluate(
       (serverUrl) =>
         new Promise((resolve) => {
-          chrome.storage.sync.set(
-            { notelix: { notelixServer: serverUrl } },
-            resolve,
+          chrome.storage.local.set(
+            {
+              "notelix-auth": {
+                version: 1,
+                server: serverUrl,
+                user: { id: 1, name: "smoke-user", jwt: "smoke-jwt" },
+              },
+            },
+            resolve
           );
         }),
-      baseUrl,
+      baseUrl
     );
 
     const responses = await popup.evaluate(async (baseUrl) => {
@@ -253,14 +333,21 @@ async function main() {
         new Promise((resolve) => {
           chrome.runtime.sendMessage(
             { cmd: "apiCall", params: { method: "GET", url } },
-            resolve,
+            resolve
           );
         });
-      return Promise.all([send(`${baseUrl}/json`), send(`${baseUrl}/empty`)]);
+      return Promise.all([
+        send(`${baseUrl}/json`),
+        send(`${baseUrl}/empty`),
+        send("http://127.0.0.1:18565/meta/health"),
+        send("https://unconfigured.example/private"),
+      ]);
     }, baseUrl);
     assert.deepEqual(responses, [
       { status: 200, body: { ok: true } },
       { status: 204, body: null },
+      { err: "background API request is not allowed" },
+      { err: "background API request is not allowed" },
     ]);
     assert.deepEqual(popupErrors, []);
 
@@ -271,17 +358,131 @@ async function main() {
       waitUntil: "domcontentloaded",
     });
     await contentPage.waitForSelector("body.notelix-initialized");
+    await contentPage.waitForSelector(
+      'web-marker-highlight[highlight-id="smoke-annotation"]'
+    );
+    await contentPage.waitForSelector("#notes-smoke-annotation");
     assert.equal(
       await contentPage.$eval("#notelix-annotate-popover", (node) => node.id),
-      "notelix-annotate-popover",
+      "notelix-annotate-popover"
     );
     assert.equal(
       await contentPage.$eval(
         "#notelix-edit-annotation-popover",
-        (node) => node.id,
+        (node) => node.id
       ),
-      "notelix-edit-annotation-popover",
+      "notelix-edit-annotation-popover"
     );
+    const pageVisibleAnnotationState = await contentPage.evaluate((secret) => {
+      const host = document.getElementById("notes-smoke-annotation");
+      return {
+        bodyTextContainsSecret: document.body.textContent.includes(secret),
+        bodyInnerTextContainsSecret: document.body.innerText.includes(secret),
+        htmlContainsSecret: document.documentElement.innerHTML.includes(secret),
+        hostText: host.textContent,
+        hostInnerText: host.innerText,
+        shadowRoot: host.shadowRoot,
+      };
+    }, privateNote);
+    assert.deepEqual(pageVisibleAnnotationState, {
+      bodyTextContainsSecret: false,
+      bodyInnerTextContainsSecret: false,
+      htmlContainsSecret: false,
+      hostText: "",
+      hostInnerText: "",
+      shadowRoot: null,
+    });
+
+    const syntheticHighlightDisplay = await contentPage.evaluate(async () => {
+      document
+        .querySelector('web-marker-highlight[highlight-id="smoke-annotation"]')
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return getComputedStyle(
+        document.getElementById("notelix-edit-annotation-popover")
+      ).display;
+    });
+    assert.equal(syntheticHighlightDisplay, "none");
+
+    const mutatingRequestsBeforeSyntheticEvents = annotationRequests.filter(
+      (request) => request.url !== "/annotations/queryByUrl"
+    ).length;
+    const syntheticDialogs = [];
+    const syntheticDialogHandler = async (dialog) => {
+      syntheticDialogs.push(dialog.type());
+      await dialog.dismiss();
+    };
+    contentPage.on("dialog", syntheticDialogHandler);
+    await contentPage.evaluate(() => {
+      const text = document.querySelector("p").firstChild;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      const selection = document.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      const annotatePopover = document.getElementById(
+        "notelix-annotate-popover"
+      );
+      annotatePopover.style.display = "flex";
+      annotatePopover
+        .querySelector(".color")
+        .dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, code: "Digit1" })
+      );
+
+      const editPopover = document.getElementById(
+        "notelix-edit-annotation-popover"
+      );
+      editPopover.style.display = "flex";
+      document
+        .getElementById("notelix-button-trash")
+        .dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      document
+        .getElementById("notelix-button-notes")
+        .dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    contentPage.off("dialog", syntheticDialogHandler);
+    assert.deepEqual(syntheticDialogs, []);
+    assert.equal(
+      annotationRequests.filter(
+        (request) => request.url !== "/annotations/queryByUrl"
+      ).length,
+      mutatingRequestsBeforeSyntheticEvents
+    );
+
+    await contentPage.evaluate(() => {
+      document.getElementById("notelix-edit-annotation-popover").style.display =
+        "none";
+    });
+    await contentPage.click(
+      'web-marker-highlight[highlight-id="smoke-annotation"]'
+    );
+    await contentPage.waitForFunction(
+      () =>
+        getComputedStyle(
+          document.getElementById("notelix-edit-annotation-popover")
+        ).display === "flex"
+    );
+    const trustedNotePrompt = new Promise((resolve) => {
+      contentPage.once("dialog", async (dialog) => {
+        const details = {
+          type: dialog.type(),
+          message: dialog.message(),
+          defaultValue: dialog.defaultValue(),
+        };
+        await dialog.dismiss();
+        resolve(details);
+      });
+    });
+    await contentPage.click("#notelix-button-notes");
+    assert.deepEqual(await trustedNotePrompt, {
+      type: "prompt",
+      message: "Write some notes..",
+      defaultValue: privateNote,
+    });
     assert.deepEqual(contentErrors, []);
 
     const embeddedPage = await browser.newPage();
@@ -297,28 +498,28 @@ async function main() {
       waitUntil: "domcontentloaded",
     });
     const firstDemoToken = await embeddedPage.evaluate(
-      () => window.NotelixEmbeddedConfig.staticToken,
+      () => window.NotelixEmbeddedConfig.staticToken
     );
     assert.match(firstDemoToken, /^[0-9a-f]{64}$/);
     await embeddedPage.reload({ waitUntil: "domcontentloaded" });
     assert.equal(
       await embeddedPage.evaluate(
-        () => window.NotelixEmbeddedConfig.staticToken,
+        () => window.NotelixEmbeddedConfig.staticToken
       ),
-      firstDemoToken,
+      firstDemoToken
     );
     await embeddedPage.evaluate(() =>
-      localStorage.removeItem("notelix-embedded-demo-token"),
+      localStorage.removeItem("notelix-embedded-demo-token")
     );
     await embeddedPage.reload({ waitUntil: "domcontentloaded" });
     const replacementDemoToken = await embeddedPage.evaluate(
-      () => window.NotelixEmbeddedConfig.staticToken,
+      () => window.NotelixEmbeddedConfig.staticToken
     );
     assert.match(replacementDemoToken, /^[0-9a-f]{64}$/);
     assert.notEqual(replacementDemoToken, firstDemoToken);
 
     console.log(
-      `Chrome extension smoke test passed (${manifest.name} ${manifest.version})`,
+      `Chrome extension smoke test passed (${manifest.name} ${manifest.version})`
     );
   } finally {
     if (browser) {
