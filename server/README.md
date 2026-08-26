@@ -45,6 +45,17 @@ docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod u
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod down
 ```
 
+The persistent stacks are pinned to PostgreSQL 14.24 so an image update cannot
+silently perform a major-version upgrade against an existing volume.
+PostgreSQL 14 reaches end of life in November 2026. New deployments should use
+the PostgreSQL 17 override, and existing deployments should follow the migration
+procedure below.
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
+  --env-file .env.prod -p notelix-prod up -d
+```
+
 The production and agent stacks require `MEILI_MASTER_KEY` and run
 Meilisearch in authenticated production mode. The backend and search service
 use this value for authenticated requests over their Docker network;
@@ -108,6 +119,18 @@ The backend also supports host-side development against containers or other
 service instances through `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_DATABASE`,
 `MEILISEARCH_HOST`, `MEILISEARCH_ANNOTATIONS_INDEX`, and `PORT`.
 
+Requests are rate limited per client IP. `RATE_LIMIT_MAX` and
+`RATE_LIMIT_TTL_MS` configure the general request budget. Login, signup, and
+password changes have tighter fixed limits. When the backend is behind a
+trusted reverse proxy, set `TRUST_PROXY_HOPS` to the exact number of proxy hops
+so clients are tracked separately; do not enable it for untrusted proxies.
+
+`GET /meta/health` is a process liveness check. `GET /meta/ready` checks both
+PostgreSQL and Meilisearch and returns `503` when either dependency is down.
+Container health checks use the readiness endpoint. Dependency checks are
+bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
+100 to 30000 milliseconds.
+
 # start agent
 
 ```
@@ -121,26 +144,57 @@ docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agen
 ```
 curl 'http://127.0.0.1:18565/agentsync/set' \
   -H 'Content-Type: application/json'\
-  --data-raw '{"config":{"enabled":true, "url": "http://127.0.0.1:18555", "token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiaWF0IjoxNjQ0OTM5NzcxfQ.nxwGaDlwnF-soMR2Wq8QrFxkd9xQ6qPtw578PqjnRJUjWarHuT0qtbx96S4LUnVIJanVJdpLJ2ZB_pgU-aAwN3TGBZx0OfrMWcTqojIIZm8Ugh9KzqsLkmGfqbQZ0vszghCditHK8c0Mh_e_JiGHE_PYVTGt8EviwZrv_dFxYNt3F14ZcQ5-j4h-oXOdma7Jfd_xXjUHzJ7LoPalfHxMvW9KNKtqh4Crz946VfhQciMjWxJIWxUBpIvm059E9KNCv5B80XEwzyQIUVoleUeczDvjjXR_NWrEwkgukOR8gOpyAvcPvRueHhUZS61-se_V8DmqVpb4YURAP2YunfH1QP1DExcqecI16GIRkZ3zN2B5CLS7e5rnXOVuxFPuag7onmGm6jn8JBGhB5FVaCMdozas5WihY5Z0FrVgbIvZMBQb1ax4LOD8bEhYbZ0JbVRV5ni0F3fmB5JTclf0QcHVDjl6GOH2aKOvocrQcP2KHfRoy8MKRcg6JpJLQ9bsgZJw4mls_PdqFO3oqdEHZzzlC8M6ESTgr4cRLVvYd9zNdKvIoMjeDsgATevPqf7hosNKtofWFhUp92c41t-UP44sLj3L3806H-ezm-QsJMjfI5gRVTFJMG66FcGYKdMfhvEWACHdHYVW6dOaI16zXB-plLljL8oIbyukr7RUQLnTgP0"}}'
+  --data-raw '{"config":{"enabled":true,"url":"http://127.0.0.1:18555","token":"REPLACE_WITH_A_SERVER_TOKEN"}}'
 ```
 
-# database backup the easy way
+# database backups
 
 ```bash
-#!/bin/bash
-set -e
-basepath='/root/backup/notelix/'
-
-docker exec -e PGPASSWORD="..."  notelix-dev_postgres_1 pg_dump --host=127.0.0.1 --port=5432 --username=postgres notelix  > ${basepath}notelix-$(date +%Y-%m-%d_%H).sql
-/usr/bin/nice -n 19 gzip -f ${basepath}notelix-$(date +%Y-%m-%d_%H).sql
-rclone copy ${basepath}notelix-$(date +%Y-%m-%d_%H).sql.gz notelix-backup:/notelix-$(date +%Y-%m-%d_%H).sql.gz
-find ${basepath} -mtime +30 -name "*.sql.gz" -exec basename {} \; | xargs -I% -n1 rclone delete notelix-backup:/%
-find ${basepath} -mtime +30 -name "*.sql.gz" -exec rm -rf {} \;
-
-rm -rf ${basepath}/*.sql
-
+mkdir -p backups
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  -p notelix-prod exec -T postgres \
+  pg_dump --username postgres --format=custom notelix \
+  > "backups/notelix-$(date +%Y-%m-%d_%H%M%S).dump"
 ```
 
+Copy backups to encrypted off-site storage and regularly test that PostgreSQL
+can read them. A backup is not verified until a restore has succeeded.
+
+## upgrading PostgreSQL 14 to PostgreSQL 17
+
+The override uses a separate `postgres-data-v17` volume. It does not overwrite
+the PostgreSQL 14 volume, which makes rollback possible until the migration has
+been validated. Plan a maintenance window and first create and copy a backup as
+described above.
+
+Verify the dump and stop the old stack without deleting its volumes:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  -p notelix-prod exec -T postgres pg_restore --list \
+  < backups/notelix-TIMESTAMP.dump >/dev/null
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  -p notelix-prod down
 ```
-30 */8 * * * (/root/backup/notelix.sh && curl -s https://hc-ping.com/33d0b6aa-...) 2>&1 | logger -t notelix-backup
+
+Start only PostgreSQL 17, restore the dump, and then start the complete stack:
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
+  --env-file .env.prod -p notelix-prod up -d postgres
+docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
+  --env-file .env.prod -p notelix-prod exec -T postgres \
+  createdb --username postgres notelix
+docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
+  --env-file .env.prod -p notelix-prod exec -T postgres \
+  pg_restore --username postgres --dbname notelix --no-owner \
+  < backups/notelix-TIMESTAMP.dump
+docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
+  --env-file .env.prod -p notelix-prod up -d
 ```
+
+Run the application checks and exercise login, writes, sync, and search before
+removing the old volume. Keep `docker-compose.postgres17.yml` in every future
+Compose command for this deployment. The same override works with the agent and
+development Compose files; use the corresponding environment file and project
+name when migrating those stacks.

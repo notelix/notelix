@@ -16,7 +16,7 @@ services:
     volumes:
       - data:/data
   postgres:
-    image: "postgres:14"
+    image: "postgres:14.24-alpine"
     restart: unless-stopped
     environment:
       - POSTGRES_PASSWORD=$DB_PASSWORD
