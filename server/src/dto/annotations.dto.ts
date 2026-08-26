@@ -3,6 +3,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -58,6 +59,24 @@ export class ListDiffDto {
   @IsInt()
   @Min(1)
   @Max(500)
+  limit?: number;
+}
+
+export class ListSnapshotPageDto {
+  @IsOptional()
+  @IsUUID('4')
+  snapshotId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(Number.MAX_SAFE_INTEGER)
+  afterId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(250)
   limit?: number;
 }
 

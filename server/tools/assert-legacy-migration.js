@@ -38,6 +38,8 @@ async function main() {
           'IDX_annotation_user_url_host',
           'IDX_history_user',
           'IDX_history_user_id',
+          'IDX_sync_snapshot_expires',
+          'IDX_sync_snapshot_user_expires',
           'UQ_static_token_token'
         )
       ORDER BY indexname
@@ -47,6 +49,8 @@ async function main() {
       [
         'IDX_annotation_user_url_host',
         'IDX_history_user_id',
+        'IDX_sync_snapshot_expires',
+        'IDX_sync_snapshot_user_expires',
         'UQ_annotation_user_uid',
         'UQ_static_token_token',
         'UQ_user_name',
@@ -66,6 +70,7 @@ async function main() {
       WHERE contype = 'f'
         AND conrelid IN (
           'annotation_change_history'::regclass,
+          'annotation_sync_snapshot_item'::regclass,
           'static_token'::regclass
         )
       GROUP BY conrelid
@@ -73,6 +78,7 @@ async function main() {
     `);
     assert.deepStrictEqual(foreignKeys.rows, [
       { table_name: 'annotation_change_history', count: 1 },
+      { table_name: 'annotation_sync_snapshot_item', count: 1 },
       { table_name: 'static_token', count: 1 },
     ]);
 
@@ -84,6 +90,7 @@ async function main() {
       { name: 'ProtectAuthenticationSecrets1787752800000' },
       { name: 'OptimizeAnnotationSync1787839200000' },
       { name: 'ScrubAnnotationHistorySecrets1787925600000' },
+      { name: 'CreateAnnotationSyncSnapshots1788012000000' },
     ]);
 
     const historyPayload = await client.query(

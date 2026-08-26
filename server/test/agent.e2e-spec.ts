@@ -495,6 +495,105 @@ describe('Agent control API', () => {
     expect(fs.existsSync(process.env.AGENT_SYNC_STATE_PATH)).toBe(false);
   });
 
+  it('applies bounded full-snapshot pages before saving their watermark', async () => {
+    const controller = new AgentSyncController();
+    configureController(controller);
+    const events: string[] = [];
+    jest.spyOn(controller as any, 'resetData').mockImplementation(async () => {
+      events.push('reset');
+    });
+    jest
+      .spyOn(Annotation, 'agentSyncPersist')
+      .mockImplementation(async (annotation) => {
+        events.push(`persist-${annotation.id}`);
+      });
+    jest
+      .spyOn(meilisearchClient, 'IndexAnnotation')
+      .mockResolvedValue(undefined);
+    const snapshotId = '123e4567-e89b-42d3-a456-426614174000';
+    const annotationOne = { id: 1, uid: 'one', data: {} };
+    const annotationTwo = { id: 2, uid: 'two', data: {} };
+    const fetchRequest = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            list: [annotationOne],
+            annotationChangeHistoryLatestId: 7,
+            snapshotId,
+            nextAfterId: 1,
+            hasMore: true,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            list: [annotationTwo],
+            annotationChangeHistoryLatestId: 7,
+            snapshotId,
+            nextAfterId: 2,
+            hasMore: false,
+          }),
+          { status: 200 },
+        ),
+      );
+
+    await (controller as any).sync();
+
+    expect(events).toEqual(['reset', 'persist-1', 'persist-2']);
+    expect(fetchRequest).toHaveBeenNthCalledWith(
+      1,
+      'https://notelix.example/annotations/listPage',
+      expect.objectContaining({ body: '{}' }),
+    );
+    expect(fetchRequest).toHaveBeenNthCalledWith(
+      2,
+      'https://notelix.example/annotations/listPage',
+      expect.objectContaining({
+        body: JSON.stringify({ snapshotId, afterId: 1 }),
+      }),
+    );
+    expect(
+      parseAgentSyncState(
+        fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
+      )?.cursor,
+    ).toBe(7);
+  });
+
+  it('falls back to the legacy full-list endpoint for older servers', async () => {
+    const controller = new AgentSyncController();
+    configureController(controller);
+    jest.spyOn(controller as any, 'resetData').mockResolvedValue(undefined);
+    const fetchRequest = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response('not found', { status: 404 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            list: [],
+            annotationChangeHistoryLatestId: 0,
+          }),
+          { status: 200 },
+        ),
+      );
+
+    await (controller as any).sync();
+
+    expect(fetchRequest.mock.calls[0][0]).toBe(
+      'https://notelix.example/annotations/listPage',
+    );
+    expect(fetchRequest.mock.calls[1][0]).toBe(
+      'https://notelix.example/annotations/list',
+    );
+    expect(
+      parseAgentSyncState(
+        fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
+      )?.cursor,
+    ).toBe(0);
+  });
+
   it('preserves local data when a full snapshot request fails', async () => {
     const directory = fs.mkdtempSync(
       path.join(os.tmpdir(), 'notelix-agent-failed-snapshot-'),
@@ -509,7 +608,7 @@ describe('Agent control API', () => {
       .mockResolvedValue(new Response('upstream unavailable', { status: 503 }));
 
     await expect((controller as any).sync()).rejects.toThrow(
-      'annotation list request failed with status 503',
+      'annotation snapshot request failed with status 503',
     );
     expect(resetData).not.toHaveBeenCalled();
   });

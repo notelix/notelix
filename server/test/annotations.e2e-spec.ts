@@ -262,6 +262,80 @@ describe('Annotations API durability', () => {
     expect(getLatestId).toHaveBeenCalledWith(user, manager);
   });
 
+  it('materializes and reuses bounded full-snapshot pages', async () => {
+    const snapshotRows = [
+      { id: 1, uid: 'one', data: {} },
+      { id: 2, uid: 'two', data: {} },
+      { id: 3, uid: 'three', data: {} },
+    ];
+    manager.query.mockImplementation(async (sql, parameters = []) => {
+      if (
+        sql.includes('SELECT "id", "watermark"') &&
+        sql.includes('FROM "annotation_sync_snapshot"')
+      ) {
+        return [{ id: parameters[0], watermark: 41 }];
+      }
+      if (sql.includes('FROM "annotation_sync_snapshot_item"')) {
+        const afterId = parameters[1];
+        const limit = parameters[2];
+        return snapshotRows.filter((row) => row.id > afterId).slice(0, limit);
+      }
+      return [];
+    });
+
+    const firstPage = await request(app.getHttpServer())
+      .post('/annotations/listPage')
+      .send({ limit: 2 })
+      .expect(201);
+
+    expect(firstPage.body).toEqual({
+      list: snapshotRows.slice(0, 2),
+      annotationChangeHistoryLatestId: 41,
+      snapshotId: expect.any(String),
+      nextAfterId: 2,
+      hasMore: true,
+    });
+
+    const secondPage = await request(app.getHttpServer())
+      .post('/annotations/listPage')
+      .send({
+        snapshotId: firstPage.body.snapshotId,
+        afterId: firstPage.body.nextAfterId,
+        limit: 2,
+      })
+      .expect(201);
+
+    expect(secondPage.body).toEqual({
+      list: snapshotRows.slice(2),
+      annotationChangeHistoryLatestId: 41,
+      snapshotId: firstPage.body.snapshotId,
+      nextAfterId: 3,
+      hasMore: false,
+    });
+    expect(
+      manager.query.mock.calls.filter(([sql]) =>
+        sql.includes('WITH "watermark"'),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('rejects expired and malformed full-snapshot continuations', async () => {
+    const snapshotId = '123e4567-e89b-42d3-a456-426614174000';
+    manager.query.mockResolvedValue([]);
+
+    await request(app.getHttpServer())
+      .post('/annotations/listPage')
+      .send({ snapshotId, afterId: 0 })
+      .expect(410);
+
+    manager.transaction.mockClear();
+    await request(app.getHttpServer())
+      .post('/annotations/listPage')
+      .send({ snapshotId })
+      .expect(400);
+    expect(manager.transaction).not.toHaveBeenCalled();
+  });
+
   it('queries committed history even when a replica-local watermark is stale', async () => {
     historyService.getCachedAnnotationChangeHistoryLatestId.mockReturnValue(41);
     historyRepository.findOne.mockResolvedValue({ id: 41 });

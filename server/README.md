@@ -180,7 +180,10 @@ and `AGENT_SYNC_MAX_RESPONSE_BYTES` supports values from 1024 to 268435456.
 Diff history is served in pages of at most 250 entries by default. The agent
 drains up to 10 pages per cycle; `AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE` supports
 values from 1 to 100 so large backlogs make bounded progress without starving
-other work.
+other work. Full re-lists use expiring, repeatable-read snapshot sessions with
+pages of at most 100 annotations, keeping responses bounded without missing
+writes that commit between pages. Older servers fall back to the legacy list
+endpoint.
 The agent aborts an active request during shutdown and atomically persists its
 sync cursor. The state is bound to a one-way identity of the server, user,
 token version, and client-side encryption key; no credential is persisted.

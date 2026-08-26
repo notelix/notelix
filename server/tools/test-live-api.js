@@ -259,6 +259,21 @@ async function main() {
     1,
   );
   await assertStaticTokenIsProtected(staticToken);
+  const emptySnapshot = await request(
+    '/annotations/listPage',
+    {},
+    { Authorization: `static-token ${staticToken}` },
+  );
+  assert.strictEqual(
+    emptySnapshot.status,
+    201,
+    JSON.stringify(emptySnapshot.body),
+  );
+  assert.deepStrictEqual(emptySnapshot.body.list, []);
+  assert.strictEqual(emptySnapshot.body.annotationChangeHistoryLatestId, 0);
+  assert.strictEqual(emptySnapshot.body.nextAfterId, 0);
+  assert.strictEqual(emptySnapshot.body.hasMore, false);
+  assert.match(emptySnapshot.body.snapshotId, /^[0-9a-f-]{36}$/);
 
   const originalHeaders = { Authorization: `jwt ${login.body.jwt}` };
   const newPassword = 'integration-password-updated';
@@ -463,6 +478,121 @@ async function main() {
     ).status,
     201,
   );
+
+  const snapshotHeaders = secondUserHeaders;
+  const snapshotSecondSave = await request(
+    '/annotations/save',
+    {
+      uid: 'snapshot-two',
+      url: 'https://example.com/snapshot-two',
+      title: 'Snapshot two before update',
+      data: { text: 'Snapshot two before update' },
+    },
+    snapshotHeaders,
+  );
+  assert.strictEqual(
+    snapshotSecondSave.status,
+    201,
+    JSON.stringify(snapshotSecondSave.body),
+  );
+  const snapshotPageOne = await request(
+    '/annotations/listPage',
+    { limit: 1 },
+    snapshotHeaders,
+  );
+  assert.strictEqual(
+    snapshotPageOne.status,
+    201,
+    JSON.stringify(snapshotPageOne.body),
+  );
+  assert.strictEqual(snapshotPageOne.body.list.length, 1);
+  assert.strictEqual(snapshotPageOne.body.list[0].uid, uid);
+  assert.strictEqual(snapshotPageOne.body.hasMore, true);
+  assert.strictEqual(
+    Number.isInteger(snapshotPageOne.body.annotationChangeHistoryLatestId),
+    true,
+    JSON.stringify(snapshotPageOne.body),
+  );
+  const crossUserSnapshot = await request(
+    '/annotations/listPage',
+    {
+      snapshotId: snapshotPageOne.body.snapshotId,
+      afterId: snapshotPageOne.body.nextAfterId,
+      limit: 1,
+    },
+    headers,
+  );
+  assert.strictEqual(crossUserSnapshot.status, 410);
+
+  const snapshotConcurrentUpdate = await request(
+    '/annotations/save',
+    {
+      uid: 'snapshot-two',
+      url: 'https://example.com/snapshot-two',
+      title: 'Snapshot two after update',
+      data: { text: 'Snapshot two after update' },
+    },
+    snapshotHeaders,
+  );
+  assert.strictEqual(
+    snapshotConcurrentUpdate.status,
+    201,
+    JSON.stringify(snapshotConcurrentUpdate.body),
+  );
+  const snapshotConcurrentDelete = await request(
+    '/annotations/delete',
+    { uid: 'snapshot-two' },
+    snapshotHeaders,
+  );
+  assert.strictEqual(
+    snapshotConcurrentDelete.status,
+    201,
+    JSON.stringify(snapshotConcurrentDelete.body),
+  );
+
+  const snapshotPageTwo = await request(
+    '/annotations/listPage',
+    {
+      snapshotId: snapshotPageOne.body.snapshotId,
+      afterId: snapshotPageOne.body.nextAfterId,
+      limit: 1,
+    },
+    snapshotHeaders,
+  );
+  assert.strictEqual(
+    snapshotPageTwo.status,
+    201,
+    JSON.stringify(snapshotPageTwo.body),
+  );
+  assert.strictEqual(snapshotPageTwo.body.list.length, 1);
+  assert.strictEqual(snapshotPageTwo.body.list[0].uid, 'snapshot-two');
+  assert.strictEqual(
+    snapshotPageTwo.body.list[0].title,
+    'Snapshot two before update',
+  );
+  assert.strictEqual(snapshotPageTwo.body.hasMore, false);
+  assert.strictEqual(
+    snapshotPageTwo.body.annotationChangeHistoryLatestId,
+    snapshotPageOne.body.annotationChangeHistoryLatestId,
+  );
+  const snapshotCatchUp = await request(
+    '/annotations/listDiff',
+    { sinceId: snapshotPageOne.body.annotationChangeHistoryLatestId },
+    snapshotHeaders,
+  );
+  assert.strictEqual(
+    snapshotCatchUp.status,
+    201,
+    JSON.stringify(snapshotCatchUp.body),
+  );
+  assert.strictEqual(snapshotCatchUp.body.diff.length, 2);
+  assert.strictEqual(
+    snapshotCatchUp.body.diff[0].data.title,
+    'Snapshot two after update',
+  );
+  assert.strictEqual(snapshotCatchUp.body.diff[0].kind, 1);
+  assert.strictEqual(snapshotCatchUp.body.diff[1].kind, 2);
+  assert.strictEqual(snapshotCatchUp.body.diff[1].uid, 'snapshot-two');
 
   const syncReadUrl = secondaryServerUrl || serverUrl;
   const fullSnapshot = await requestAt(

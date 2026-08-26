@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  GoneException,
   Logger,
   NotFoundException,
   Post,
@@ -9,6 +10,7 @@ import {
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { Annotation } from '../models/annotation.entity';
 import { EntityManager, MoreThan } from 'typeorm';
+import { randomUUID } from 'node:crypto';
 import { AnnotationChangeHistory } from '../models/annotationChangeHistory.entity';
 import AnnotationChangeHistoryService from '../services/annotationChangeHistory';
 import { meilisearchClient } from '../meilisearch';
@@ -18,6 +20,7 @@ import {
   DeleteAnnotationDto,
   FindAnnotationsDto,
   ListDiffDto,
+  ListSnapshotPageDto,
   QueryAnnotationsByUrlDto,
   SaveAnnotationDto,
   SearchAnnotationsDto,
@@ -32,6 +35,8 @@ const annotationColumnSql = {
   userId: '"userId"',
 };
 const defaultAnnotationDiffPageSize = 250;
+const defaultAnnotationSnapshotPageSize = 100;
+const annotationSnapshotTtlSeconds = 15 * 60;
 
 function getAnnotationColumnSql(column: string): string {
   const sql = annotationColumnSql[column];
@@ -177,6 +182,121 @@ export class AnnotationsController {
         await AnnotationChangeHistory.getLatestIdForUser(user, manager);
 
       return { list, annotationChangeHistoryLatestId };
+    });
+  }
+
+  @Post('/listPage')
+  async ListPage(@Body() request: ListSnapshotPageDto): Promise<any> {
+    const user = await this.authenticationService.getAuthenticatedUser();
+    const hasSnapshotId = request.snapshotId !== undefined;
+    const hasAfterId = request.afterId !== undefined;
+    if (hasSnapshotId !== hasAfterId) {
+      throw new BadRequestException(
+        'snapshotId and afterId must either both be present or both be absent',
+      );
+    }
+    const limit = request.limit ?? defaultAnnotationSnapshotPageSize;
+
+    return AppDataSource.transaction(async (manager) => {
+      await manager.query(
+        'DELETE FROM "annotation_sync_snapshot" WHERE "expires_at" <= now()',
+      );
+
+      let snapshotId = request.snapshotId;
+      if (!snapshotId) {
+        await manager.query(
+          'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+          [`notelix-annotation-snapshot:${user.id}`],
+        );
+        const existing = await manager.query(
+          `
+            SELECT "id"
+            FROM "annotation_sync_snapshot"
+            WHERE "user_id" = $1 AND "expires_at" > now()
+            ORDER BY "created_at" DESC
+            LIMIT 1
+          `,
+          [user.id],
+        );
+        snapshotId = existing[0]?.id;
+
+        if (!snapshotId) {
+          snapshotId = randomUUID();
+          await manager.query(
+            `
+              WITH "watermark" AS (
+                SELECT COALESCE(MAX("id"), 0)::int AS "id"
+                FROM "annotation_change_history"
+                WHERE "userId" = $2
+              ),
+              "new_snapshot" AS (
+                INSERT INTO "annotation_sync_snapshot"
+                  ("id", "user_id", "watermark", "expires_at")
+                SELECT $1, $2, "watermark"."id",
+                  now() + ($3 * interval '1 second')
+                FROM "watermark"
+                RETURNING "id"
+              )
+              INSERT INTO "annotation_sync_snapshot_item"
+                ("snapshot_id", "annotation_id", "uid", "url", "title",
+                 "host", "data", "created_at", "updated_at")
+              SELECT "new_snapshot"."id", "annotation"."id",
+                "annotation"."uid", "annotation"."url",
+                "annotation"."title", "annotation"."host",
+                "annotation"."data", "annotation"."created_at",
+                "annotation"."updated_at"
+              FROM "annotation"
+              CROSS JOIN "new_snapshot"
+              WHERE "annotation"."userId" = $2
+            `,
+            [snapshotId, user.id, annotationSnapshotTtlSeconds],
+          );
+        }
+      }
+
+      await manager.query(
+        `
+          UPDATE "annotation_sync_snapshot"
+          SET "expires_at" = now() + ($3 * interval '1 second')
+          WHERE "id" = $1 AND "user_id" = $2 AND "expires_at" > now()
+        `,
+        [snapshotId, user.id, annotationSnapshotTtlSeconds],
+      );
+      const snapshots = await manager.query(
+        `
+          SELECT "id", "watermark"
+          FROM "annotation_sync_snapshot"
+          WHERE "id" = $1 AND "user_id" = $2 AND "expires_at" > now()
+        `,
+        [snapshotId, user.id],
+      );
+      if (snapshots.length === 0) {
+        throw new GoneException('annotation snapshot is missing or expired');
+      }
+
+      const afterId = request.afterId ?? 0;
+      const rows = await manager.query(
+        `
+          SELECT "annotation_id" AS "id", "uid", "url", "title", "host",
+            "data", "created_at", "updated_at"
+          FROM "annotation_sync_snapshot_item"
+          WHERE "snapshot_id" = $1 AND "annotation_id" > $2
+          ORDER BY "annotation_id" ASC
+          LIMIT $3
+        `,
+        [snapshotId, afterId, limit + 1],
+      );
+      const hasMore = rows.length > limit;
+      const list = hasMore ? rows.slice(0, limit) : rows;
+      const nextAfterId = list.at(-1)?.id ?? afterId;
+
+      return {
+        list,
+        annotationChangeHistoryLatestId: Number(snapshots[0].watermark),
+        snapshotId,
+        nextAfterId,
+        hasMore,
+      };
     });
   }
 

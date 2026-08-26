@@ -44,6 +44,12 @@ class SyncSupersededError extends Error {
   }
 }
 
+class SyncRequestError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 function readBoundedInteger(
   name: string,
   fallback: number,
@@ -401,7 +407,11 @@ export class AgentSyncController
         signal: requestController.signal,
       });
       if (response.status < 200 || response.status > 201) {
-        throw new Error(`${operation} failed with status ${response.status}`);
+        await response.body?.cancel();
+        throw new SyncRequestError(
+          `${operation} failed with status ${response.status}`,
+          response.status,
+        );
       }
       return await this.readJsonResponse(response, operation);
     } catch (error) {
@@ -484,37 +494,7 @@ export class AgentSyncController
     const latestId = this.getAnnotationChangeHistoryLatestId(sourceIdentity);
     this.logger.debug(`Synchronizing after history id ${latestId ?? 'none'}`);
     if (latestId === null) {
-      const data = await this.requestJson(
-        'annotation list request',
-        '/annotations/list',
-        undefined,
-        generation,
-      );
-      this.assertCurrentSync(generation, sourceIdentity);
-      if (!data || !Array.isArray(data.list)) {
-        throw new Error('annotation list response must contain a list');
-      }
-      const historyId = assertSyncCursor(
-        data.annotationChangeHistoryLatestId,
-        'annotationChangeHistoryLatestId',
-      );
-      const annotations = await Promise.all(
-        data.list.map((annotation) => this.decryptAnnotation(annotation)),
-      );
-      this.assertCurrentSync(generation, sourceIdentity);
-      await this.resetData();
-      this.assertCurrentSync(generation, sourceIdentity);
-      this.logger.log(
-        `Persisting ${annotations.length} synchronized annotations`,
-      );
-      for (const annotation of annotations) {
-        this.assertCurrentSync(generation, sourceIdentity);
-        await Annotation.agentSyncPersist(annotation);
-        this.assertCurrentSync(generation, sourceIdentity);
-        await meilisearchClient.IndexAnnotation(annotation);
-        this.assertCurrentSync(generation, sourceIdentity);
-      }
-      this.saveAnnotationChangeHistoryLatestId(historyId, sourceIdentity);
+      await this.syncFullSnapshot(generation, sourceIdentity);
       return;
     }
 
@@ -569,6 +549,168 @@ export class AgentSyncController
       }
     }
     this.logger.debug('More annotation changes remain for the next sync cycle');
+  }
+
+  private async persistSnapshotPage(
+    annotations: any[],
+    generation: number,
+    sourceIdentity: string,
+  ): Promise<void> {
+    for (const annotation of annotations) {
+      this.assertCurrentSync(generation, sourceIdentity);
+      await Annotation.agentSyncPersist(annotation);
+      this.assertCurrentSync(generation, sourceIdentity);
+      await meilisearchClient.IndexAnnotation(annotation);
+      this.assertCurrentSync(generation, sourceIdentity);
+    }
+  }
+
+  private async syncFullSnapshot(
+    generation: number,
+    sourceIdentity: string,
+  ): Promise<void> {
+    let firstPage: any;
+    try {
+      firstPage = await this.requestJson(
+        'annotation snapshot request',
+        '/annotations/listPage',
+        {},
+        generation,
+      );
+    } catch (error) {
+      if (!(error instanceof SyncRequestError) || error.status !== 404) {
+        throw error;
+      }
+      this.logger.warn(
+        'Source does not support paged snapshots; using the legacy list endpoint',
+      );
+      await this.syncLegacyFullSnapshot(generation, sourceIdentity);
+      return;
+    }
+
+    let page = firstPage;
+    let snapshotId: string | undefined;
+    let historyId: number | undefined;
+    let afterId = 0;
+    let totalAnnotations = 0;
+    let isFirstPage = true;
+    while (true) {
+      this.assertCurrentSync(generation, sourceIdentity);
+      if (!page || !Array.isArray(page.list)) {
+        throw new Error('annotation snapshot response must contain a list');
+      }
+      if (typeof page.snapshotId !== 'string' || !page.snapshotId) {
+        throw new Error(
+          'annotation snapshot response must contain a snapshotId',
+        );
+      }
+      if (typeof page.hasMore !== 'boolean') {
+        throw new Error(
+          'annotation snapshot response must contain a hasMore flag',
+        );
+      }
+      const pageHistoryId = assertSyncCursor(
+        page.annotationChangeHistoryLatestId,
+        'annotationChangeHistoryLatestId',
+      );
+      const nextAfterId = assertSyncCursor(
+        page.nextAfterId,
+        'annotation snapshot nextAfterId',
+      );
+      if (snapshotId && page.snapshotId !== snapshotId) {
+        throw new Error('annotation snapshot id changed between pages');
+      }
+      if (historyId !== undefined && pageHistoryId !== historyId) {
+        throw new Error('annotation snapshot watermark changed between pages');
+      }
+      if (page.hasMore && page.list.length === 0) {
+        throw new Error('annotation snapshot cannot have more empty pages');
+      }
+      let lastAnnotationId = afterId;
+      for (const annotation of page.list) {
+        const annotationId = assertSyncCursor(
+          annotation?.id,
+          'annotation snapshot id',
+        );
+        if (annotationId <= lastAnnotationId) {
+          throw new Error(
+            'annotation snapshot ids must be strictly increasing',
+          );
+        }
+        lastAnnotationId = annotationId;
+      }
+      if (nextAfterId !== lastAnnotationId) {
+        throw new Error(
+          'annotation snapshot nextAfterId does not match its list',
+        );
+      }
+
+      snapshotId = page.snapshotId;
+      historyId = pageHistoryId;
+      const annotations = await Promise.all(
+        page.list.map((annotation) => this.decryptAnnotation(annotation)),
+      );
+      this.assertCurrentSync(generation, sourceIdentity);
+      if (isFirstPage) {
+        await this.resetData();
+        this.assertCurrentSync(generation, sourceIdentity);
+        isFirstPage = false;
+      }
+      await this.persistSnapshotPage(annotations, generation, sourceIdentity);
+      totalAnnotations += page.list.length;
+      if (!page.hasMore) {
+        this.logger.log(
+          `Persisted ${totalAnnotations} synchronized annotations`,
+        );
+        this.saveAnnotationChangeHistoryLatestId(historyId, sourceIdentity);
+        return;
+      }
+
+      afterId = nextAfterId;
+      page = await this.requestJson(
+        'annotation snapshot request',
+        '/annotations/listPage',
+        { snapshotId, afterId },
+        generation,
+      );
+    }
+  }
+
+  private async syncLegacyFullSnapshot(
+    generation: number,
+    sourceIdentity: string,
+  ): Promise<void> {
+    const data = await this.requestJson(
+      'annotation list request',
+      '/annotations/list',
+      undefined,
+      generation,
+    );
+    this.assertCurrentSync(generation, sourceIdentity);
+    if (!data || !Array.isArray(data.list)) {
+      throw new Error('annotation list response must contain a list');
+    }
+    const historyId = assertSyncCursor(
+      data.annotationChangeHistoryLatestId,
+      'annotationChangeHistoryLatestId',
+    );
+    const annotations = await Promise.all(
+      data.list.map((annotation) => this.decryptAnnotation(annotation)),
+    );
+    this.assertCurrentSync(generation, sourceIdentity);
+    await this.resetData();
+    this.assertCurrentSync(generation, sourceIdentity);
+    this.logger.log(
+      `Persisting ${annotations.length} synchronized annotations`,
+    );
+    for (const annotation of annotations) {
+      this.assertCurrentSync(generation, sourceIdentity);
+      await Annotation.agentSyncPersist(annotation);
+      this.assertCurrentSync(generation, sourceIdentity);
+      await meilisearchClient.IndexAnnotation(annotation);
+      this.assertCurrentSync(generation, sourceIdentity);
+    }
+    this.saveAnnotationChangeHistoryLatestId(historyId, sourceIdentity);
   }
 
   private async resetData() {
