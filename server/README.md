@@ -16,7 +16,10 @@ generated `.env.*` files.
 
 Every Compose stack requires a non-empty `DB_PASSWORD` while rendering its
 configuration, before any container is created. Production and agent stacks
-also require `MEILI_MASTER_KEY` at the same stage.
+also require `MEILI_MASTER_KEY` at the same stage. Agent mode additionally
+requires `AGENT_CONTROL_ORIGINS` to contain the exact `chrome-extension://` or
+`moz-extension://` origin allowed to access decrypted local data. Wildcards and
+ordinary website origins are rejected at startup.
 
 # published Docker images
 
@@ -214,6 +217,11 @@ account's token version and immediately revokes every previously issued JWT for
 that account.
 
 # start agent
+
+After loading Notelix, copy its extension ID from `chrome://extensions` and set
+`AGENT_CONTROL_ORIGINS=chrome-extension://<extension-id>` in `.env.agent`.
+Comma-separate entries only when the same agent must serve multiple trusted
+Notelix extension installations.
 
 ```
 docker build . -f ./Dockerfile.agent -t notelix:agent

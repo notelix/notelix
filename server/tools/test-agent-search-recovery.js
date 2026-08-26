@@ -138,6 +138,32 @@ async function enableAgentSync() {
   assert.deepStrictEqual(response.body, { ok: true, enabled: true });
 }
 
+async function assertAgentCorsIsolation() {
+  async function preflight(origin) {
+    return fetch(new URL('/annotations/search', agentServerUrl), {
+      method: 'OPTIONS',
+      headers: {
+        Origin: origin,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+    });
+  }
+
+  const trustedOrigin = 'chrome-extension://integration-test';
+  const trusted = await preflight(trustedOrigin);
+  assert.strictEqual(
+    trusted.headers.get('access-control-allow-origin'),
+    trustedOrigin,
+  );
+
+  const untrusted = await preflight('chrome-extension://untrusted-extension');
+  assert.strictEqual(
+    untrusted.headers.get('access-control-allow-origin'),
+    null,
+  );
+}
+
 async function main() {
   if (mode === 'prepare') {
     await seedAnnotation();
@@ -147,7 +173,8 @@ async function main() {
   }
   if (mode === 'verify-startup') {
     await waitForRecoveredSearch();
-    console.log('Agent startup search rebuild test passed.');
+    await assertAgentCorsIsolation();
+    console.log('Agent CORS isolation and startup search rebuild tests passed.');
     return;
   }
   if (mode === 'verify-runtime') {

@@ -16,6 +16,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { AppDataSource } from '../src/database';
 import * as agentSearchIndex from '../src/services/agentSearchIndex';
+import { isAgentControlOriginAllowed } from '../src/agentControl';
 
 describe('Agent control API', () => {
   let app: INestApplication;
@@ -26,6 +27,7 @@ describe('Agent control API', () => {
   const originalMaxSnapshotPages =
     process.env.AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE;
   const originalStatePath = process.env.AGENT_SYNC_STATE_PATH;
+  const originalAgentControlOrigins = process.env.AGENT_CONTROL_ORIGINS;
   const temporaryDirectories: string[] = [];
 
   const validConfig = {
@@ -64,6 +66,7 @@ describe('Agent control API', () => {
 
   beforeEach(async () => {
     delete process.env.RUN_MODE;
+    process.env.AGENT_CONTROL_ORIGINS = 'chrome-extension://extension-id';
     jest
       .spyOn(agentSearchIndex, 'ensureAgentAnnotationSearchIndexReady')
       .mockResolvedValue(undefined);
@@ -114,6 +117,11 @@ describe('Agent control API', () => {
     } else {
       process.env.AGENT_SYNC_STATE_PATH = originalStatePath;
     }
+    if (originalAgentControlOrigins === undefined) {
+      delete process.env.AGENT_CONTROL_ORIGINS;
+    } else {
+      process.env.AGENT_CONTROL_ORIGINS = originalAgentControlOrigins;
+    }
     await app.close();
     for (const directory of temporaryDirectories.splice(0)) {
       fs.rmSync(directory, { recursive: true, force: true });
@@ -157,7 +165,17 @@ describe('Agent control API', () => {
       .expect(403);
   });
 
-  it('accepts extension origins without echoing secrets', async () => {
+  it('rejects extension origins outside the configured allowlist', async () => {
+    process.env.RUN_MODE = 'AGENT';
+
+    await request(app.getHttpServer())
+      .post('/agentsync/set')
+      .set('Origin', 'chrome-extension://untrusted-extension')
+      .send({ config: validConfig })
+      .expect(403);
+  });
+
+  it('accepts the configured extension origin without echoing secrets', async () => {
     process.env.RUN_MODE = 'AGENT';
 
     const response = await request(app.getHttpServer())
@@ -169,6 +187,19 @@ describe('Agent control API', () => {
     expect(response.body).toEqual({ ok: true, enabled: true });
     expect(response.body).not.toHaveProperty('token');
     expect(response.body).not.toHaveProperty('clientSideEncryptionKey');
+  });
+
+  it('allows only configured browser origins and origin-less local tools', () => {
+    expect(isAgentControlOriginAllowed('chrome-extension://extension-id')).toBe(
+      true,
+    );
+    expect(
+      isAgentControlOriginAllowed('chrome-extension://other-extension'),
+    ).toBe(false);
+    expect(isAgentControlOriginAllowed('https://malicious.example')).toBe(
+      false,
+    );
+    expect(isAgentControlOriginAllowed()).toBe(true);
   });
 
   it('validates agent configuration fields', async () => {

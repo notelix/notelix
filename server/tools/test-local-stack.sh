@@ -162,6 +162,7 @@ node ./tools/test-search-outbox.js verify-delete
 export MEILISEARCH_ANNOTATIONS_INDEX=annotations_agent_recovery
 node ./tools/test-agent-search-recovery.js prepare
 RUN_MODE=AGENT \
+  AGENT_CONTROL_ORIGINS=chrome-extension://integration-test \
   PORT="${integration_agent_server_port}" \
   AGENT_SYNC_STATE_PATH="${integration_agent_state_path}" \
   AGENT_SYNC_URL_OVERRIDE=http://127.0.0.1:1 \

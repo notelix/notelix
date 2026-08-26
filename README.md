@@ -56,6 +56,8 @@ cd server
 cp .env.agent.example .env.agent
 sed -i "s/replace-with-a-random-secret/$(openssl rand -hex 32)/" .env.agent
 sed -i "s/replace-with-another-random-secret/$(openssl rand -hex 32)/" .env.agent
+# Copy the Notelix ID shown by chrome://extensions, then replace the placeholder:
+sed -i "s/replace-with-your-notelix-extension-id/YOUR_EXTENSION_ID/" .env.agent
 docker build . -f ./Dockerfile.agent -t notelix:agent
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent up -d
 ```

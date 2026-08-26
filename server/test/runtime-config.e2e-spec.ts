@@ -4,6 +4,7 @@ import {
   readEnvironmentChoice,
   readPortEnvironment,
 } from '../runtime-config';
+import { validateAgentControlOrigins } from '../src/agentControl';
 
 describe('Runtime numeric configuration', () => {
   const originalDatabasePort = process.env.DB_PORT;
@@ -85,6 +86,29 @@ describe('Runtime numeric configuration', () => {
         RUN_MODE: 'agent',
       }),
     ).toThrow('RUN_MODE must be one of: SERVER, AGENT');
+  });
+
+  it('requires exact browser-extension origins in agent mode', () => {
+    const message =
+      'AGENT_CONTROL_ORIGINS must contain one or more comma-separated chrome-extension:// or moz-extension:// origins when RUN_MODE=AGENT';
+    expect(() => validateAgentControlOrigins('AGENT', {})).toThrow(message);
+    expect(() =>
+      validateAgentControlOrigins('AGENT', {
+        AGENT_CONTROL_ORIGINS: '*',
+      }),
+    ).toThrow(message);
+    expect(() =>
+      validateAgentControlOrigins('AGENT', {
+        AGENT_CONTROL_ORIGINS: 'https://notelix.example',
+      }),
+    ).toThrow(message);
+    expect(() =>
+      validateAgentControlOrigins('AGENT', {
+        AGENT_CONTROL_ORIGINS:
+          'chrome-extension://notelix-extension,moz-extension://local-addon',
+      }),
+    ).not.toThrow();
+    expect(() => validateAgentControlOrigins('SERVER', {})).not.toThrow();
   });
 
   it('rejects ambiguous boolean values', () => {

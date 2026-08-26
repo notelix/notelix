@@ -37,6 +37,17 @@ for stack in prod agent dev; do
   fi
 done
 
+grep -Ev '^AGENT_CONTROL_ORIGINS=' \
+  "$compose_test_dir/.env.agent" >"$compose_test_dir/.env.agent.missing-control-origins"
+if env -u AGENT_CONTROL_ORIGINS docker compose \
+  --project-name notelix-compose-test-agent-missing-control-origins \
+  --file "$compose_test_dir/docker-compose.agent.yml" \
+  --env-file "$compose_test_dir/.env.agent.missing-control-origins" \
+  config >/dev/null 2>&1; then
+  echo "agent compose accepted missing AGENT_CONTROL_ORIGINS" >&2
+  exit 1
+fi
+
 NOTELIX_BIND_ADDRESS=0.0.0.0 NOTELIX_PORT=28555 docker compose \
   --project-name notelix-compose-test-prod-override \
   --file "$compose_test_dir/docker-compose.prod.yml" \

@@ -55,6 +55,12 @@ const cases = [
     message: 'RUN_MODE must be one of: SERVER, AGENT',
   },
   {
+    name: 'agent control origin allowlist',
+    environment: { RUN_MODE: 'AGENT', AGENT_CONTROL_ORIGINS: '' },
+    message:
+      'AGENT_CONTROL_ORIGINS must contain one or more comma-separated chrome-extension:// or moz-extension:// origins when RUN_MODE=AGENT',
+  },
+  {
     name: 'JWT expiration',
     environment: { JWT_EXPIRES_IN: '120' },
     message:

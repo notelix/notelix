@@ -15,6 +15,7 @@ services:
     environment:
       RUN_MODE: AGENT
       MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY:?MEILI_MASTER_KEY is required}
+      AGENT_CONTROL_ORIGINS: ${AGENT_CONTROL_ORIGINS:?AGENT_CONTROL_ORIGINS is required}
 #      - AGENT_SYNC_URL_OVERRIDE=http://notelix-dev_backend_1:3000
     volumes:
       - data:/data

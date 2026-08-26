@@ -25,12 +25,14 @@ import {
   readEnvironmentChoice,
   readPortEnvironment,
 } from '../runtime-config';
+import { validateAgentControlOrigins } from './agentControl';
 
 const httpPort = readPortEnvironment('PORT', 3000);
 const runMode = readEnvironmentChoice('RUN_MODE', 'SERVER', [
   'SERVER',
   'AGENT',
 ] as const);
+validateAgentControlOrigins(runMode);
 
 @Module({
   imports: [
