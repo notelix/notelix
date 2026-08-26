@@ -206,6 +206,31 @@ describe('Annotation search synchronization', () => {
     );
   });
 
+  it('retries a failed schema bootstrap on the worker cadence', async () => {
+    process.env.SEARCH_SYNC_INTERVAL_MS = '200';
+    const claimQuery = jest.fn().mockResolvedValue([]);
+    jest
+      .spyOn(AppDataSource, 'transaction')
+      .mockImplementation(async (callback: any) =>
+        callback({ query: claimQuery }),
+      );
+    jest
+      .spyOn(meilisearch, 'ensureAnnotationIndexReady')
+      .mockRejectedValue(new Error('search unavailable'));
+    const service = new AnnotationSearchSyncService();
+    (service as any).nextSchemaCheckAt = 0;
+    const startedAt = Date.now();
+
+    await expect((service as any).drainOnce()).rejects.toThrow(
+      'search unavailable',
+    );
+
+    expect((service as any).nextSchemaCheckAt).toBeGreaterThanOrEqual(
+      startedAt + 200,
+    );
+    expect((service as any).nextSchemaCheckAt).toBeLessThan(startedAt + 1000);
+  });
+
   it('rejects unsafe worker limits at startup', () => {
     process.env.SEARCH_SYNC_BATCH_SIZE = '0';
     expect(() => new AnnotationSearchSyncService()).toThrow(

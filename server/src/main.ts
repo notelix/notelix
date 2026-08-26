@@ -1,5 +1,5 @@
 import { APP_GUARD, NestFactory } from '@nestjs/core';
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { UsersController } from './controllers/users.controller';
 import { AuthenticationService } from './authenticators/authentication.service';
 import { AnnotationsController } from './controllers/annotations.controller';
@@ -33,6 +33,7 @@ const runMode = readEnvironmentChoice('RUN_MODE', 'SERVER', [
   'AGENT',
 ] as const);
 validateAgentControlOrigins(runMode);
+const bootstrapLogger = new Logger('Bootstrap');
 
 @Module({
   imports: [
@@ -79,11 +80,17 @@ export async function bootstrapSQL() {
 
 async function bootstrap() {
   await bootstrapSQL();
-  await bootstrapMeiliSearch(
-    runMode === 'AGENT'
-      ? rebuildAgentAnnotationSearchIndex
-      : () => enqueueAllAnnotationSearchUpdates(AppDataSource.manager),
-  );
+  try {
+    await bootstrapMeiliSearch(
+      runMode === 'AGENT'
+        ? rebuildAgentAnnotationSearchIndex
+        : () => enqueueAllAnnotationSearchUpdates(AppDataSource.manager),
+    );
+  } catch (_error) {
+    bootstrapLogger.warn(
+      'Meilisearch bootstrap failed; starting with search unavailable while background recovery retries',
+    );
+  }
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
@@ -91,4 +98,11 @@ async function bootstrap() {
   await app.listen(httpPort);
 }
 
-bootstrap();
+bootstrap().catch(async (error) => {
+  const trace = error instanceof Error ? error.stack : String(error);
+  bootstrapLogger.error('Application startup failed', trace);
+  if (AppDataSource.isInitialized) {
+    await AppDataSource.destroy().catch(() => undefined);
+  }
+  process.exitCode = 1;
+});

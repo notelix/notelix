@@ -96,7 +96,7 @@ export class AnnotationSearchSyncService
     1000,
     3600000,
   );
-  private nextSchemaCheckAt = Date.now() + this.schemaCheckIntervalMs;
+  private nextSchemaCheckAt = Date.now();
   private stopping = false;
   private wakePending = false;
   private wakeResolver?: () => void;
@@ -239,10 +239,15 @@ export class AnnotationSearchSyncService
     if (Date.now() < this.nextSchemaCheckAt) {
       return;
     }
-    this.nextSchemaCheckAt = Date.now() + this.schemaCheckIntervalMs;
-    await ensureAnnotationIndexReady(() =>
-      enqueueAllAnnotationSearchUpdates(AppDataSource.manager),
-    );
+    try {
+      await ensureAnnotationIndexReady(() =>
+        enqueueAllAnnotationSearchUpdates(AppDataSource.manager),
+      );
+      this.nextSchemaCheckAt = Date.now() + this.schemaCheckIntervalMs;
+    } catch (error) {
+      this.nextSchemaCheckAt = Date.now() + this.intervalMs;
+      throw error;
+    }
   }
 
   private async synchronizeClaim(

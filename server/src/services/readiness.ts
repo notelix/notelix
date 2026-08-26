@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { AppDataSource } from '../database';
-import { meilisearchClient } from '../meilisearch';
+import {
+  isAnnotationIndexSchemaReady,
+  meilisearchClient,
+} from '../meilisearch';
 import { readBoundedIntegerEnvironment } from '../../runtime-config';
 
 export type DependencyStatus = 'up' | 'down';
@@ -42,6 +45,9 @@ export class ReadinessService {
     const status = await meilisearchClient.health();
     if (status.status !== 'available') {
       throw new Error('Meilisearch is unavailable');
+    }
+    if (!isAnnotationIndexSchemaReady()) {
+      throw new Error('Meilisearch annotation index is not ready');
     }
   }
 

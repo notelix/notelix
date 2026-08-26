@@ -23,6 +23,7 @@ const client = createMeilisearchSdkClient();
 const annotationIndexName =
   process.env.MEILISEARCH_ANNOTATIONS_INDEX || 'annotations';
 const annotationIndex = client.index(annotationIndexName);
+let annotationIndexSchemaReady = false;
 const taskTimeoutMs = readBoundedIntegerEnvironment(
   'MEILISEARCH_TASK_TIMEOUT_MS',
   30000,
@@ -60,50 +61,61 @@ function hasMeiliErrorCode(error: unknown, code: string): boolean {
 export async function ensureAnnotationIndexReady(
   beforeSchemaRepair?: () => Promise<void>,
 ): Promise<void> {
-  let created = false;
   try {
-    await annotationIndex.getRawInfo();
-  } catch (error) {
-    if (!hasMeiliErrorCode(error, 'index_not_found')) {
-      throw error;
-    }
+    let created = false;
     try {
-      await waitForTask(
-        await client.createIndex(annotationIndexName, { primaryKey: 'id' }),
-      );
-      created = true;
-    } catch (creationError) {
-      if (!hasMeiliErrorCode(creationError, 'index_already_exists')) {
-        throw creationError;
+      await annotationIndex.getRawInfo();
+    } catch (error) {
+      if (!hasMeiliErrorCode(error, 'index_not_found')) {
+        throw error;
+      }
+      try {
+        await waitForTask(
+          await client.createIndex(annotationIndexName, { primaryKey: 'id' }),
+        );
+        created = true;
+      } catch (creationError) {
+        if (!hasMeiliErrorCode(creationError, 'index_already_exists')) {
+          throw creationError;
+        }
       }
     }
-  }
 
-  const indexInfo = await annotationIndex.getRawInfo();
-  if (indexInfo.primaryKey !== 'id') {
-    if (indexInfo.primaryKey !== null) {
-      throw new Error(
-        `Meilisearch index ${annotationIndexName} has unexpected primary key ${indexInfo.primaryKey}`,
+    const indexInfo = await annotationIndex.getRawInfo();
+    if (indexInfo.primaryKey !== 'id') {
+      if (indexInfo.primaryKey !== null) {
+        throw new Error(
+          `Meilisearch index ${annotationIndexName} has unexpected primary key ${indexInfo.primaryKey}`,
+        );
+      }
+      await waitForTask(
+        await client.updateIndex(annotationIndexName, { primaryKey: 'id' }),
       );
     }
-    await waitForTask(
-      await client.updateIndex(annotationIndexName, { primaryKey: 'id' }),
-    );
-  }
 
-  const filterableAttributes = await annotationIndex.getFilterableAttributes();
-  const needsFilterRepair = !filterableAttributes.includes('userId');
-  if ((created || needsFilterRepair) && beforeSchemaRepair) {
-    await beforeSchemaRepair();
+    const filterableAttributes =
+      await annotationIndex.getFilterableAttributes();
+    const needsFilterRepair = !filterableAttributes.includes('userId');
+    if ((created || needsFilterRepair) && beforeSchemaRepair) {
+      await beforeSchemaRepair();
+    }
+    if (needsFilterRepair) {
+      await waitForTask(
+        await annotationIndex.updateFilterableAttributes([
+          ...filterableAttributes,
+          'userId',
+        ]),
+      );
+    }
+    annotationIndexSchemaReady = true;
+  } catch (error) {
+    annotationIndexSchemaReady = false;
+    throw error;
   }
-  if (needsFilterRepair) {
-    await waitForTask(
-      await annotationIndex.updateFilterableAttributes([
-        ...filterableAttributes,
-        'userId',
-      ]),
-    );
-  }
+}
+
+export function isAnnotationIndexSchemaReady(): boolean {
+  return annotationIndexSchemaReady;
 }
 
 function toMeiliEntry(annotation: Annotation) {

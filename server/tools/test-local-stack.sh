@@ -10,13 +10,16 @@ integration_compose=(
 integration_server_log="$(mktemp)"
 integration_secondary_server_log="$(mktemp)"
 integration_agent_server_log="$(mktemp)"
+integration_degraded_server_log="$(mktemp)"
 integration_agent_state_path="$(mktemp)"
 integration_server_pid=""
 integration_secondary_server_pid=""
 integration_agent_server_pid=""
+integration_degraded_server_pid=""
 integration_server_port="${NOTELIX_TEST_SERVER_PORT:-18575}"
 integration_secondary_server_port="${NOTELIX_TEST_SECONDARY_SERVER_PORT:-18578}"
 integration_agent_server_port="${NOTELIX_TEST_AGENT_SERVER_PORT:-18579}"
+integration_degraded_server_port="${NOTELIX_TEST_DEGRADED_SERVER_PORT:-18580}"
 integration_db_port="${NOTELIX_TEST_DB_PORT:-18576}"
 integration_meili_port="${NOTELIX_TEST_MEILI_PORT:-18577}"
 integration_meili_key="notelix-integration-meili-master-key"
@@ -65,6 +68,10 @@ cleanup() {
     kill "${integration_agent_server_pid}" >/dev/null 2>&1 || true
     wait "${integration_agent_server_pid}" >/dev/null 2>&1 || true
   fi
+  if [[ -n "${integration_degraded_server_pid}" ]]; then
+    kill "${integration_degraded_server_pid}" >/dev/null 2>&1 || true
+    wait "${integration_degraded_server_pid}" >/dev/null 2>&1 || true
+  fi
 
   "${integration_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 
@@ -75,9 +82,12 @@ cleanup() {
     sed -n '1,240p' "${integration_secondary_server_log}" >&2
     echo "Notelix agent server log:" >&2
     sed -n '1,240p' "${integration_agent_server_log}" >&2
+    echo "Notelix degraded-startup server log:" >&2
+    sed -n '1,240p' "${integration_degraded_server_log}" >&2
   fi
   rm -f "${integration_server_log}" "${integration_secondary_server_log}" \
-    "${integration_agent_server_log}" "${integration_agent_state_path}"
+    "${integration_agent_server_log}" "${integration_degraded_server_log}" \
+    "${integration_agent_state_path}"
   exit "${integration_exit_code}"
 }
 trap cleanup EXIT
@@ -160,6 +170,14 @@ node ./tools/test-live-api.js
 node ./tools/meili-reindex.js
 
 stop_meilisearch
+PORT="${integration_degraded_server_port}" \
+  node ./dist/main.js >"${integration_degraded_server_log}" 2>&1 &
+integration_degraded_server_pid=$!
+TEST_DEGRADED_SERVER_URL="http://127.0.0.1:${integration_degraded_server_port}" \
+  node ./tools/test-degraded-startup.js
+kill "${integration_degraded_server_pid}" >/dev/null 2>&1 || true
+wait "${integration_degraded_server_pid}" >/dev/null 2>&1 || true
+integration_degraded_server_pid=""
 node <<'NODE'
 const assert = require('assert');
 
