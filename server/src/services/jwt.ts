@@ -5,8 +5,8 @@ import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { AppDataSource } from '../database';
 
-function genRsaKeyPair(): Promise<{ publicKey; privateKey }> {
-  return new Promise((resolve) => {
+export function genRsaKeyPair(): Promise<{ publicKey; privateKey }> {
+  return new Promise((resolve, reject) => {
     crypto.generateKeyPair(
       'rsa',
       {
@@ -15,11 +15,11 @@ function genRsaKeyPair(): Promise<{ publicKey; privateKey }> {
         privateKeyEncoding: { type: 'pkcs1', format: 'pem' },
       },
       (err, publicKey, privateKey) => {
-        if (!err) {
-          resolve({ publicKey, privateKey });
-        } else {
-          throw err;
+        if (err) {
+          reject(err);
+          return;
         }
+        resolve({ publicKey, privateKey });
       },
     );
   });

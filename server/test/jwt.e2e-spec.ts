@@ -1,7 +1,15 @@
 import { generateKeyPairSync } from 'crypto';
+import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { User } from '../src/models/user.entity';
-import JwtService from '../src/services/jwt';
+import JwtService, { genRsaKeyPair } from '../src/services/jwt';
+
+jest.mock('crypto', () => ({
+  ...jest.requireActual('crypto'),
+  generateKeyPair: jest.fn(),
+}));
+
+const generateKeyPairMock = crypto.generateKeyPair as unknown as jest.Mock;
 
 describe('JWT sessions', () => {
   const keyPair = generateKeyPairSync('rsa', {
@@ -12,6 +20,7 @@ describe('JWT sessions', () => {
   let jwtService: JwtService;
 
   beforeEach(() => {
+    generateKeyPairMock.mockReset();
     jwtService = new JwtService();
     (jwtService as any).jwtPrivateKey = keyPair;
   });
@@ -54,5 +63,14 @@ describe('JWT sessions', () => {
     await expect(jwtService.getUserFromToken(legacyToken)).rejects.toThrow(
       'jwt has been revoked',
     );
+  });
+
+  it('rejects asynchronous RSA generation failures', async () => {
+    const failure = new Error('OpenSSL unavailable');
+    generateKeyPairMock.mockImplementation((_algorithm, _options, callback) => {
+      queueMicrotask(() => callback(failure));
+    });
+
+    await expect(genRsaKeyPair()).rejects.toBe(failure);
   });
 });
