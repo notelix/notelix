@@ -10,8 +10,17 @@ import {
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { User } from '../models/user.entity';
 import * as bcrypt from 'bcrypt';
-import makeid from '../utils/makeid';
 import JwtService from '../services/jwt';
+
+function userResponse(user: User) {
+  return {
+    id: user.id,
+    name: user.name,
+    client_side_encryption: user.client_side_encryption,
+    created_at: user.created_at,
+    updated_at: user.updated_at,
+  };
+}
 
 @Controller('users')
 export class UsersController {
@@ -22,22 +31,23 @@ export class UsersController {
 
   @Get('/who-am-i')
   async WhoAmI(): Promise<any> {
-    return await this.authenticationService.getAuthenticatedUser();
+    const user = await this.authenticationService.getAuthenticatedUser();
+    return userResponse(user);
   }
 
   @Post('/signup')
   async SignUp(@Req() request: Request): Promise<any> {
     const username = request.body['username'];
-    const password = bcrypt.hashSync(request.body['password'], 10);
+    const password = await bcrypt.hash(request.body['password'], 10);
     const enableClientSideEncryption =
       request.body['enableClientSideEncryption'];
 
-    let existingUser = await User.findOne({ name: username });
+    const existingUser = await User.findOne({ name: username });
     if (existingUser) {
       throw new ConflictException(`username ${username} already taken`);
     }
 
-    let user = new User();
+    const user = new User();
     user.name = username;
     user.password = password;
     if (enableClientSideEncryption) {
@@ -55,18 +65,18 @@ export class UsersController {
     const username = request.body['username'];
     const password = request.body['password'];
 
-    let user = await User.findOne({ name: username });
+    const user = await User.findOne({ name: username });
     if (!user) {
       throw new ForbiddenException(`user ${username} does not exist`);
     }
 
-    if (!bcrypt.compareSync(password, user.password)) {
+    if (!(await bcrypt.compare(password, user.password))) {
       throw new ForbiddenException(`incorrect password`);
     }
 
     await user.save();
 
-    return { ...user, jwt: this.jwtService.signForUser(user) };
+    return { ...userResponse(user), jwt: this.jwtService.signForUser(user) };
   }
 
   @Post('/change-password')
@@ -77,14 +87,14 @@ export class UsersController {
     const newPassword = request.body['newPassword'];
     const user = await this.authenticationService.getAuthenticatedUser();
 
-    if (!bcrypt.compareSync(oldPassword, user.password)) {
+    if (!(await bcrypt.compare(oldPassword, user.password))) {
       throw new ForbiddenException(`incorrect password`);
     }
 
-    user.password = bcrypt.hashSync(newPassword, 10);
+    user.password = await bcrypt.hash(newPassword, 10);
     user.client_side_encryption = newClientSideEncryptionParams || '';
     await user.save();
 
-    return { ...user };
+    return userResponse(user);
   }
 }
