@@ -2,7 +2,10 @@ import { generateKeyPairSync } from 'crypto';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { User } from '../src/models/user.entity';
-import JwtService, { genRsaKeyPair } from '../src/services/jwt';
+import JwtService, {
+  genRsaKeyPair,
+  validateJwtExpiration,
+} from '../src/services/jwt';
 
 jest.mock('crypto', () => ({
   ...jest.requireActual('crypto'),
@@ -72,5 +75,15 @@ describe('JWT sessions', () => {
     });
 
     await expect(genRsaKeyPair()).rejects.toBe(failure);
+  });
+
+  it('accepts only positive JWT durations with explicit units', () => {
+    expect(validateJwtExpiration('15m')).toBe('15m');
+    expect(validateJwtExpiration('30d')).toBe('30d');
+    for (const invalid of ['forever', '0', '0s', '120', '-1h']) {
+      expect(() => validateJwtExpiration(invalid)).toThrow(
+        'JWT_EXPIRES_IN must be a positive duration with a unit, such as 15m or 30d',
+      );
+    }
   });
 });

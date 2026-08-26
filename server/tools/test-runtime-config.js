@@ -13,6 +13,7 @@ const validEnvironment = {
   REQUEST_BODY_LIMIT_BYTES: '1048576',
   TRUST_PROXY_HOPS: '',
   RUN_MODE: 'SERVER',
+  JWT_EXPIRES_IN: '30d',
 };
 
 const cases = [
@@ -52,6 +53,12 @@ const cases = [
     name: 'run mode',
     environment: { RUN_MODE: 'agent' },
     message: 'RUN_MODE must be one of: SERVER, AGENT',
+  },
+  {
+    name: 'JWT expiration',
+    environment: { JWT_EXPIRES_IN: '120' },
+    message:
+      'JWT_EXPIRES_IN must be a positive duration with a unit, such as 15m or 30d',
   },
   {
     name: 'reindex batch size',

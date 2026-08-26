@@ -25,10 +25,34 @@ export function genRsaKeyPair(): Promise<{ publicKey; privateKey }> {
   });
 }
 
+export function validateJwtExpiration(
+  value: string,
+): jwt.SignOptions['expiresIn'] {
+  const errorMessage =
+    'JWT_EXPIRES_IN must be a positive duration with a unit, such as 15m or 30d';
+  try {
+    const validationToken = jwt.sign({}, 'jwt-expiration-validation', {
+      expiresIn: value as jwt.SignOptions['expiresIn'],
+    });
+    const decoded = jwt.decode(validationToken);
+    if (
+      !decoded ||
+      typeof decoded !== 'object' ||
+      !Number.isInteger(decoded.iat) ||
+      !Number.isInteger(decoded.exp) ||
+      decoded.exp <= decoded.iat
+    ) {
+      throw new Error(errorMessage);
+    }
+  } catch (_error) {
+    throw new Error(errorMessage);
+  }
+  return value as jwt.SignOptions['expiresIn'];
+}
+
 const JwtParams: jwt.SignOptions = {
   algorithm: 'RS256',
-  expiresIn: (process.env.JWT_EXPIRES_IN ||
-    '30d') as jwt.SignOptions['expiresIn'],
+  expiresIn: validateJwtExpiration(process.env.JWT_EXPIRES_IN || '30d'),
   issuer: 'notelix',
 };
 

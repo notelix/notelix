@@ -200,10 +200,12 @@ Annotation synchronization history contains annotation-only snapshots. The
 history security migration removes legacy embedded user objects, including
 password hashes and client-side encryption metadata, from existing rows.
 
-JWTs expire after 30 days by default; set `JWT_EXPIRES_IN` to another
-`jsonwebtoken` duration when a shorter policy is required. Changing a password
-increments the account's token version and immediately revokes every previously
-issued JWT for that account.
+JWTs expire after 30 days by default; set `JWT_EXPIRES_IN` to a positive
+duration with an explicit unit, such as `15m` or `7d`, when a shorter policy is
+required. Invalid, zero, and unitless values fail startup instead of breaking
+login after the service becomes ready. Changing a password increments the
+account's token version and immediately revokes every previously issued JWT for
+that account.
 
 # start agent
 
