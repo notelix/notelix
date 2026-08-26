@@ -5,7 +5,7 @@ import { LogIn } from "./pages/LogIn";
 import { SetServer } from "./pages/SetServer";
 import { SignUp } from "./pages/SignUp";
 import { UserInfo } from "./pages/UserInfo";
-import { Index } from "./pages";
+import { Index } from "./pages/Index";
 import { ChangePassword } from "./pages/ChangePassword";
 
 const App = () => {
