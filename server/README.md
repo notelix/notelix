@@ -147,6 +147,9 @@ npm run test:integration
 The backend also supports host-side development against containers or other
 service instances through `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_DATABASE`,
 `MEILISEARCH_HOST`, `MEILISEARCH_ANNOTATIONS_INDEX`, and `PORT`.
+Numeric runtime settings accept decimal integers only. `DB_PORT` and `PORT`
+must be valid TCP ports from 1 to 65535; invalid values fail startup with a
+specific configuration error instead of reaching a database or socket driver.
 
 At startup, the backend first connects directly to `DB_DATABASE`. If it does not
 exist and `DB_AUTO_CREATE` is `true`, creation is serialized across replicas and
@@ -166,6 +169,9 @@ PostgreSQL and Meilisearch and returns `503` when either dependency is down.
 Container health checks use the readiness endpoint. Dependency checks are
 bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
 100 to 30000 milliseconds.
+
+Meilisearch update tasks are bounded to 30 seconds by default.
+`MEILISEARCH_TASK_TIMEOUT_MS` accepts values from 100 to 600000 milliseconds.
 
 Static access tokens are stored as one-way SHA-256 digests; raw tokens and
 token-derived guest names are removed by the authentication migration. Existing

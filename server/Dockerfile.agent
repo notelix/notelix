@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json yarn.lock ./
 RUN npx --yes yarn@1.22.22 install --frozen-lockfile --non-interactive
 
-COPY nest-cli.json tsconfig.json tsconfig.build.json ormconfig.js ./
+COPY nest-cli.json tsconfig.json tsconfig.build.json ormconfig.js runtime-config.js runtime-config.d.ts ./
 COPY src ./src
 RUN npx --yes yarn@1.22.22 build
 
@@ -25,7 +25,7 @@ WORKDIR /app
 
 COPY --from=production-dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
-COPY --chown=node:node package.json ormconfig.js ./
+COPY --chown=node:node package.json ormconfig.js runtime-config.js ./
 COPY --chown=node:node tools/ensure-pg-db.js tools/meili-reindex.js tools/run-migrations.js ./tools/
 
 RUN mkdir -p /data && chown node:node /data

@@ -26,6 +26,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { AppDataSource } from '../database';
 import { ensureAgentAnnotationSearchIndexReady } from '../services/agentSearchIndex';
+import { readBoundedIntegerEnvironment } from '../../runtime-config';
 
 const defaultAnnotationChangeHistoryLatestIdSavePath =
   '/data/.annotation_change_history_latest_id';
@@ -64,25 +65,6 @@ class SyncRequestError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
   }
-}
-
-function readBoundedInteger(
-  name: string,
-  fallback: number,
-  minimum: number,
-  maximum: number,
-): number {
-  const configured = process.env[name];
-  if (!configured) {
-    return fallback;
-  }
-  const value = Number(configured);
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
-    throw new Error(
-      `${name} must be an integer between ${minimum} and ${maximum}`,
-    );
-  }
-  return value;
 }
 
 function getSyncStatePath(): string {
@@ -231,25 +213,25 @@ export class AgentSyncController
   implements OnModuleInit, OnApplicationShutdown
 {
   private readonly logger = new Logger(AgentSyncController.name);
-  private readonly syncRequestTimeoutMs = readBoundedInteger(
+  private readonly syncRequestTimeoutMs = readBoundedIntegerEnvironment(
     'AGENT_SYNC_REQUEST_TIMEOUT_MS',
     defaultSyncRequestTimeoutMs,
     100,
     300000,
   );
-  private readonly syncMaxResponseBytes = readBoundedInteger(
+  private readonly syncMaxResponseBytes = readBoundedIntegerEnvironment(
     'AGENT_SYNC_MAX_RESPONSE_BYTES',
     defaultSyncMaxResponseBytes,
     1024,
     256 * 1024 * 1024,
   );
-  private readonly syncMaxDiffPagesPerCycle = readBoundedInteger(
+  private readonly syncMaxDiffPagesPerCycle = readBoundedIntegerEnvironment(
     'AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE',
     defaultSyncMaxDiffPagesPerCycle,
     1,
     100,
   );
-  private readonly syncMaxSnapshotPagesPerCycle = readBoundedInteger(
+  private readonly syncMaxSnapshotPagesPerCycle = readBoundedIntegerEnvironment(
     'AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE',
     defaultSyncMaxSnapshotPagesPerCycle,
     1,

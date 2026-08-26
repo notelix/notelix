@@ -96,6 +96,7 @@ for integration_database_creator_pid in "${integration_database_creator_pids[@]}
   wait "${integration_database_creator_pid}"
 done
 npm run build
+node ./tools/test-runtime-config.js
 npm run migration:run:compiled &
 integration_migration_pid_one=$!
 npm run migration:run:compiled &

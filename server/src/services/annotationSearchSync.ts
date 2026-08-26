@@ -10,6 +10,7 @@ import { AppDataSource } from '../database';
 import { ensureAnnotationIndexReady, meilisearchClient } from '../meilisearch';
 import { Annotation } from '../models/annotation.entity';
 import { User } from '../models/user.entity';
+import { readBoundedIntegerEnvironment } from '../../runtime-config';
 
 const defaultBatchSize = 100;
 const defaultIntervalMs = 1000;
@@ -36,25 +37,6 @@ interface SearchAnnotationRow {
   clientSideEncryption: string | null;
 }
 
-function readBoundedInteger(
-  name: string,
-  fallback: number,
-  minimum: number,
-  maximum: number,
-): number {
-  const configured = process.env[name];
-  if (!configured) {
-    return fallback;
-  }
-  const value = Number(configured);
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
-    throw new Error(
-      `${name} must be an integer between ${minimum} and ${maximum}`,
-    );
-  }
-  return value;
-}
-
 export async function enqueueAllAnnotationSearchUpdates(
   manager: EntityManager,
 ): Promise<void> {
@@ -78,37 +60,37 @@ export class AnnotationSearchSyncService
   implements OnModuleInit, BeforeApplicationShutdown
 {
   private readonly logger = new Logger(AnnotationSearchSyncService.name);
-  private readonly batchSize = readBoundedInteger(
+  private readonly batchSize = readBoundedIntegerEnvironment(
     'SEARCH_SYNC_BATCH_SIZE',
     defaultBatchSize,
     1,
     500,
   );
-  private readonly intervalMs = readBoundedInteger(
+  private readonly intervalMs = readBoundedIntegerEnvironment(
     'SEARCH_SYNC_INTERVAL_MS',
     defaultIntervalMs,
     100,
     300000,
   );
-  private readonly leaseMs = readBoundedInteger(
+  private readonly leaseMs = readBoundedIntegerEnvironment(
     'SEARCH_SYNC_LEASE_MS',
     defaultLeaseMs,
     1000,
     600000,
   );
-  private readonly retryBaseMs = readBoundedInteger(
+  private readonly retryBaseMs = readBoundedIntegerEnvironment(
     'SEARCH_SYNC_RETRY_BASE_MS',
     defaultRetryBaseMs,
     100,
     60000,
   );
-  private readonly retryMaxMs = readBoundedInteger(
+  private readonly retryMaxMs = readBoundedIntegerEnvironment(
     'SEARCH_SYNC_RETRY_MAX_MS',
     defaultRetryMaxMs,
     this.retryBaseMs,
     3600000,
   );
-  private readonly schemaCheckIntervalMs = readBoundedInteger(
+  private readonly schemaCheckIntervalMs = readBoundedIntegerEnvironment(
     'SEARCH_SYNC_SCHEMA_INTERVAL_MS',
     defaultSchemaCheckIntervalMs,
     1000,

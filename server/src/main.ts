@@ -19,25 +19,24 @@ import {
   enqueueAllAnnotationSearchUpdates,
 } from './services/annotationSearchSync';
 import { rebuildAgentAnnotationSearchIndex } from './services/agentSearchIndex';
+import {
+  readBoundedIntegerEnvironment,
+  readPortEnvironment,
+} from '../runtime-config';
 
-function readPositiveInteger(name: string, fallback: number): number {
-  const value = process.env[name];
-  if (!value) {
-    return fallback;
-  }
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return parsed;
-}
+const httpPort = readPortEnvironment('PORT', 3000);
 
 @Module({
   imports: [
     ThrottlerModule.forRoot([
       {
-        ttl: readPositiveInteger('RATE_LIMIT_TTL_MS', 60000),
-        limit: readPositiveInteger('RATE_LIMIT_MAX', 300),
+        ttl: readBoundedIntegerEnvironment(
+          'RATE_LIMIT_TTL_MS',
+          60000,
+          1,
+          2147483647,
+        ),
+        limit: readBoundedIntegerEnvironment('RATE_LIMIT_MAX', 300, 1, 1000000),
       },
     ]),
   ],
@@ -79,7 +78,7 @@ async function bootstrap() {
   );
   const app = await NestFactory.create(AppModule);
   configureApplication(app);
-  await app.listen(Number(process.env.PORT || 3000));
+  await app.listen(httpPort);
 }
 
 bootstrap();

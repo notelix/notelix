@@ -1,5 +1,6 @@
 import { MeiliSearch } from 'meilisearch';
 import { Annotation } from '../models/annotation.entity';
+import { readBoundedIntegerEnvironment } from '../../runtime-config';
 
 const client = new MeiliSearch({
   host: process.env.MEILISEARCH_HOST || 'http://meilisearch:7700',
@@ -9,7 +10,12 @@ const client = new MeiliSearch({
 const annotationIndexName =
   process.env.MEILISEARCH_ANNOTATIONS_INDEX || 'annotations';
 const annotationIndex = client.index(annotationIndexName);
-const taskTimeoutMs = Number(process.env.MEILISEARCH_TASK_TIMEOUT_MS || 30000);
+const taskTimeoutMs = readBoundedIntegerEnvironment(
+  'MEILISEARCH_TASK_TIMEOUT_MS',
+  30000,
+  100,
+  600000,
+);
 
 async function waitForTask(enqueuedTask) {
   const task = await client.tasks.waitForTask(enqueuedTask, {

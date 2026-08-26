@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AppDataSource } from '../database';
 import { meilisearchClient } from '../meilisearch';
+import { readBoundedIntegerEnvironment } from '../../runtime-config';
 
 export type DependencyStatus = 'up' | 'down';
 
@@ -9,23 +10,14 @@ export interface ReadinessStatus {
   meilisearch: DependencyStatus;
 }
 
-function readTimeout(): number {
-  const configured = process.env.READINESS_TIMEOUT_MS;
-  if (!configured) {
-    return 2000;
-  }
-  const timeout = Number(configured);
-  if (!Number.isInteger(timeout) || timeout < 100 || timeout > 30000) {
-    throw new Error(
-      'READINESS_TIMEOUT_MS must be an integer between 100 and 30000',
-    );
-  }
-  return timeout;
-}
-
 @Injectable()
 export class ReadinessService {
-  private readonly timeoutMs = readTimeout();
+  private readonly timeoutMs = readBoundedIntegerEnvironment(
+    'READINESS_TIMEOUT_MS',
+    2000,
+    100,
+    30000,
+  );
 
   async check(): Promise<ReadinessStatus> {
     const [postgres, meilisearch] = await Promise.allSettled([
