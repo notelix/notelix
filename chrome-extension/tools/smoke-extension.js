@@ -40,6 +40,25 @@ const server = http.createServer((request, response) => {
     return;
   }
 
+  if (request.url === "/users/login") {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(
+      JSON.stringify({
+        id: 1,
+        name: "smoke-user",
+        jwt: "smoke-jwt",
+        client_side_encryption: "",
+      })
+    );
+    return;
+  }
+
+  if (request.url === "/annotations/queryByUrl") {
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ list: [] }));
+    return;
+  }
+
   response.writeHead(200, { "Content-Type": "text/html" });
   response.end("<!doctype html><title>Notelix smoke</title><p>annotate me</p>");
 });
@@ -87,6 +106,17 @@ async function main() {
     const manifest = await worker.evaluate(() => chrome.runtime.getManifest());
     assert.equal(manifest.manifest_version, 3);
     assert.equal(manifest.background.service_worker, "dist/background.dist.js");
+    const baseUrl = `http://127.0.0.1:${port}`;
+    await worker.evaluate(
+      (serverUrl) =>
+        new Promise((resolve) => {
+          chrome.storage.sync.set(
+            { notelix: { notelixServer: serverUrl } },
+            resolve
+          );
+        }),
+      baseUrl
+    );
 
     const popup = await browser.newPage();
     const popupErrors = [];
@@ -98,9 +128,55 @@ async function main() {
     await popup.waitForFunction(
       () => document.querySelector("h1")?.textContent === "Login"
     );
+    const initialStorage = await popup.evaluate(async () => {
+      const read = (area) =>
+        new Promise((resolve) => area.get(null, (value) => resolve(value)));
+      return {
+        local: await read(chrome.storage.local),
+        sync: await read(chrome.storage.sync),
+      };
+    });
+    assert.equal(initialStorage.local["notelix-auth"], undefined);
+    assert.equal(initialStorage.sync.notelix.notelixUser, undefined);
+    assert.equal(initialStorage.sync.notelix.notelixPassword, undefined);
     await popup.click('a[href="#/signup"]');
     await popup.waitForFunction(
       () => document.querySelector("h1")?.textContent === "Sign Up"
+    );
+    await popup.goto(
+      `chrome-extension://${extensionId}/extension-options.html`,
+      { waitUntil: "domcontentloaded" }
+    );
+    await popup.waitForFunction(
+      () => document.querySelector("h1")?.textContent === "Login"
+    );
+    await popup.type('input[placeholder="username"]', "smoke-user");
+    await popup.type('input[placeholder="password"]', "smoke-password");
+    const dialogHandled = new Promise((resolve) => {
+      popup.once("dialog", async (dialog) => {
+        await dialog.accept();
+        resolve();
+      });
+    });
+    await popup.click("button");
+    await dialogHandled;
+    await popup.waitForFunction(() =>
+      document.body.textContent.includes("Logged In as smoke-user")
+    );
+    const authenticatedStorage = await popup.evaluate(async () => {
+      const read = (area) =>
+        new Promise((resolve) => area.get(null, (value) => resolve(value)));
+      return {
+        local: await read(chrome.storage.local),
+        sync: await read(chrome.storage.sync),
+      };
+    });
+    assert.equal(authenticatedStorage.local["notelix-auth"].jwt, "smoke-jwt");
+    assert.equal(authenticatedStorage.sync.notelix.notelixUser, undefined);
+    assert.equal(authenticatedStorage.sync.notelix.notelixPassword, undefined);
+    assert.equal(
+      JSON.stringify(authenticatedStorage).includes("smoke-password"),
+      false
     );
 
     const responses = await popup.evaluate(async (baseUrl) => {
@@ -112,7 +188,7 @@ async function main() {
           );
         });
       return Promise.all([send(`${baseUrl}/json`), send(`${baseUrl}/empty`)]);
-    }, `http://127.0.0.1:${port}`);
+    }, baseUrl);
     assert.deepEqual(responses, [
       { status: 200, body: { ok: true } },
       { status: 204, body: null },

@@ -29,7 +29,10 @@ function storageArea(initialValue = {}) {
 describe("client-side encryption key storage", () => {
   const password = "correct horse battery staple";
   const key = "f".repeat(64);
-  const encryptedConfig = AES.encrypt(JSON.stringify({ key }), password).toString();
+  const encryptedConfig = AES.encrypt(
+    JSON.stringify({ key }),
+    password
+  ).toString();
 
   beforeEach(() => {
     global.window = {};
@@ -47,7 +50,7 @@ describe("client-side encryption key storage", () => {
       password
     );
 
-    expect(chrome.storage.local.value()).toEqual({
+    expect(chrome.storage.local.value()).toMatchObject({
       [NotelixEncryptionKeyStorageKey]: key,
     });
     expect(JSON.stringify(chrome.storage.sync.value())).not.toContain(password);
@@ -62,7 +65,7 @@ describe("client-side encryption key storage", () => {
     });
 
     await expect(getKey()).resolves.toBe(key);
-    expect(chrome.storage.local.value()).toEqual({
+    expect(chrome.storage.local.value()).toMatchObject({
       [NotelixEncryptionKeyStorageKey]: key,
     });
     expect(chrome.storage.sync.value()[NotelixChromeStorageKey]).not.toHaveProperty(

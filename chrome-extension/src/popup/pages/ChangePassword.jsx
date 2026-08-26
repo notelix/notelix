@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
-import { NotelixChromeStorageKey } from "../consts";
 import {
   clearEncryptionKey,
   clearLegacyPassword,
@@ -10,6 +9,7 @@ import { makeClientSideEncryptionParams } from "../../encryption/utils";
 import { changePassword } from "../../api/user";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
+import { clearUser } from "../../storage";
 
 export const ChangePassword = () => {
   const navigate = useNavigate();
@@ -66,13 +66,9 @@ export const ChangePassword = () => {
               alert("Password changed successfully");
               await clearEncryptionKey();
               await clearLegacyPassword();
-              chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-                delete value[NotelixChromeStorageKey].notelixUser;
-                chrome.storage.sync.set(value, () => {
-                  sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-                  navigate("/login");
-                });
-              });
+              await clearUser();
+              sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
+              navigate("/login");
             });
           });
         }}

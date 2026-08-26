@@ -1,11 +1,15 @@
 import { Link, useNavigate } from "react-router-dom";
 import React, { useEffect, useState } from "react";
-import { NotelixChromeStorageKey } from "../consts";
 import { login } from "../../api/user";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
 import { ensureLocalEncryptionKey } from "../../encryption";
+import {
+  clearServer,
+  getServer,
+  setUser,
+} from "../../storage";
 
 export const LogIn = () => {
   const navigate = useNavigate();
@@ -14,24 +18,17 @@ export const LogIn = () => {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      setNotelixServer(value[NotelixChromeStorageKey].notelixServer);
-    });
+    getServer().then(setNotelixServer);
   }, []);
 
   const submit = () => {
     login({ username, password }).then(async (resp) => {
       await ensureLocalEncryptionKey(resp, password);
-      chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-        value[NotelixChromeStorageKey] = value[NotelixChromeStorageKey] || {};
-        value[NotelixChromeStorageKey].notelixUser = resp;
-        chrome.storage.sync.set(value, () => {
-          sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-          alert("Login successful");
-          navigate("/");
-          trySetAgentSyncParams();
-        });
-      });
+      await setUser(resp);
+      sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
+      alert("Login successful");
+      navigate("/");
+      trySetAgentSyncParams();
     });
   };
 
@@ -48,12 +45,7 @@ export const LogIn = () => {
             if (!confirm("Do you want to change to another Notelix server?")) {
               return;
             }
-            chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-              delete value[NotelixChromeStorageKey].notelixServer;
-              chrome.storage.sync.set(value, () => {
-                navigate("/set-server");
-              });
-            });
+            clearServer().then(() => navigate("/set-server"));
           }}
           style={{ float: "right", marginBottom: 8 }}
         >
