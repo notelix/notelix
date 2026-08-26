@@ -1,9 +1,15 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import type { Request } from 'express';
 import Authenticator from './authenticators/authenticator';
 import JwtAuth from './authenticators/jwtAuth';
 import StaticTokenAuth from './authenticators/staticTokenAuth';
+import { InvalidAuthenticationCredentialError } from './invalidAuthenticationCredential.error';
 
 @Injectable()
 export class AuthenticationService {
@@ -38,8 +44,14 @@ export class AuthenticationService {
 
     try {
       return await authenticator.authenticate(authenticatorParam);
-    } catch (_error) {
-      throw this.authenticationFailed(true);
+    } catch (error) {
+      if (error instanceof InvalidAuthenticationCredentialError) {
+        throw this.authenticationFailed(true);
+      }
+      throw new ServiceUnavailableException({
+        message: 'authentication temporarily unavailable',
+        retryable: true,
+      });
     }
   }
 

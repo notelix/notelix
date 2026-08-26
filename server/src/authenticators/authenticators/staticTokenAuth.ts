@@ -1,15 +1,12 @@
 import Authenticator from './authenticator';
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { StaticToken } from '../../models/staticToken.entity';
 import { User } from '../../models/user.entity';
 import { AppDataSource } from '../../database';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { digestStaticToken } from '../../security/staticToken';
+import { InvalidAuthenticationCredentialError } from '../invalidAuthenticationCredential.error';
 
 @Injectable()
 export class StaticTokenAuth implements Authenticator {
@@ -19,12 +16,16 @@ export class StaticTokenAuth implements Authenticator {
 
   async authenticate(params) {
     if (!params || !params.trim()) {
-      throw new ForbiddenException('static-token cannot be empty');
+      throw new InvalidAuthenticationCredentialError(
+        'static-token cannot be empty',
+      );
     }
 
     const staticToken = params.trim();
     if (staticToken.length !== 64) {
-      throw new BadRequestException('static-token must be 64 characters long');
+      throw new InvalidAuthenticationCredentialError(
+        'static-token must be 64 characters long',
+      );
     }
     const tokenDigest = digestStaticToken(staticToken);
 

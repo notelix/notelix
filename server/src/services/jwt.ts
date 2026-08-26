@@ -4,6 +4,7 @@ import { User } from '../models/user.entity';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { AppDataSource } from '../database';
+import { InvalidAuthenticationCredentialError } from '../authenticators/invalidAuthenticationCredential.error';
 
 export function genRsaKeyPair(): Promise<{ publicKey; privateKey }> {
   return new Promise((resolve, reject) => {
@@ -81,29 +82,40 @@ export default class JwtService implements OnModuleInit {
   }
 
   async getUserFromToken(token: string): Promise<User> {
-    const decoded = jwt.verify(token, this.getPublicKey(), {
-      algorithms: ['RS256'],
-      issuer: 'notelix',
-    });
+    let decoded: jwt.JwtPayload | string;
+    try {
+      decoded = jwt.verify(token, this.getPublicKey(), {
+        algorithms: ['RS256'],
+        issuer: 'notelix',
+      });
+    } catch (_error) {
+      throw new InvalidAuthenticationCredentialError('jwt is invalid');
+    }
     if (
       !decoded ||
       typeof decoded !== 'object' ||
       !Number.isInteger(decoded.id) ||
       decoded.id <= 0
     ) {
-      throw new Error('jwt payload does not contain a user id');
+      throw new InvalidAuthenticationCredentialError(
+        'jwt payload does not contain a user id',
+      );
     }
     const tokenVersion = decoded.tokenVersion ?? 0;
     if (!Number.isInteger(tokenVersion) || tokenVersion < 0) {
-      throw new Error('jwt payload contains an invalid token version');
+      throw new InvalidAuthenticationCredentialError(
+        'jwt payload contains an invalid token version',
+      );
     }
 
     const user = await User.findOne({ where: { id: decoded.id } });
     if (!user) {
-      throw new Error('jwt user no longer exists');
+      throw new InvalidAuthenticationCredentialError(
+        'jwt user no longer exists',
+      );
     }
     if ((user.tokenVersion ?? 0) !== tokenVersion) {
-      throw new Error('jwt has been revoked');
+      throw new InvalidAuthenticationCredentialError('jwt has been revoked');
     }
     return user;
   }

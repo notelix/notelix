@@ -1,5 +1,5 @@
-import { BadRequestException } from '@nestjs/common';
 import { StaticTokenAuth } from '../src/authenticators/authenticators/staticTokenAuth';
+import { InvalidAuthenticationCredentialError } from '../src/authenticators/invalidAuthenticationCredential.error';
 import { StaticToken } from '../src/models/staticToken.entity';
 import { digestStaticToken } from '../src/security/staticToken';
 
@@ -33,7 +33,16 @@ describe('Static-token authentication', () => {
 
     await expect(
       new StaticTokenAuth().authenticate('short'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(InvalidAuthenticationCredentialError);
     expect(findOne).not.toHaveBeenCalled();
+  });
+
+  it('propagates token lookup failures as infrastructure errors', async () => {
+    const databaseFailure = new Error('database unavailable');
+    jest.spyOn(StaticToken, 'findOne').mockRejectedValue(databaseFailure);
+
+    await expect(
+      new StaticTokenAuth().authenticate('a'.repeat(64)),
+    ).rejects.toBe(databaseFailure);
   });
 });

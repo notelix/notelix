@@ -1,6 +1,7 @@
 import Authenticator from './authenticator';
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import JwtService from '../../services/jwt';
+import { InvalidAuthenticationCredentialError } from '../invalidAuthenticationCredential.error';
 
 @Injectable()
 export class JwtAuth implements Authenticator {
@@ -12,7 +13,7 @@ export class JwtAuth implements Authenticator {
 
   async authenticate(params) {
     if (!params || !params.trim()) {
-      throw new ForbiddenException('jwt cannot be empty');
+      throw new InvalidAuthenticationCredentialError('jwt cannot be empty');
     }
 
     return await this.jwtService.getUserFromToken(params.trim());

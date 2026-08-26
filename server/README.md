@@ -151,9 +151,11 @@ docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev down
 The integration test validates the production, development, and agent Compose
 topology, starts isolated temporary Postgres and Meilisearch containers, runs
 the backend on the host, and exercises the user, annotation, sync-history, and
-search APIs. It also deletes the agent search index and verifies both startup
-and in-process recovery. Test containers and data are removed when the test
-finishes.
+search APIs. It makes PostgreSQL unavailable to verify authentication returns a
+retryable outage without invalidating a valid JWT, then proves that same session
+recovers.
+It also deletes the agent search index and verifies both startup and in-process
+recovery. Test containers and data are removed when the test finishes.
 
 ```bash
 npm run test:integration
@@ -206,6 +208,10 @@ Database pools default to 10 connections. `DB_POOL_MAX` accepts 1 to 100,
 `DB_QUERY_TIMEOUT_MS` accepts 100 to 3600000 milliseconds. PostgreSQL query
 execution, stalled query reads, and waits for a pool connection are bounded so
 dependency outages cannot accumulate work indefinitely.
+Authentication rejects invalid or revoked credentials with `401`, including a
+client-clear signal. Database and other authentication-backend failures instead
+return `503` with `retryable: true`, so a transient outage does not log clients
+out or discard their local client-side encryption keys.
 Migration runners wait up to two minutes for the singleton advisory lock;
 `DB_MIGRATION_LOCK_TIMEOUT_MS` accepts 1000 to 3600000 milliseconds. Exceeding
 the deadline fails startup so the container restart policy can retry instead of

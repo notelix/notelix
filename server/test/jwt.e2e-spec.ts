@@ -6,6 +6,7 @@ import JwtService, {
   genRsaKeyPair,
   validateJwtExpiration,
 } from '../src/services/jwt';
+import { InvalidAuthenticationCredentialError } from '../src/authenticators/invalidAuthenticationCredential.error';
 
 jest.mock('crypto', () => ({
   ...jest.requireActual('crypto'),
@@ -65,6 +66,25 @@ describe('JWT sessions', () => {
     user.tokenVersion = 1;
     await expect(jwtService.getUserFromToken(legacyToken)).rejects.toThrow(
       'jwt has been revoked',
+    );
+  });
+
+  it('classifies invalid tokens without querying user storage', async () => {
+    const findOne = jest.spyOn(User, 'findOne');
+
+    await expect(
+      jwtService.getUserFromToken('not-a-signed-token'),
+    ).rejects.toBeInstanceOf(InvalidAuthenticationCredentialError);
+    expect(findOne).not.toHaveBeenCalled();
+  });
+
+  it('propagates user lookup failures as infrastructure errors', async () => {
+    const databaseFailure = new Error('database unavailable');
+    jest.spyOn(User, 'findOne').mockRejectedValue(databaseFailure);
+    const token = jwtService.signForUser(makeUser(0));
+
+    await expect(jwtService.getUserFromToken(token)).rejects.toBe(
+      databaseFailure,
     );
   });
 

@@ -1,5 +1,9 @@
-import { UnauthorizedException } from '@nestjs/common';
+import {
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthenticationService } from '../src/authenticators/authentication.service';
+import { InvalidAuthenticationCredentialError } from '../src/authenticators/invalidAuthenticationCredential.error';
 
 describe('Authentication service', () => {
   function makeService(header?: string) {
@@ -32,10 +36,10 @@ describe('Authentication service', () => {
     expect(jwtAuth.authenticate).toHaveBeenCalledWith('signed-token');
   });
 
-  it('does not expose authenticator or infrastructure errors', async () => {
-    const { service, jwtAuth } = makeService('jwt invalid-token');
+  it('clears client credentials only for rejected credentials', async () => {
+    const { service, jwtAuth } = makeService('jwt expired-token');
     jwtAuth.authenticate.mockRejectedValue(
-      new Error('database connection string and internal details'),
+      new InvalidAuthenticationCredentialError('expired token details'),
     );
 
     let error: UnauthorizedException;
@@ -51,7 +55,30 @@ describe('Authentication service', () => {
       message: 'authentication failed',
       clearClientCredentials: true,
     });
+    expect(JSON.stringify(error.getResponse())).not.toContain('expired');
+  });
+
+  it('returns a retryable outage without clearing valid credentials', async () => {
+    const { service, jwtAuth } = makeService('jwt invalid-token');
+    jwtAuth.authenticate.mockRejectedValue(
+      new Error('database connection string and internal details'),
+    );
+
+    let error: ServiceUnavailableException;
+    try {
+      await service.getAuthenticatedUser();
+      throw new Error('authentication unexpectedly succeeded');
+    } catch (caught) {
+      error = caught as ServiceUnavailableException;
+    }
+
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect(error.getResponse()).toEqual({
+      message: 'authentication temporarily unavailable',
+      retryable: true,
+    });
     expect(JSON.stringify(error.getResponse())).not.toContain('database');
+    expect(error.getResponse()).not.toHaveProperty('clearClientCredentials');
   });
 
   it.each([undefined, '', 'jwt', 'unsupported value'])(

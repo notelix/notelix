@@ -12,6 +12,7 @@ integration_secondary_server_log="$(mktemp)"
 integration_agent_server_log="$(mktemp)"
 integration_degraded_server_log="$(mktemp)"
 integration_agent_state_path="$(mktemp)"
+integration_auth_state_path="$(mktemp)"
 integration_server_pid=""
 integration_secondary_server_pid=""
 integration_agent_server_pid=""
@@ -52,6 +53,36 @@ start_meilisearch() {
   return 1
 }
 
+pause_postgres() {
+  "${integration_compose[@]}" pause postgres
+  local attempt container_id
+  container_id="$("${integration_compose[@]}" ps --all --quiet postgres)"
+  for ((attempt = 1; attempt <= 50; attempt += 1)); do
+    if [[ -n "${container_id}" ]] &&
+      [[ "$(docker inspect --format '{{.State.Status}}' "${container_id}" 2>/dev/null || true)" == "paused" ]]; then
+      return
+    fi
+    sleep 0.1
+  done
+  echo "PostgreSQL test container did not pause" >&2
+  return 1
+}
+
+resume_postgres() {
+  "${integration_compose[@]}" unpause postgres
+  local attempt container_id
+  container_id="$("${integration_compose[@]}" ps --all --quiet postgres)"
+  for ((attempt = 1; attempt <= 100; attempt += 1)); do
+    if [[ -n "${container_id}" ]] &&
+      [[ "$(docker inspect --format '{{.State.Health.Status}}' "${container_id}" 2>/dev/null || true)" == "healthy" ]]; then
+      return
+    fi
+    sleep 0.1
+  done
+  echo "PostgreSQL test container did not recover after unpausing" >&2
+  return 1
+}
+
 cleanup() {
   integration_exit_code=$?
   trap - EXIT INT TERM
@@ -87,7 +118,7 @@ cleanup() {
   fi
   rm -f "${integration_server_log}" "${integration_secondary_server_log}" \
     "${integration_agent_server_log}" "${integration_degraded_server_log}" \
-    "${integration_agent_state_path}"
+    "${integration_agent_state_path}" "${integration_auth_state_path}"
   exit "${integration_exit_code}"
 }
 trap cleanup EXIT
@@ -160,11 +191,20 @@ npm run migration:run:compiled
 node ./tools/assert-legacy-migration.js
 
 export DB_DATABASE=notelix_integration
-node ./dist/main.js >"${integration_server_log}" 2>&1 &
+DB_POOL_ACQUIRE_TIMEOUT_MS=1000 DB_QUERY_TIMEOUT_MS=5000 \
+  node ./dist/main.js >"${integration_server_log}" 2>&1 &
 integration_server_pid=$!
 PORT="${integration_secondary_server_port}" \
+  DB_POOL_ACQUIRE_TIMEOUT_MS=1000 DB_QUERY_TIMEOUT_MS=5000 \
   node ./dist/main.js >"${integration_secondary_server_log}" 2>&1 &
 integration_secondary_server_pid=$!
+
+export TEST_AUTH_STATE_PATH="${integration_auth_state_path}"
+node ./tools/test-auth-database-outage.js prepare
+pause_postgres
+node ./tools/test-auth-database-outage.js outage
+resume_postgres
+node ./tools/test-auth-database-outage.js recovered
 
 node ./tools/test-live-api.js
 node ./tools/meili-reindex.js
