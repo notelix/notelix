@@ -108,6 +108,12 @@ The backend also supports host-side development against containers or other
 service instances through `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_DATABASE`,
 `MEILISEARCH_HOST`, `MEILISEARCH_ANNOTATIONS_INDEX`, and `PORT`.
 
+Requests are rate limited per client IP. `RATE_LIMIT_MAX` and
+`RATE_LIMIT_TTL_MS` configure the general request budget. Login, signup, and
+password changes have tighter fixed limits. When the backend is behind a
+trusted reverse proxy, set `TRUST_PROXY_HOPS` to the exact number of proxy hops
+so clients are tracked separately; do not enable it for untrusted proxies.
+
 # start agent
 
 ```

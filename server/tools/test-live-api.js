@@ -264,6 +264,20 @@ async function main() {
   assert.strictEqual(deleteDiff.body.diff[0].kind, 2);
   await waitForSearch(headers, 'searchable text', 0);
 
+  let rateLimited = false;
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const response = await request('/users/login', {
+      username: `rate-limit-${attempt}`,
+      password: 'incorrect-password',
+    });
+    if (response.status === 429) {
+      rateLimited = true;
+      break;
+    }
+    assert.strictEqual(response.status, 403, JSON.stringify(response.body));
+  }
+  assert.strictEqual(rateLimited, true, 'login endpoint was not rate limited');
+
   console.log('Live API integration test passed.');
 }
 

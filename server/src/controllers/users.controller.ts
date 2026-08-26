@@ -11,6 +11,7 @@ import { User } from '../models/user.entity';
 import * as bcrypt from 'bcrypt';
 import JwtService from '../services/jwt';
 import { ChangePasswordDto, LoginDto, SignUpDto } from '../dto/users.dto';
+import { Throttle } from '@nestjs/throttler';
 
 function userResponse(user: User) {
   return {
@@ -45,6 +46,7 @@ export class UsersController {
   }
 
   @Post('/signup')
+  @Throttle({ default: { limit: 5, ttl: 10 * 60 * 1000 } })
   async SignUp(@Body() request: SignUpDto): Promise<any> {
     const username = request.username.trim();
     const enableClientSideEncryption = request.enableClientSideEncryption;
@@ -75,6 +77,7 @@ export class UsersController {
   }
 
   @Post('/login')
+  @Throttle({ default: { limit: 10, ttl: 60 * 1000 } })
   async Login(@Body() request: LoginDto): Promise<any> {
     const username = request.username.trim();
     const password = request.password;
@@ -94,6 +97,7 @@ export class UsersController {
   }
 
   @Post('/change-password')
+  @Throttle({ default: { limit: 5, ttl: 10 * 60 * 1000 } })
   async ChangePassword(@Body() request: ChangePasswordDto): Promise<any> {
     const newClientSideEncryptionParams = request.newClientSideEncryptionParams;
     const oldPassword = request.oldPassword;
