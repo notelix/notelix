@@ -38,6 +38,6 @@
     "svg-inline-loader": "^0.8.2",
     "webpack": "^5.90.3",
     "webpack-bundle-analyzer": "^4.10.1",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^7.2.2"
   }
 }
