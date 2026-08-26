@@ -12,13 +12,13 @@ import {
 import { User } from './user.entity';
 
 @Entity()
-@Index('UQ_static_token_token', ['staticToken'], { unique: true })
+@Index('UQ_static_token_token', ['tokenDigest'], { unique: true })
 export class StaticToken extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 64 })
-  staticToken: string;
+  @Column({ name: 'staticToken', type: 'varchar', length: 64 })
+  tokenDigest: string;
 
   @OneToOne(() => User)
   @JoinColumn()

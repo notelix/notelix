@@ -1,17 +1,13 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  Request,
-} from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
+import type { Request } from 'express';
+import Authenticator from './authenticators/authenticator';
 import JwtAuth from './authenticators/jwtAuth';
 import StaticTokenAuth from './authenticators/staticTokenAuth';
 
 @Injectable()
 export class AuthenticationService {
-  authenticators = [];
+  authenticators: Authenticator[] = [];
 
   constructor(
     @Inject(REQUEST) private request: Request,
@@ -22,27 +18,35 @@ export class AuthenticationService {
   }
 
   async getAuthenticatedUser() {
-    const header = this.request.headers['authorization'];
-    if (!header) {
-      throw new BadRequestException(`authorization header expected`);
+    const header = this.request.headers.authorization;
+    if (typeof header !== 'string') {
+      throw this.authenticationFailed(false);
     }
-    const indexOfSpace = header.indexOf(' ');
-    const authenticatorType = header.substr(0, indexOfSpace);
-    const authenticatorParam = header.substr(indexOfSpace + 1);
-    for (const authenticator of this.authenticators) {
-      if (authenticator.getAuthenticatorName() === authenticatorType) {
-        try {
-          return await authenticator.authenticate(authenticatorParam);
-        } catch (e) {
-          throw new ForbiddenException({
-            message: `authentication failed: ${e.toString()}`,
-            clearClientCredentials: true,
-          });
-        }
-      }
+    const match = /^(\S+)\s+(.+)$/.exec(header.trim());
+    if (!match) {
+      throw this.authenticationFailed(false);
     }
-    throw new BadRequestException(
-      `unsupported auth scheme ${authenticatorType}`,
+    const authenticatorType = match[1].toLowerCase();
+    const authenticatorParam = match[2];
+    const authenticator = this.authenticators.find(
+      (candidate) =>
+        candidate.getAuthenticatorName().toLowerCase() === authenticatorType,
     );
+    if (!authenticator) {
+      throw this.authenticationFailed(false);
+    }
+
+    try {
+      return await authenticator.authenticate(authenticatorParam);
+    } catch (_error) {
+      throw this.authenticationFailed(true);
+    }
+  }
+
+  private authenticationFailed(clearClientCredentials: boolean) {
+    return new UnauthorizedException({
+      message: 'authentication failed',
+      clearClientCredentials,
+    });
   }
 }

@@ -131,6 +131,17 @@ Container health checks use the readiness endpoint. Dependency checks are
 bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
 100 to 30000 milliseconds.
 
+Static access tokens are stored as one-way SHA-256 digests; raw tokens and
+token-derived guest names are removed by the authentication migration. Existing
+tokens continue to work after migration. Generate them with a cryptographically
+secure source such as `openssl rand -hex 32`, transmit them only over HTTPS, and
+never commit them or share one token between users.
+
+JWTs expire after 30 days by default; set `JWT_EXPIRES_IN` to another
+`jsonwebtoken` duration when a shorter policy is required. Changing a password
+increments the account's token version and immediately revokes every previously
+issued JWT for that account.
+
 # start agent
 
 ```

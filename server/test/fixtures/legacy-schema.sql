@@ -66,7 +66,11 @@ ALTER TABLE "static_token"
   ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 INSERT INTO "user" ("name", "password", "client_side_encryption")
-VALUES ('legacy-user', 'legacy-hash', '');
+VALUES (
+  'guest_llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll',
+  'legacy-hash',
+  ''
+);
 INSERT INTO "annotation" ("uid", "url", "data", "userId")
 VALUES ('legacy-uid', 'https://example.com/legacy', '{}', 1);
 INSERT INTO "annotation_change_history"

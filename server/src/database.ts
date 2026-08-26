@@ -7,6 +7,7 @@ import { JwtPrivateKey } from './models/jwtPrivateKey.entity';
 import { StaticToken } from './models/staticToken.entity';
 import { User } from './models/user.entity';
 import { InitializeProductionSchema1787745600000 } from './migrations/1787745600000-InitializeProductionSchema';
+import { ProtectAuthenticationSecrets1787752800000 } from './migrations/1787752800000-ProtectAuthenticationSecrets';
 
 export const AppDataSource = new DataSource({
   ...ormConfig,
@@ -18,7 +19,10 @@ export const AppDataSource = new DataSource({
     User,
   ],
   logging: process.env.TYPEORM_LOGGING === 'true',
-  migrations: [InitializeProductionSchema1787745600000],
+  migrations: [
+    InitializeProductionSchema1787745600000,
+    ProtectAuthenticationSecrets1787752800000,
+  ],
   synchronize: false,
 });
 

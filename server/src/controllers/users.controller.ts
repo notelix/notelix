@@ -13,6 +13,9 @@ import JwtService from '../services/jwt';
 import { ChangePasswordDto, LoginDto, SignUpDto } from '../dto/users.dto';
 import { Throttle } from '@nestjs/throttler';
 
+const invalidPasswordHash =
+  '$2b$10$oceFgf0/W/UqgGnRi6t7PO43LgiW0xIYFsWbf0qlvC4ajEpwHMLAe';
+
 function userResponse(user: User) {
   return {
     id: user.id,
@@ -83,12 +86,12 @@ export class UsersController {
     const password = request.password;
 
     const user = await User.findOne({ where: { name: username } });
-    if (!user) {
-      throw new ForbiddenException(`user ${username} does not exist`);
-    }
-
-    if (!(await bcrypt.compare(password, user.password))) {
-      throw new ForbiddenException(`incorrect password`);
+    const passwordMatches = await bcrypt.compare(
+      password,
+      user?.password || invalidPasswordHash,
+    );
+    if (!user || !passwordMatches) {
+      throw new ForbiddenException('invalid username or password');
     }
 
     await user.save();
@@ -110,6 +113,7 @@ export class UsersController {
 
     user.password = await bcrypt.hash(newPassword, 10);
     user.client_side_encryption = newClientSideEncryptionParams || '';
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     await user.save();
 
     return userResponse(user);

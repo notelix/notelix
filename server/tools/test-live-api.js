@@ -1,5 +1,8 @@
 const assert = require('assert');
+const { createHash } = require('crypto');
 const http = require('http');
+const { Client } = require('pg');
+const ormconfig = require('../ormconfig');
 
 const serverUrl = new URL(
   process.env.TEST_SERVER_URL || 'http://127.0.0.1:18575',
@@ -90,6 +93,46 @@ async function waitForSearch(headers, query, expectedHits) {
   );
 }
 
+async function assertStaticTokenIsProtected(staticToken) {
+  const client = new Client({
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  });
+  await client.connect();
+  try {
+    const tokenDigest = createHash('sha256')
+      .update(staticToken, 'utf8')
+      .digest('hex');
+    const persisted = await client.query(
+      `
+        SELECT token."staticToken" AS token_digest, account."name" AS user_name
+        FROM "static_token" token
+        JOIN "user" account ON account."id" = token."userId"
+        WHERE token."staticToken" = $1
+      `,
+      [tokenDigest],
+    );
+    assert.strictEqual(persisted.rowCount, 1);
+    assert.strictEqual(persisted.rows[0].token_digest, tokenDigest);
+    assert.match(persisted.rows[0].user_name, /^guest_[0-9a-f]{32}$/);
+    assert.strictEqual(
+      persisted.rows[0].user_name.includes(staticToken),
+      false,
+    );
+
+    const plaintext = await client.query(
+      'SELECT 1 FROM "static_token" WHERE "staticToken" = $1',
+      [staticToken],
+    );
+    assert.strictEqual(plaintext.rowCount, 0);
+  } finally {
+    await client.end();
+  }
+}
+
 async function main() {
   await waitForServer();
 
@@ -119,7 +162,7 @@ async function main() {
   );
 
   const username = `integration-${Date.now()}`;
-  const password = 'integration-password';
+  let password = 'integration-password';
   const uid = 'integration-annotation';
   const url = 'https://example.com/integration';
 
@@ -147,6 +190,7 @@ async function main() {
     Buffer.from(login.body.jwt.split('.')[1], 'base64url').toString('utf8'),
   );
   assert.strictEqual(jwtPayload.iss, 'notelix');
+  assert.strictEqual(jwtPayload.tokenVersion, 0);
   assert.ok(jwtPayload.exp > jwtPayload.iat);
 
   const duplicateSignup = await request('/users/signup', {
@@ -172,8 +216,51 @@ async function main() {
     new Set(staticTokenResponses.map((response) => response.body.id)).size,
     1,
   );
+  await assertStaticTokenIsProtected(staticToken);
 
-  const headers = { Authorization: `jwt ${login.body.jwt}` };
+  const originalHeaders = { Authorization: `jwt ${login.body.jwt}` };
+  const newPassword = 'integration-password-updated';
+  const passwordChange = await request(
+    '/users/change-password',
+    {
+      oldPassword: password,
+      newPassword,
+      newClientSideEncryptionParams: null,
+    },
+    originalHeaders,
+  );
+  assert.strictEqual(
+    passwordChange.status,
+    201,
+    JSON.stringify(passwordChange.body),
+  );
+
+  const revokedSession = await request(
+    '/users/who-am-i',
+    undefined,
+    originalHeaders,
+  );
+  assert.strictEqual(revokedSession.status, 401);
+  assert.deepStrictEqual(revokedSession.body, {
+    message: 'authentication failed',
+    clearClientCredentials: true,
+  });
+
+  password = newPassword;
+  const refreshedLogin = await request('/users/login', { username, password });
+  assert.strictEqual(
+    refreshedLogin.status,
+    201,
+    JSON.stringify(refreshedLogin.body),
+  );
+  const refreshedJwtPayload = JSON.parse(
+    Buffer.from(refreshedLogin.body.jwt.split('.')[1], 'base64url').toString(
+      'utf8',
+    ),
+  );
+  assert.strictEqual(refreshedJwtPayload.tokenVersion, 1);
+
+  const headers = { Authorization: `jwt ${refreshedLogin.body.jwt}` };
   assert.strictEqual(
     (
       await request(

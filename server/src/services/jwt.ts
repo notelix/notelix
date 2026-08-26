@@ -49,7 +49,11 @@ export default class JwtService implements OnModuleInit {
   }
 
   signForUser(user: User): string {
-    return jwt.sign({ id: user.id }, this.getPrivateKey(), JwtParams);
+    return jwt.sign(
+      { id: user.id, tokenVersion: user.tokenVersion ?? 0 },
+      this.getPrivateKey(),
+      JwtParams,
+    );
   }
 
   async getUserFromToken(token: string): Promise<User> {
@@ -57,13 +61,25 @@ export default class JwtService implements OnModuleInit {
       algorithms: ['RS256'],
       issuer: 'notelix',
     });
-    if (!decoded || typeof decoded !== 'object' || !decoded.id) {
+    if (
+      !decoded ||
+      typeof decoded !== 'object' ||
+      !Number.isInteger(decoded.id) ||
+      decoded.id <= 0
+    ) {
       throw new Error('jwt payload does not contain a user id');
+    }
+    const tokenVersion = decoded.tokenVersion ?? 0;
+    if (!Number.isInteger(tokenVersion) || tokenVersion < 0) {
+      throw new Error('jwt payload contains an invalid token version');
     }
 
     const user = await User.findOne({ where: { id: decoded.id } });
     if (!user) {
       throw new Error('jwt user no longer exists');
+    }
+    if ((user.tokenVersion ?? 0) !== tokenVersion) {
+      throw new Error('jwt has been revoked');
     }
     return user;
   }

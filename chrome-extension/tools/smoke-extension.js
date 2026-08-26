@@ -20,7 +20,7 @@ const headless = process.env.NOTELIX_HEADLESS === "true";
 
 if (!executablePath) {
   throw new Error(
-    "Chrome/Chromium was not found; pass its path as the first argument or CHROME_PATH"
+    "Chrome/Chromium was not found; pass its path as the first argument or CHROME_PATH",
   );
 }
 if (!fs.existsSync(path.join(extensionPath, "manifest.json"))) {
@@ -28,6 +28,12 @@ if (!fs.existsSync(path.join(extensionPath, "manifest.json"))) {
 }
 
 const server = http.createServer((request, response) => {
+  if (request.url === "/embedded") {
+    response.writeHead(200, { "Content-Type": "text/html" });
+    response.end(fs.readFileSync(path.join(root, "embedded.html"), "utf8"));
+    return;
+  }
+
   if (request.url === "/empty") {
     response.writeHead(204);
     response.end();
@@ -48,7 +54,7 @@ const server = http.createServer((request, response) => {
         name: "smoke-user",
         jwt: "smoke-jwt",
         client_side_encryption: "",
-      })
+      }),
     );
     return;
   }
@@ -99,7 +105,7 @@ async function main() {
       (target) =>
         target.type() === "service_worker" &&
         target.url().startsWith("chrome-extension://"),
-      { timeout: 15000 }
+      { timeout: 15000 },
     );
     const extensionId = new URL(workerTarget.url()).host;
     const worker = await workerTarget.worker();
@@ -112,10 +118,10 @@ async function main() {
         new Promise((resolve) => {
           chrome.storage.sync.set(
             { notelix: { notelixServer: serverUrl } },
-            resolve
+            resolve,
           );
         }),
-      baseUrl
+      baseUrl,
     );
 
     const popup = await browser.newPage();
@@ -123,10 +129,10 @@ async function main() {
     popup.on("pageerror", (error) => popupErrors.push(error.message));
     await popup.goto(
       `chrome-extension://${extensionId}/extension-options.html`,
-      { waitUntil: "domcontentloaded" }
+      { waitUntil: "domcontentloaded" },
     );
     await popup.waitForFunction(
-      () => document.querySelector("h1")?.textContent === "Login"
+      () => document.querySelector("h1")?.textContent === "Login",
     );
     const initialStorage = await popup.evaluate(async () => {
       const read = (area) =>
@@ -141,14 +147,14 @@ async function main() {
     assert.equal(initialStorage.sync.notelix.notelixPassword, undefined);
     await popup.click('a[href="#/signup"]');
     await popup.waitForFunction(
-      () => document.querySelector("h1")?.textContent === "Sign Up"
+      () => document.querySelector("h1")?.textContent === "Sign Up",
     );
     await popup.goto(
       `chrome-extension://${extensionId}/extension-options.html`,
-      { waitUntil: "domcontentloaded" }
+      { waitUntil: "domcontentloaded" },
     );
     await popup.waitForFunction(
-      () => document.querySelector("h1")?.textContent === "Login"
+      () => document.querySelector("h1")?.textContent === "Login",
     );
     await popup.type('input[placeholder="username"]', "smoke-user");
     await popup.type('input[placeholder="password"]', "smoke-password");
@@ -161,7 +167,7 @@ async function main() {
     await popup.click("button");
     await dialogHandled;
     await popup.waitForFunction(() =>
-      document.body.textContent.includes("Logged In as smoke-user")
+      document.body.textContent.includes("Logged In as smoke-user"),
     );
     const authenticatedStorage = await popup.evaluate(async () => {
       const read = (area) =>
@@ -176,7 +182,7 @@ async function main() {
     assert.equal(authenticatedStorage.sync.notelix.notelixPassword, undefined);
     assert.equal(
       JSON.stringify(authenticatedStorage).includes("smoke-password"),
-      false
+      false,
     );
 
     const responses = await popup.evaluate(async (baseUrl) => {
@@ -184,7 +190,7 @@ async function main() {
         new Promise((resolve) => {
           chrome.runtime.sendMessage(
             { cmd: "apiCall", params: { method: "GET", url } },
-            resolve
+            resolve,
           );
         });
       return Promise.all([send(`${baseUrl}/json`), send(`${baseUrl}/empty`)]);
@@ -204,18 +210,53 @@ async function main() {
     await contentPage.waitForSelector("body.notelix-initialized");
     assert.equal(
       await contentPage.$eval("#notelix-annotate-popover", (node) => node.id),
-      "notelix-annotate-popover"
+      "notelix-annotate-popover",
     );
     assert.equal(
       await contentPage.$eval(
         "#notelix-edit-annotation-popover",
-        (node) => node.id
+        (node) => node.id,
       ),
-      "notelix-edit-annotation-popover"
+      "notelix-edit-annotation-popover",
     );
     assert.deepEqual(contentErrors, []);
 
-    console.log(`Chrome extension smoke test passed (${manifest.name} ${manifest.version})`);
+    const embeddedPage = await browser.newPage();
+    await embeddedPage.setRequestInterception(true);
+    embeddedPage.on("request", (request) => {
+      if (request.url().startsWith(baseUrl)) {
+        request.continue();
+      } else {
+        request.abort();
+      }
+    });
+    await embeddedPage.goto(`${baseUrl}/embedded`, {
+      waitUntil: "domcontentloaded",
+    });
+    const firstDemoToken = await embeddedPage.evaluate(
+      () => window.NotelixEmbeddedConfig.staticToken,
+    );
+    assert.match(firstDemoToken, /^[0-9a-f]{64}$/);
+    await embeddedPage.reload({ waitUntil: "domcontentloaded" });
+    assert.equal(
+      await embeddedPage.evaluate(
+        () => window.NotelixEmbeddedConfig.staticToken,
+      ),
+      firstDemoToken,
+    );
+    await embeddedPage.evaluate(() =>
+      localStorage.removeItem("notelix-embedded-demo-token"),
+    );
+    await embeddedPage.reload({ waitUntil: "domcontentloaded" });
+    const replacementDemoToken = await embeddedPage.evaluate(
+      () => window.NotelixEmbeddedConfig.staticToken,
+    );
+    assert.match(replacementDemoToken, /^[0-9a-f]{64}$/);
+    assert.notEqual(replacementDemoToken, firstDemoToken);
+
+    console.log(
+      `Chrome extension smoke test passed (${manifest.name} ${manifest.version})`,
+    );
   } finally {
     if (browser) {
       await browser.close();

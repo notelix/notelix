@@ -50,6 +50,7 @@ describe('Users API', () => {
       id: 42,
       name: 'alice',
       password,
+      tokenVersion: 3,
       client_side_encryption: 'encrypted-client-key',
       created_at: new Date('2024-01-01T00:00:00.000Z'),
       updated_at: new Date('2024-01-02T00:00:00.000Z'),
@@ -76,6 +77,26 @@ describe('Users API', () => {
       jwt: 'signed-jwt',
     });
     expect(response.body).not.toHaveProperty('password');
+  });
+
+  it('does not reveal whether a username exists during login', async () => {
+    const user = makeUser(await bcrypt.hash('correct-password', 4));
+    jest
+      .spyOn(User, 'findOne')
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(user);
+
+    const missingUser = await request(app.getHttpServer())
+      .post('/users/login')
+      .send({ username: 'missing', password: 'incorrect-password' })
+      .expect(403);
+    const incorrectPassword = await request(app.getHttpServer())
+      .post('/users/login')
+      .send({ username: 'alice', password: 'incorrect-password' })
+      .expect(403);
+
+    expect(missingUser.body.message).toBe('invalid username or password');
+    expect(incorrectPassword.body.message).toBe('invalid username or password');
   });
 
   it('does not expose the password hash from who-am-i', async () => {
@@ -112,6 +133,7 @@ describe('Users API', () => {
       'new-encrypted-client-key',
     );
     expect(response.body).not.toHaveProperty('password');
+    expect(user.tokenVersion).toBe(4);
   });
 
   it('rejects malformed and unexpected signup fields', async () => {

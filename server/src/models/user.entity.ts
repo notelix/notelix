@@ -25,6 +25,9 @@ export class User extends BaseEntity {
   @Column({ length: 4096 })
   client_side_encryption: string;
 
+  @Column({ name: 'token_version', type: 'integer', default: 0 })
+  tokenVersion: number;
+
   @OneToMany(() => Annotation, (annotation) => annotation.user)
   annotations: Annotation[];
 

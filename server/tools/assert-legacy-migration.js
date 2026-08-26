@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { createHash } = require('crypto');
 const { Client } = require('pg');
 const ormconfig = require('../ormconfig');
 
@@ -69,7 +70,32 @@ async function main() {
     );
     assert.deepStrictEqual(migrations.rows, [
       { name: 'InitializeProductionSchema1787745600000' },
+      { name: 'ProtectAuthenticationSecrets1787752800000' },
     ]);
+
+    const legacyToken = 'l'.repeat(64);
+    const tokenDigest = createHash('sha256')
+      .update(legacyToken, 'utf8')
+      .digest('hex');
+    const protectedCredentials = await client.query(`
+      SELECT
+        token."staticToken" AS token_digest,
+        account."name" AS user_name,
+        account."token_version"
+      FROM "static_token" token
+      JOIN "user" account ON account."id" = token."userId"
+    `);
+    assert.deepStrictEqual(protectedCredentials.rows, [
+      {
+        token_digest: tokenDigest,
+        user_name: `guest_1_${tokenDigest.slice(0, 48)}`,
+        token_version: 0,
+      },
+    ]);
+    assert.strictEqual(
+      JSON.stringify(protectedCredentials.rows).includes(legacyToken),
+      false,
+    );
 
     console.log('Legacy database migration test passed.');
   } finally {
