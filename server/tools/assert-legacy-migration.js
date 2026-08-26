@@ -19,13 +19,15 @@ async function main() {
         (SELECT COUNT(*)::int FROM "user") AS users,
         (SELECT COUNT(*)::int FROM "annotation") AS annotations,
         (SELECT COUNT(*)::int FROM "annotation_change_history") AS history,
-        (SELECT COUNT(*)::int FROM "static_token") AS tokens
+        (SELECT COUNT(*)::int FROM "static_token") AS tokens,
+        (SELECT COUNT(*)::int FROM "annotation_search_outbox") AS search_outbox
     `);
     assert.deepStrictEqual(dataCounts.rows[0], {
       users: 1,
       annotations: 1,
       history: 1,
       tokens: 1,
+      search_outbox: 1,
     });
 
     const indexes = await client.query(`
@@ -40,6 +42,7 @@ async function main() {
           'IDX_history_user_id',
           'IDX_sync_snapshot_expires',
           'IDX_sync_snapshot_user_expires',
+          'IDX_search_outbox_available',
           'UQ_static_token_token'
         )
       ORDER BY indexname
@@ -49,6 +52,7 @@ async function main() {
       [
         'IDX_annotation_user_url_host',
         'IDX_history_user_id',
+        'IDX_search_outbox_available',
         'IDX_sync_snapshot_expires',
         'IDX_sync_snapshot_user_expires',
         'UQ_annotation_user_uid',
@@ -91,6 +95,7 @@ async function main() {
       { name: 'OptimizeAnnotationSync1787839200000' },
       { name: 'ScrubAnnotationHistorySecrets1787925600000' },
       { name: 'CreateAnnotationSyncSnapshots1788012000000' },
+      { name: 'CreateAnnotationSearchOutbox1788098400000' },
     ]);
 
     const historyPayload = await client.query(

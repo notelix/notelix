@@ -14,6 +14,7 @@ import { AnnotationChangeHistoryKindSave } from '../src/models/annotationChangeH
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { AppDataSource } from '../src/database';
 
 describe('Agent control API', () => {
   let app: INestApplication;
@@ -121,6 +122,25 @@ describe('Agent control API', () => {
       .set('Origin', 'chrome-extension://extension-id')
       .send({ config: validConfig })
       .expect(403);
+  });
+
+  it('clears server-only search work before starting the agent loop', async () => {
+    process.env.RUN_MODE = 'AGENT';
+    const databaseQuery = jest
+      .spyOn(AppDataSource.manager, 'query')
+      .mockResolvedValue([]);
+    const controller = new AgentSyncController();
+    const syncLoop = jest
+      .spyOn(controller as any, 'syncLoop')
+      .mockResolvedValue(undefined);
+
+    await controller.onModuleInit();
+
+    expect(databaseQuery).toHaveBeenCalledWith(
+      'DELETE FROM "annotation_search_outbox"',
+    );
+    expect(syncLoop).toHaveBeenCalledTimes(1);
+    await controller.onApplicationShutdown();
   });
 
   it('rejects website origins in agent mode', async () => {

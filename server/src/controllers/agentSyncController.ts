@@ -24,6 +24,7 @@ import { isAgentControlOriginAllowed } from '../agentControl';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { AppDataSource } from '../database';
 
 const defaultAnnotationChangeHistoryLatestIdSavePath =
   '/data/.annotation_change_history_latest_id';
@@ -303,6 +304,9 @@ export class AgentSyncController
 
   async onModuleInit() {
     if (isRunModeAgent()) {
+      await AppDataSource.manager.query(
+        'DELETE FROM "annotation_search_outbox"',
+      );
       this.syncLoopPromise = this.syncLoop();
     }
   }
@@ -795,6 +799,7 @@ export class AgentSyncController
   private async resetData() {
     this.logger.log('Resetting synchronized annotation data');
     this.clearAgentSyncState();
+    await AppDataSource.manager.query('DELETE FROM "annotation_search_outbox"');
     await AnnotationChangeHistory.getRepository().clear();
     await Annotation.getRepository().clear();
     await meilisearchClient.UnIndexAllAnnotations();

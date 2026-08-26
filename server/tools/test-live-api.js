@@ -93,10 +93,30 @@ async function waitForSearch(headers, query, expectedHits) {
     }
     await sleep(250);
   }
+  const client = new Client({
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  });
+  await client.connect();
+  let outbox;
+  try {
+    outbox = await client.query(`
+      SELECT "annotation_id", "revision", "attempt_count", "available_at",
+             "claim_token"
+      FROM "annotation_search_outbox"
+      ORDER BY "annotation_id"
+    `);
+  } finally {
+    await client.end();
+  }
   assert.fail(
-    `Search did not reach ${expectedHits} hits: ${JSON.stringify(
+    `Search did not reach ${expectedHits} hits: ${JSON.stringify({
       lastResponse,
-    )}`,
+      outbox: outbox.rows,
+    })}`,
   );
 }
 

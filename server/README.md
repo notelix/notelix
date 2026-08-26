@@ -107,6 +107,17 @@ the agent container instead:
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent exec backend npm run meili:reindex
 ```
 
+Normal API saves and deletes enqueue a coalescing search-index update in the
+same PostgreSQL transaction as the annotation and its sync history. A
+replica-safe background worker retries failed Meilisearch batches with leased,
+revision-guarded claims, so a search outage or process restart cannot silently
+lose a later update. Existing annotations are queued when the migration runs.
+`SEARCH_SYNC_BATCH_SIZE`, `SEARCH_SYNC_INTERVAL_MS`, `SEARCH_SYNC_LEASE_MS`,
+`SEARCH_SYNC_RETRY_BASE_MS`, `SEARCH_SYNC_RETRY_MAX_MS`, and
+`SEARCH_SYNC_SCHEMA_INTERVAL_MS` tune the defaults shown in
+`.env.prod.example`. The worker also recreates the index schema and requeues
+current annotations if the search index disappears while the API stays online.
+
 # start dev
 
 ```

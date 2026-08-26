@@ -134,3 +134,12 @@ assertDegradedReadiness().catch((error) => {
   process.exit(1);
 });
 NODE
+
+node ./tools/test-search-outbox.js save
+"${integration_compose[@]}" up --detach --wait meilisearch
+node ./tools/test-search-outbox.js verify-save
+
+"${integration_compose[@]}" stop --timeout 5 meilisearch
+node ./tools/test-search-outbox.js delete
+"${integration_compose[@]}" up --detach --wait meilisearch
+node ./tools/test-search-outbox.js verify-delete

@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   GoneException,
-  Logger,
   NotFoundException,
   Post,
 } from '@nestjs/common';
@@ -25,6 +24,7 @@ import {
   SaveAnnotationDto,
   SearchAnnotationsDto,
 } from '../dto/annotations.dto';
+import { AnnotationSearchSyncService } from '../services/annotationSearchSync';
 
 const annotationColumnSql = {
   id: 'id',
@@ -58,11 +58,10 @@ async function lockAnnotation(
 
 @Controller('annotations')
 export class AnnotationsController {
-  private readonly logger = new Logger(AnnotationsController.name);
-
   constructor(
     private authenticationService: AuthenticationService,
     private annotationChangeHistoryService: AnnotationChangeHistoryService,
+    private annotationSearchSyncService: AnnotationSearchSyncService,
   ) {}
 
   @Post('/save')
@@ -70,7 +69,7 @@ export class AnnotationsController {
     const user = await this.authenticationService.getAuthenticatedUser();
     const uid = request.uid;
 
-    const annotation = await AppDataSource.transaction(async (manager) => {
+    await AppDataSource.transaction(async (manager) => {
       await lockAnnotation(manager, user.id, uid);
       const annotationRepository = manager.getRepository(Annotation);
       let annotation = await annotationRepository.findOne({
@@ -96,35 +95,17 @@ export class AnnotationsController {
         annotation,
         manager,
       );
-      return annotation;
+      await this.annotationSearchSyncService.enqueue(annotation.id, manager);
     });
 
-    if (!user.client_side_encryption) {
-      this.runSearchUpdate('index annotation', () =>
-        meilisearchClient.IndexAnnotation(annotation),
-      );
-    }
+    this.annotationSearchSyncService.wake();
     return {};
-  }
-
-  private runSearchUpdate(
-    description: string,
-    operation: () => Promise<any>,
-  ): void {
-    void (async () => {
-      try {
-        await operation();
-      } catch (error) {
-        const trace = error instanceof Error ? error.stack : String(error);
-        this.logger.error(`Failed to ${description}`, trace);
-      }
-    })();
   }
 
   @Post('/delete')
   async Delete(@Body() request: DeleteAnnotationDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const annotation = await AppDataSource.transaction(async (manager) => {
+    await AppDataSource.transaction(async (manager) => {
       await lockAnnotation(manager, user.id, request.uid);
       const annotationRepository = manager.getRepository(Annotation);
       const annotation = await annotationRepository.findOne({
@@ -148,12 +129,13 @@ export class AnnotationsController {
         deletedAnnotation,
         manager,
       );
-      return deletedAnnotation;
+      await this.annotationSearchSyncService.enqueue(
+        deletedAnnotation.id,
+        manager,
+      );
     });
 
-    this.runSearchUpdate('remove annotation from index', () =>
-      meilisearchClient.UnIndexAnnotation(annotation),
-    );
+    this.annotationSearchSyncService.wake();
     return {};
   }
 

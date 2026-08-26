@@ -3,12 +3,12 @@ import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { AuthenticationService } from '../src/authenticators/authentication.service';
 import { AnnotationsController } from '../src/controllers/annotations.controller';
-import { meilisearchClient } from '../src/meilisearch';
 import { Annotation } from '../src/models/annotation.entity';
 import { AnnotationChangeHistory } from '../src/models/annotationChangeHistory.entity';
 import AnnotationChangeHistoryService from '../src/services/annotationChangeHistory';
 import { AppDataSource } from '../src/database';
 import { createValidationPipe } from '../src/application';
+import { AnnotationSearchSyncService } from '../src/services/annotationSearchSync';
 
 describe('Annotations API durability', () => {
   let app: INestApplication;
@@ -17,6 +17,10 @@ describe('Annotations API durability', () => {
     createAnnotationChangeHistoryForSave: jest.Mock;
     createAnnotationChangeHistoryForDelete: jest.Mock;
     getCachedAnnotationChangeHistoryLatestId: jest.Mock;
+  };
+  let searchSyncService: {
+    enqueue: jest.Mock;
+    wake: jest.Mock;
   };
   let annotationRepository: {
     findOne: jest.Mock;
@@ -49,6 +53,10 @@ describe('Annotations API durability', () => {
       createAnnotationChangeHistoryForDelete: jest.fn(),
       getCachedAnnotationChangeHistoryLatestId: jest.fn(),
     };
+    searchSyncService = {
+      enqueue: jest.fn().mockResolvedValue(undefined),
+      wake: jest.fn(),
+    };
     annotationRepository = {
       findOne: jest.fn(),
       find: jest.fn(),
@@ -76,7 +84,6 @@ describe('Annotations API durability', () => {
       .spyOn(AppDataSource.manager, 'query')
       .mockResolvedValue([]);
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
-
     const moduleRef = await Test.createTestingModule({
       controllers: [AnnotationsController],
       providers: [
@@ -87,6 +94,10 @@ describe('Annotations API durability', () => {
         {
           provide: AnnotationChangeHistoryService,
           useValue: historyService,
+        },
+        {
+          provide: AnnotationSearchSyncService,
+          useValue: searchSyncService,
         },
       ],
     }).compile();
@@ -118,19 +129,18 @@ describe('Annotations API durability', () => {
         return { id: 34 };
       },
     );
+    searchSyncService.enqueue.mockImplementation(async () => {
+      events.push('outbox');
+    });
+    searchSyncService.wake.mockImplementation(() => {
+      events.push('wake');
+    });
     manager.transaction.mockImplementation(async (...args) => {
       const callback = args[args.length - 1];
       const result = await callback(manager);
       events.push('commit');
       return result;
     });
-    jest
-      .spyOn(meilisearchClient, 'IndexAnnotation')
-      .mockImplementation(async () => {
-        events.push('index');
-        return {} as any;
-      });
-
     await request(app.getHttpServer())
       .post('/annotations/save')
       .send({
@@ -144,8 +154,9 @@ describe('Annotations API durability', () => {
       'lock',
       'annotation',
       'history',
+      'outbox',
       'commit',
-      'index',
+      'wake',
     ]);
     expect(manager.query).toHaveBeenCalledWith(
       'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
@@ -154,9 +165,10 @@ describe('Annotations API durability', () => {
     expect(
       historyService.createAnnotationChangeHistoryForSave,
     ).toHaveBeenCalledWith(expect.objectContaining({ id: 12 }), manager);
+    expect(searchSyncService.enqueue).toHaveBeenCalledWith(12, manager);
   });
 
-  it('does not acknowledge or index a save when history persistence fails', async () => {
+  it('does not acknowledge or enqueue a save when history persistence fails', async () => {
     annotationRepository.findOne.mockResolvedValue(undefined);
     annotationRepository.save.mockImplementation(async (annotation) => {
       annotation.id = 12;
@@ -165,17 +177,16 @@ describe('Annotations API durability', () => {
     historyService.createAnnotationChangeHistoryForSave.mockRejectedValue(
       new Error('history unavailable'),
     );
-    const indexAnnotation = jest.spyOn(meilisearchClient, 'IndexAnnotation');
-
     await request(app.getHttpServer())
       .post('/annotations/save')
       .send({ uid: 'annotation-uid', data: {} })
       .expect(500);
 
-    expect(indexAnnotation).not.toHaveBeenCalled();
+    expect(searchSyncService.enqueue).not.toHaveBeenCalled();
+    expect(searchSyncService.wake).not.toHaveBeenCalled();
   });
 
-  it('keeps a durable save successful when search indexing is unavailable', async () => {
+  it('does not acknowledge a save unless its search retry is durable', async () => {
     annotationRepository.findOne.mockResolvedValue(undefined);
     annotationRepository.save.mockImplementation(async (annotation) => {
       annotation.id = 12;
@@ -184,23 +195,19 @@ describe('Annotations API durability', () => {
     historyService.createAnnotationChangeHistoryForSave.mockResolvedValue({
       id: 34,
     });
-    jest
-      .spyOn(meilisearchClient, 'IndexAnnotation')
-      .mockRejectedValue(new Error('search unavailable'));
+    searchSyncService.enqueue.mockRejectedValue(
+      new Error('search outbox unavailable'),
+    );
 
     await request(app.getHttpServer())
       .post('/annotations/save')
       .send({ uid: 'annotation-uid', data: {} })
-      .expect(201);
+      .expect(500);
 
-    await new Promise((resolve) => setImmediate(resolve));
-    expect(Logger.prototype.error).toHaveBeenCalledWith(
-      'Failed to index annotation',
-      expect.stringContaining('search unavailable'),
-    );
+    expect(searchSyncService.wake).not.toHaveBeenCalled();
   });
 
-  it('commits deletion history before removing the search document', async () => {
+  it('commits deletion history and search retry together', async () => {
     const annotation = Object.assign(new Annotation(), {
       id: 12,
       uid: 'annotation-uid',
@@ -208,14 +215,13 @@ describe('Annotations API durability', () => {
       data: {},
     });
     annotationRepository.findOne.mockResolvedValue(annotation);
-    annotationRepository.remove.mockResolvedValue(annotation);
+    annotationRepository.remove.mockImplementation(async (removed) => {
+      removed.id = undefined;
+      return removed;
+    });
     historyService.createAnnotationChangeHistoryForDelete.mockResolvedValue({
       id: 35,
     });
-    const unindexAnnotation = jest
-      .spyOn(meilisearchClient, 'UnIndexAnnotation')
-      .mockResolvedValue(undefined);
-
     await request(app.getHttpServer())
       .post('/annotations/delete')
       .send({ uid: 'annotation-uid' })
@@ -228,9 +234,8 @@ describe('Annotations API durability', () => {
       'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
       ['notelix-annotation:9:annotation-uid'],
     );
-    expect(unindexAnnotation).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 12 }),
-    );
+    expect(searchSyncService.enqueue).toHaveBeenCalledWith(12, manager);
+    expect(searchSyncService.wake).toHaveBeenCalledTimes(1);
   });
 
   it('returns a full snapshot and watermark from one repeatable-read transaction', async () => {

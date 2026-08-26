@@ -11,6 +11,7 @@ import { ProtectAuthenticationSecrets1787752800000 } from './migrations/17877528
 import { OptimizeAnnotationSync1787839200000 } from './migrations/1787839200000-OptimizeAnnotationSync';
 import { ScrubAnnotationHistorySecrets1787925600000 } from './migrations/1787925600000-ScrubAnnotationHistorySecrets';
 import { CreateAnnotationSyncSnapshots1788012000000 } from './migrations/1788012000000-CreateAnnotationSyncSnapshots';
+import { CreateAnnotationSearchOutbox1788098400000 } from './migrations/1788098400000-CreateAnnotationSearchOutbox';
 
 export const AppDataSource = new DataSource({
   ...ormConfig,
@@ -28,6 +29,7 @@ export const AppDataSource = new DataSource({
     OptimizeAnnotationSync1787839200000,
     ScrubAnnotationHistorySecrets1787925600000,
     CreateAnnotationSyncSnapshots1788012000000,
+    CreateAnnotationSearchOutbox1788098400000,
   ],
   synchronize: false,
 });

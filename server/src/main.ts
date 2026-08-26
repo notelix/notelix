@@ -14,6 +14,10 @@ import { bootstrapMeiliSearch } from './meilisearch';
 import { AppDataSource, DatabaseLifecycle } from './database';
 import { configureApplication } from './application';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import {
+  AnnotationSearchSyncService,
+  enqueueAllAnnotationSearchUpdates,
+} from './services/annotationSearchSync';
 
 function readPositiveInteger(name: string, fallback: number): number {
   const value = process.env[name];
@@ -48,6 +52,7 @@ function readPositiveInteger(name: string, fallback: number): number {
     JwtAuth,
     StaticTokenAuth,
     AnnotationChangeHistoryService,
+    AnnotationSearchSyncService,
     ReadinessService,
     DatabaseLifecycle,
     {
@@ -66,7 +71,11 @@ export async function bootstrapSQL() {
 
 async function bootstrap() {
   await bootstrapSQL();
-  await bootstrapMeiliSearch();
+  await bootstrapMeiliSearch(
+    process.env.RUN_MODE === 'AGENT'
+      ? undefined
+      : () => enqueueAllAnnotationSearchUpdates(AppDataSource.manager),
+  );
   const app = await NestFactory.create(AppModule);
   configureApplication(app);
   await app.listen(Number(process.env.PORT || 3000));

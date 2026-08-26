@@ -25,15 +25,65 @@ async function waitForTask(enqueuedTask) {
   return task;
 }
 
-async function ensureAnnotationIndex() {
+function hasMeiliErrorCode(error: unknown, code: string): boolean {
+  const candidate = error as {
+    cause?: { code?: string };
+    code?: string;
+    message?: string;
+  };
+  return (
+    candidate?.cause?.code === code ||
+    candidate?.code === code ||
+    candidate?.message?.includes(code) === true
+  );
+}
+
+export async function ensureAnnotationIndexReady(
+  beforeSchemaRepair?: () => Promise<void>,
+): Promise<void> {
+  let created = false;
   try {
-    await waitForTask(
-      await client.createIndex(annotationIndexName, { primaryKey: 'id' }),
-    );
+    await annotationIndex.getRawInfo();
   } catch (error) {
-    if (!error.toString().includes('index_already_exists')) {
+    if (!hasMeiliErrorCode(error, 'index_not_found')) {
       throw error;
     }
+    try {
+      await waitForTask(
+        await client.createIndex(annotationIndexName, { primaryKey: 'id' }),
+      );
+      created = true;
+    } catch (creationError) {
+      if (!hasMeiliErrorCode(creationError, 'index_already_exists')) {
+        throw creationError;
+      }
+    }
+  }
+
+  const indexInfo = await annotationIndex.getRawInfo();
+  if (indexInfo.primaryKey !== 'id') {
+    if (indexInfo.primaryKey !== null) {
+      throw new Error(
+        `Meilisearch index ${annotationIndexName} has unexpected primary key ${indexInfo.primaryKey}`,
+      );
+    }
+    await waitForTask(
+      await client.updateIndex(annotationIndexName, { primaryKey: 'id' }),
+    );
+  }
+
+  const filterableAttributes = await annotationIndex.getFilterableAttributes();
+  const needsFilterRepair = !filterableAttributes.includes('userId');
+  if ((created || needsFilterRepair) && beforeSchemaRepair) {
+    await beforeSchemaRepair();
+  }
+  if (needsFilterRepair) {
+    await waitForTask(
+      await annotationIndex.updateFilterableAttributes([
+        ...filterableAttributes,
+        'userId',
+      ]),
+    );
   }
 }
 
@@ -57,13 +107,27 @@ class MeilisearchClient {
   }
 
   async IndexAnnotation(annotation) {
+    return this.IndexAnnotations([annotation]);
+  }
+
+  async IndexAnnotations(annotations: Annotation[]) {
+    if (annotations.length === 0) {
+      return;
+    }
     return waitForTask(
-      await annotationIndex.addDocuments([toMeiliEntry(annotation)]),
+      await annotationIndex.addDocuments(annotations.map(toMeiliEntry)),
     );
   }
 
   async UnIndexAnnotation(annotation) {
-    return waitForTask(await annotationIndex.deleteDocuments([annotation.id]));
+    return this.UnIndexAnnotations([annotation.id]);
+  }
+
+  async UnIndexAnnotations(annotationIds: number[]) {
+    if (annotationIds.length === 0) {
+      return;
+    }
+    return waitForTask(await annotationIndex.deleteDocuments(annotationIds));
   }
 
   async UnIndexAllAnnotations() {
@@ -78,13 +142,10 @@ class MeilisearchClient {
   }
 }
 
-export async function bootstrapMeiliSearch() {
-  await ensureAnnotationIndex();
-  await waitForTask(
-    await annotationIndex.updateSettings({
-      filterableAttributes: ['userId'],
-    }),
-  );
+export async function bootstrapMeiliSearch(
+  beforeSchemaRepair?: () => Promise<void>,
+) {
+  await ensureAnnotationIndexReady(beforeSchemaRepair);
 }
 
 const meilisearchClient = new MeilisearchClient();
