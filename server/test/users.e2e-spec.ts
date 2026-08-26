@@ -7,6 +7,7 @@ import { UsersController } from '../src/controllers/users.controller';
 import { User } from '../src/models/user.entity';
 import JwtService from '../src/services/jwt';
 import { createValidationPipe } from '../src/application';
+import { AppDataSource } from '../src/database';
 
 describe('Users API', () => {
   let app: INestApplication;
@@ -115,9 +116,15 @@ describe('Users API', () => {
   it('changes passwords asynchronously without returning the new hash', async () => {
     const user = makeUser(await bcrypt.hash('old-password', 4));
     authenticationService.getAuthenticatedUser.mockResolvedValue(user);
-    jest.spyOn(User.prototype, 'save').mockImplementation(async function () {
-      return this;
-    });
+    const repository = {
+      findOne: jest.fn().mockResolvedValue(user),
+      save: jest.fn().mockImplementation(async (candidate) => candidate),
+    };
+    jest
+      .spyOn(AppDataSource, 'transaction')
+      .mockImplementation(async (callback: any) =>
+        callback({ getRepository: () => repository }),
+      );
 
     const response = await request(app.getHttpServer())
       .post('/users/change-password')
@@ -134,6 +141,10 @@ describe('Users API', () => {
     );
     expect(response.body).not.toHaveProperty('password');
     expect(user.tokenVersion).toBe(4);
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: { id: 42 },
+      lock: { mode: 'pessimistic_write' },
+    });
   });
 
   it('rejects malformed and unexpected signup fields', async () => {

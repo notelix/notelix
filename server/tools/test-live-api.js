@@ -305,20 +305,28 @@ async function main() {
   assert.match(emptySnapshot.body.snapshotId, /^[0-9a-f-]{36}$/);
 
   const originalHeaders = { Authorization: `jwt ${login.body.jwt}` };
-  const newPassword = 'integration-password-updated';
-  const passwordChange = await request(
-    '/users/change-password',
-    {
-      oldPassword: password,
-      newPassword,
-      newClientSideEncryptionParams: null,
-    },
-    originalHeaders,
+  const candidatePasswords = [
+    'integration-password-updated-a',
+    'integration-password-updated-b',
+  ];
+  const passwordChanges = await Promise.all(
+    candidatePasswords.map((newPassword, index) =>
+      requestAt(
+        index === 0 || !secondaryServerUrl ? serverUrl : secondaryServerUrl,
+        '/users/change-password',
+        {
+          oldPassword: password,
+          newPassword,
+          newClientSideEncryptionParams: null,
+        },
+        originalHeaders,
+      ),
+    ),
   );
-  assert.strictEqual(
-    passwordChange.status,
-    201,
-    JSON.stringify(passwordChange.body),
+  assert.deepStrictEqual(
+    passwordChanges.map((response) => response.status).sort(),
+    [201, 403],
+    JSON.stringify(passwordChanges),
   );
 
   const revokedSession = await request(
@@ -332,7 +340,17 @@ async function main() {
     clearClientCredentials: true,
   });
 
-  password = newPassword;
+  const candidateLogins = await Promise.all(
+    candidatePasswords.map((candidatePassword) =>
+      request('/users/login', { username, password: candidatePassword }),
+    ),
+  );
+  assert.strictEqual(
+    candidateLogins.filter((response) => response.status === 201).length,
+    1,
+    JSON.stringify(candidateLogins),
+  );
+  password = candidatePasswords[candidateLogins[0].status === 201 ? 0 : 1];
   const refreshedLogin = await request('/users/login', { username, password });
   assert.strictEqual(
     refreshedLogin.status,

@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import JwtService from '../services/jwt';
 import { ChangePasswordDto, LoginDto, SignUpDto } from '../dto/users.dto';
 import { Throttle } from '@nestjs/throttler';
+import { AppDataSource } from '../database';
 
 const invalidPasswordHash =
   '$2b$10$oceFgf0/W/UqgGnRi6t7PO43LgiW0xIYFsWbf0qlvC4ajEpwHMLAe';
@@ -105,17 +106,29 @@ export class UsersController {
     const newClientSideEncryptionParams = request.newClientSideEncryptionParams;
     const oldPassword = request.oldPassword;
     const newPassword = request.newPassword;
-    const user = await this.authenticationService.getAuthenticatedUser();
+    const authenticatedUser =
+      await this.authenticationService.getAuthenticatedUser();
 
-    if (!(await bcrypt.compare(oldPassword, user.password))) {
+    if (!(await bcrypt.compare(oldPassword, authenticatedUser.password))) {
       throw new ForbiddenException(`incorrect password`);
     }
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.client_side_encryption = newClientSideEncryptionParams || '';
-    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
-    await user.save();
+    return AppDataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(User);
+      const user = await repository.findOne({
+        where: { id: authenticatedUser.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user || !(await bcrypt.compare(oldPassword, user.password))) {
+        throw new ForbiddenException(`incorrect password`);
+      }
 
-    return userResponse(user);
+      user.password = newPasswordHash;
+      user.client_side_encryption = newClientSideEncryptionParams || '';
+      user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+      await repository.save(user);
+      return userResponse(user);
+    });
   }
 }
