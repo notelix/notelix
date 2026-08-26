@@ -43,6 +43,9 @@ jobs:
       - name: Install dependencies
         run: npx --yes yarn@1.22.22 install --frozen-lockfile
 
+      - name: Audit dependency tree
+        run: npx --yes yarn@1.22.22 audit --level high
+
       - name: Lint
         run: npx --yes yarn@1.22.22 lint
 
@@ -80,8 +83,8 @@ jobs:
       - name: Run extension unit tests
         run: npx --yes yarn@1.22.22 test
 
-      - name: Audit production dependencies
-        run: npx --yes yarn@1.22.22 audit --groups dependencies --level high
+      - name: Audit dependency tree
+        run: npx --yes yarn@1.22.22 audit --level high
 
       - name: Build packaged extension
         run: npx --yes yarn@1.22.22 package
