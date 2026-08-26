@@ -1,14 +1,15 @@
-version: "3.9"
 services:
   backend:
     image: notelix:dev
-    restart: always
+    restart: unless-stopped
     #    command: [ "sh", "-c", "sleep 3000" ]
     ports:
-      - "18555:3000"
-    links:
-      - "postgres"
-      - "meilisearch"
+      - "127.0.0.1:18555:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
     env_file:
       - .env.dev
     volumes:
@@ -21,25 +22,39 @@ services:
       - data:/data
   postgres:
     image: "postgres:14"
-    restart: always
+    restart: unless-stopped
     environment:
       - POSTGRES_PASSWORD=$DB_PASSWORD
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - "18556:5432"
+      - "127.0.0.1:18556:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   meilisearch:
     image: "getmeili/meilisearch:v0.25.2"
-    restart: always
+    restart: unless-stopped
     volumes:
       - meili:/data.ms
     ports:
-      - "18557:7700"
+      - "127.0.0.1:18557:7700"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --quiet --spider http://127.0.0.1:7700/health || exit 1",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 volumes:
   postgres-data:
   data:
   meili:
 networks:
   default:
-    external:
-      name: notelix
+    name: notelix
+    external: true
