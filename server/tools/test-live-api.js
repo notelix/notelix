@@ -59,8 +59,8 @@ function request(path, body, headers = {}) {
 async function waitForServer() {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
-      const response = await request('/meta/version');
-      if (response.status === 200 && response.body.notelix === true) {
+      const response = await request('/meta/ready');
+      if (response.status === 200 && response.body.status === 'ok') {
         return;
       }
     } catch (_error) {
@@ -97,6 +97,13 @@ async function main() {
   assert.strictEqual(metadata.headers['x-content-type-options'], 'nosniff');
   assert.strictEqual(metadata.headers['x-frame-options'], 'SAMEORIGIN');
   assert.strictEqual(metadata.headers['access-control-allow-origin'], '*');
+  assert.deepStrictEqual((await request('/meta/health')).body, {
+    status: 'ok',
+  });
+  assert.deepStrictEqual((await request('/meta/ready')).body, {
+    status: 'ok',
+    checks: { postgres: 'up', meilisearch: 'up' },
+  });
   assert.strictEqual(
     (
       await request('/agentsync/set', {
@@ -263,6 +270,20 @@ async function main() {
   assert.strictEqual(deleteDiff.body.diff.length, 1);
   assert.strictEqual(deleteDiff.body.diff[0].kind, 2);
   await waitForSearch(headers, 'searchable text', 0);
+
+  let rateLimited = false;
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const response = await request('/users/login', {
+      username: `rate-limit-${attempt}`,
+      password: 'incorrect-password',
+    });
+    if (response.status === 429) {
+      rateLimited = true;
+      break;
+    }
+    assert.strictEqual(response.status, 403, JSON.stringify(response.body));
+  }
+  assert.strictEqual(rateLimited, true, 'login endpoint was not rate limited');
 
   console.log('Live API integration test passed.');
 }

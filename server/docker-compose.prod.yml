@@ -11,10 +11,12 @@ services:
         condition: service_healthy
     env_file:
       - .env.prod
+    environment:
+      MEILISEARCH_API_KEY: ${MEILI_MASTER_KEY:?MEILI_MASTER_KEY is required}
     volumes:
       - data:/data
   postgres:
-    image: "postgres:14"
+    image: "postgres:14.24-alpine"
     restart: unless-stopped
     environment:
       - POSTGRES_PASSWORD=$DB_PASSWORD
@@ -26,10 +28,14 @@ services:
       timeout: 3s
       retries: 20
   meilisearch:
-    image: "getmeili/meilisearch:v0.25.2"
+    image: "getmeili/meilisearch:v1.51.0"
     restart: unless-stopped
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?MEILI_MASTER_KEY is required}
+      MEILI_NO_ANALYTICS: "true"
     volumes:
-      - meili:/data.ms
+      - meili-v1:/meili_data
     healthcheck:
       test:
         [
@@ -42,7 +48,7 @@ services:
 volumes:
   postgres-data:
   data:
-  meili:
+  meili-v1:
 networks:
   default:
     name: notelix

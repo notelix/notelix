@@ -6,9 +6,36 @@ const client = new MeiliSearch({
   apiKey: process.env.MEILISEARCH_API_KEY,
 });
 
-const annotationIndex = client.index(
-  process.env.MEILISEARCH_ANNOTATIONS_INDEX || 'annotations',
-);
+const annotationIndexName =
+  process.env.MEILISEARCH_ANNOTATIONS_INDEX || 'annotations';
+const annotationIndex = client.index(annotationIndexName);
+const taskTimeoutMs = Number(process.env.MEILISEARCH_TASK_TIMEOUT_MS || 30000);
+
+async function waitForTask(enqueuedTask) {
+  const task = await client.tasks.waitForTask(enqueuedTask, {
+    timeout: taskTimeoutMs,
+  });
+  if (task.status !== 'succeeded') {
+    throw new Error(
+      `Meilisearch task ${task.uid} ${task.status}: ${JSON.stringify(
+        task.error,
+      )}`,
+    );
+  }
+  return task;
+}
+
+async function ensureAnnotationIndex() {
+  try {
+    await waitForTask(
+      await client.createIndex(annotationIndexName, { primaryKey: 'id' }),
+    );
+  } catch (error) {
+    if (!error.toString().includes('index_already_exists')) {
+      throw error;
+    }
+  }
+}
 
 function toMeiliEntry(annotation: Annotation) {
   return {
@@ -25,16 +52,22 @@ function toMeiliEntry(annotation: Annotation) {
 }
 
 class MeilisearchClient {
-  IndexAnnotation(annotation) {
-    return annotationIndex.addDocuments([toMeiliEntry(annotation)]);
+  async health() {
+    return client.health();
   }
 
-  UnIndexAnnotation(annotation) {
-    return annotationIndex.deleteDocuments([annotation.id]);
+  async IndexAnnotation(annotation) {
+    return waitForTask(
+      await annotationIndex.addDocuments([toMeiliEntry(annotation)]),
+    );
   }
 
-  UnIndexAllAnnotations() {
-    return annotationIndex.deleteAllDocuments();
+  async UnIndexAnnotation(annotation) {
+    return waitForTask(await annotationIndex.deleteDocuments([annotation.id]));
+  }
+
+  async UnIndexAllAnnotations() {
+    return waitForTask(await annotationIndex.deleteAllDocuments());
   }
 
   queryAnnotations(q, userId) {
@@ -45,10 +78,13 @@ class MeilisearchClient {
   }
 }
 
-export function bootstrapMeiliSearch() {
-  return annotationIndex.updateSettings({
-    filterableAttributes: ['userId'],
-  });
+export async function bootstrapMeiliSearch() {
+  await ensureAnnotationIndex();
+  await waitForTask(
+    await annotationIndex.updateSettings({
+      filterableAttributes: ['userId'],
+    }),
+  );
 }
 
 const meilisearchClient = new MeilisearchClient();

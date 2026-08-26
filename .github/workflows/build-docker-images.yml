@@ -86,18 +86,17 @@ jobs:
       - name: Build packaged extension
         run: npx --yes yarn@1.22.22 package
 
+      - name: Install Chrome for Testing
+        shell: bash
+        run: |
+          chrome_revision="$(node -p "require('puppeteer-core').PUPPETEER_REVISIONS.chrome")"
+          chrome_path="$(npx --no-install browsers install "chrome@${chrome_revision}" --path "$RUNNER_TEMP/notelix-chrome" --format '{{path}}')"
+          echo "CHROME_PATH=$chrome_path" >> "$GITHUB_ENV"
+
       - name: Run unpacked extension in Chrome
         shell: bash
         run: |
-          if command -v google-chrome >/dev/null; then
-            chrome_path="$(command -v google-chrome)"
-          elif command -v chromium >/dev/null; then
-            chrome_path="$(command -v chromium)"
-          else
-            echo "Chrome or Chromium is required for the extension smoke test" >&2
-            exit 1
-          fi
-          xvfb-run --auto-servernum npx --yes yarn@1.22.22 smoke:browser "$chrome_path"
+          xvfb-run --auto-servernum npx --yes yarn@1.22.22 smoke:browser "$CHROME_PATH"
 
   build:
     name: Build ${{ matrix.target }} image
