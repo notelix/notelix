@@ -125,6 +125,12 @@ password changes have tighter fixed limits. When the backend is behind a
 trusted reverse proxy, set `TRUST_PROXY_HOPS` to the exact number of proxy hops
 so clients are tracked separately; do not enable it for untrusted proxies.
 
+`GET /meta/health` is a process liveness check. `GET /meta/ready` checks both
+PostgreSQL and Meilisearch and returns `503` when either dependency is down.
+Container health checks use the readiness endpoint. Dependency checks are
+bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
+100 to 30000 milliseconds.
+
 # start agent
 
 ```

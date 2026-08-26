@@ -8,6 +8,7 @@ import JwtService from './services/jwt';
 import JwtAuth from './authenticators/authenticators/jwtAuth';
 import StaticTokenAuth from './authenticators/authenticators/staticTokenAuth';
 import AnnotationChangeHistoryService from './services/annotationChangeHistory';
+import { ReadinessService } from './services/readiness';
 import { AgentSyncController } from './controllers/agentSyncController';
 import { bootstrapMeiliSearch } from './meilisearch';
 import { AppDataSource, DatabaseLifecycle } from './database';
@@ -47,6 +48,7 @@ function readPositiveInteger(name: string, fallback: number): number {
     JwtAuth,
     StaticTokenAuth,
     AnnotationChangeHistoryService,
+    ReadinessService,
     DatabaseLifecycle,
     {
       provide: APP_GUARD,
