@@ -88,6 +88,20 @@ assert.equal(
   'deployment stacks must not share a default network',
 );
 
+for (const stack of stacks) {
+  const dependencies = configs[stack].services.backend.depends_on;
+  assert.equal(
+    dependencies.postgres.condition,
+    'service_healthy',
+    `${stack} must not start before its source-of-truth database is healthy`,
+  );
+  assert.equal(
+    dependencies.meilisearch.condition,
+    'service_started',
+    `${stack} must allow degraded backend startup while search recovers`,
+  );
+}
+
 function backendPort(config) {
   const port = config.services.backend.ports.find(
     (candidate) => candidate.target === 3000,

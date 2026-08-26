@@ -8,7 +8,7 @@ services:
       postgres:
         condition: service_healthy
       meilisearch:
-        condition: service_healthy
+        condition: service_started
     env_file:
       - .env.prod
     environment:

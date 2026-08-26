@@ -196,6 +196,11 @@ Container health checks use the readiness endpoint. Dependency checks are
 bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
 100 to 30000 milliseconds.
 
+PostgreSQL is the source of truth and remains a hard startup dependency.
+Meilisearch is recoverable: the backend starts in degraded mode if search is
+unavailable, keeps readiness at `503`, accepts durable annotation writes into
+the PostgreSQL outbox, and repairs/replays the search index after recovery.
+
 Database pools default to 10 connections. `DB_POOL_MAX` accepts 1 to 100,
 `DB_POOL_ACQUIRE_TIMEOUT_MS` accepts 100 to 600000 milliseconds, and
 `DB_QUERY_TIMEOUT_MS` accepts 100 to 3600000 milliseconds. PostgreSQL query
