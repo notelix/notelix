@@ -9,6 +9,7 @@ import AnnotationChangeHistoryService from '../src/services/annotationChangeHist
 import { AppDataSource } from '../src/database';
 import { createValidationPipe } from '../src/application';
 import { AnnotationSearchSyncService } from '../src/services/annotationSearchSync';
+import { meilisearchClient } from '../src/meilisearch';
 
 describe('Annotations API durability', () => {
   let app: INestApplication;
@@ -426,6 +427,24 @@ describe('Annotations API durability', () => {
       .expect(400);
 
     expect(databaseQuery).not.toHaveBeenCalled();
+  });
+
+  it('returns a safe retryable error while annotation search is unavailable', async () => {
+    jest
+      .spyOn(meilisearchClient, 'queryAnnotations')
+      .mockRejectedValue(new Error('internal search connection details'));
+
+    const response = await request(app.getHttpServer())
+      .post('/annotations/search')
+      .send({ q: 'important text' })
+      .expect(503);
+
+    expect(response.body).toEqual({
+      message: 'annotation search unavailable',
+      error: 'Service Unavailable',
+      statusCode: 503,
+    });
+    expect(JSON.stringify(response.body)).not.toContain('connection details');
   });
 
   it('rejects malformed annotation and diff payloads before persistence', async () => {

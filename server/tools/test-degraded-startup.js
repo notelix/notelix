@@ -35,6 +35,20 @@ async function main() {
     status: 'unavailable',
     checks: { postgres: 'up', meilisearch: 'down' },
   });
+  const search = await fetch(new URL('/annotations/search', serverUrl), {
+    method: 'POST',
+    headers: {
+      Authorization: `static-token ${'d'.repeat(64)}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ q: 'unavailable search' }),
+  });
+  assert.strictEqual(search.status, 503);
+  assert.deepStrictEqual(await search.json(), {
+    message: 'annotation search unavailable',
+    error: 'Service Unavailable',
+    statusCode: 503,
+  });
   console.log('Degraded startup without Meilisearch test passed.');
 }
 

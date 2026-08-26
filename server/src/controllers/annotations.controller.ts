@@ -5,6 +5,7 @@ import {
   GoneException,
   NotFoundException,
   Post,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { Annotation } from '../models/annotation.entity';
@@ -327,7 +328,11 @@ export class AnnotationsController {
       return { results: { hits: [] } };
     }
 
-    return { results: await meilisearchClient.queryAnnotations(q, userId) };
+    try {
+      return { results: await meilisearchClient.queryAnnotations(q, userId) };
+    } catch (_error) {
+      throw new ServiceUnavailableException('annotation search unavailable');
+    }
   }
 
   @Post('/find')
