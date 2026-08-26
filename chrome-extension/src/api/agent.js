@@ -16,32 +16,41 @@ export function doTrySetAgentSyncParamsLoop() {
 }
 
 export async function trySetAgentSyncParams() {
-  chrome.storage.sync.get(NotelixChromeStorageKey, async (value) => {
-    if (!value[NotelixChromeStorageKey].notelixUser) {
-      client.post("http://127.0.0.1:18565/agentsync/resetData", {});
-      return;
-    }
-    const server = value[NotelixChromeStorageKey].notelixServer;
-    const serverUrl = server.replace(/\/$/, "");
-    const clientSideEncryptionKey = await getKey();
-    client
-      .post(
-        "http://127.0.0.1:18565/agentsync/set",
-        {
-          config: {
-            enabled: true,
-            url: serverUrl,
-            token: value[NotelixChromeStorageKey].notelixUser.jwt,
-            clientSideEncryptionKey: clientSideEncryptionKey,
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(NotelixChromeStorageKey, async (value) => {
+      const storage = value[NotelixChromeStorageKey] || {};
+
+      try {
+        if (!storage.notelixUser) {
+          await client.post(
+            "http://127.0.0.1:18565/agentsync/resetData",
+            {}
+          );
+          return;
+        }
+
+        const serverUrl = storage.notelixServer.replace(/\/$/, "");
+        const clientSideEncryptionKey = await getKey();
+        await client.post(
+          "http://127.0.0.1:18565/agentsync/set",
+          {
+            config: {
+              enabled: true,
+              url: serverUrl,
+              token: storage.notelixUser.jwt,
+              clientSideEncryptionKey,
+            },
           },
-        },
-        {}
-      )
-      .catch((ex) => {
+          {}
+        );
+      } catch (ex) {
         console.log(
           "(okay if not using notelix-agent) trySetAgentSyncParams failed ",
           ex
         );
-      });
+      } finally {
+        resolve();
+      }
+    });
   });
 }

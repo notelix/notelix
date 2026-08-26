@@ -1,4 +1,4 @@
-import { Link, useHistory } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import React, { useEffect, useState } from "react";
 import { NotelixChromeStorageKey } from "../consts";
 import { login } from "../../api/user";
@@ -7,7 +7,7 @@ import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
 
 export const LogIn = () => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const [notelixServer, setNotelixServer] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -27,7 +27,7 @@ export const LogIn = () => {
         chrome.storage.sync.set(value, () => {
           sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
           alert("Login successful");
-          history.push("/");
+          navigate("/");
           trySetAgentSyncParams();
         });
       });
@@ -50,7 +50,7 @@ export const LogIn = () => {
             chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
               delete value[NotelixChromeStorageKey].notelixServer;
               chrome.storage.sync.set(value, () => {
-                history.push("/set-server");
+                navigate("/set-server");
               });
             });
           }}
@@ -74,8 +74,8 @@ export const LogIn = () => {
       <button disabled={!username || !password} onClick={submit}>
         Log In
       </button>
-      <Link to="/signup">
-        <a style={{ marginLeft: 12 }}>Sign Up</a>
+      <Link to="/signup" style={{ marginLeft: 12 }}>
+        Sign Up
       </Link>
     </div>
   );

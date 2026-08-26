@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { NotelixChromeStorageKey } from "../consts";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
@@ -8,7 +8,7 @@ import { trySetAgentSyncParams } from "../../api/agent";
 export const UserInfo = () => {
   const [notelixServer, setNotelixServer] = useState("");
   const [userInfo, setUserInfo] = useState(null);
-  const history = useHistory();
+  const navigate = useNavigate();
 
   useEffect(() => {
     chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
@@ -22,7 +22,7 @@ export const UserInfo = () => {
   }
 
   const changePassword = () => {
-    history.push("/change-password");
+    navigate("/change-password");
   };
 
   const showApp = () => {
@@ -38,7 +38,7 @@ export const UserInfo = () => {
       delete value[NotelixChromeStorageKey].notelixPassword;
       chrome.storage.sync.set(value, () => {
         sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
-        history.push("/");
+        navigate("/");
         trySetAgentSyncParams();
       });
     });

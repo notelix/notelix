@@ -77,8 +77,27 @@ jobs:
       - name: Install dependencies
         run: npx --yes yarn@1.22.22 install --frozen-lockfile
 
-      - name: Build extension bundles
-        run: npx --yes yarn@1.22.22 build
+      - name: Run extension unit tests
+        run: npx --yes yarn@1.22.22 test
+
+      - name: Audit production dependencies
+        run: npx --yes yarn@1.22.22 audit --groups dependencies --level high
+
+      - name: Build packaged extension
+        run: npx --yes yarn@1.22.22 package
+
+      - name: Run unpacked extension in Chrome
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null; then
+            chrome_path="$(command -v google-chrome)"
+          elif command -v chromium >/dev/null; then
+            chrome_path="$(command -v chromium)"
+          else
+            echo "Chrome or Chromium is required for the extension smoke test" >&2
+            exit 1
+          fi
+          xvfb-run --auto-servernum npx --yes yarn@1.22.22 smoke:browser "$chrome_path"
 
   build:
     name: Build ${{ matrix.target }} image

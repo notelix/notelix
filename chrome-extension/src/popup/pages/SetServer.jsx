@@ -1,10 +1,10 @@
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
 import { NotelixChromeStorageKey, NotelixDefaultServer } from "../consts";
 import { getMetaVersion } from "../../api/meta";
 
 export const SetServer = () => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const [server, setServer] = useState(NotelixDefaultServer);
   return (
     <div>
@@ -35,7 +35,7 @@ export const SetServer = () => {
                   value[NotelixChromeStorageKey] || {};
                 value[NotelixChromeStorageKey].notelixServer = _server;
                 chrome.storage.sync.set(value, () => {
-                  history.push("/login");
+                  navigate("/login");
                 });
               });
             })
