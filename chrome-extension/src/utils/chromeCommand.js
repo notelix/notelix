@@ -1,9 +1,13 @@
 export function sendChromeCommandToEveryTab(cmd) {
   chrome.tabs.query({ active: true }, function (tabs) {
     tabs.forEach((tab) => {
-      chrome.tabs.sendMessage(tab.id, {
-        command: cmd,
-      });
+      chrome.tabs.sendMessage(
+        tab.id,
+        {
+          command: cmd,
+        },
+        () => void chrome.runtime.lastError
+      );
     });
   });
 }

@@ -3,7 +3,7 @@ const path = require("path");
 module.exports = {
   mode: "production",
   resolve: {
-    extensions: [".js", ".jsx", ".ts", ".tsx"],
+    extensions: [".js", ".jsx"],
   },
   output: {
     path: path.resolve(__dirname, "dist"),
@@ -12,7 +12,7 @@ module.exports = {
     rules: [
       {
         test: /\.svg$/,
-        use: [{ loader: "svg-inline-loader" }],
+        type: "asset/source",
       },
       {
         test: /\.less$/,
@@ -42,11 +42,6 @@ module.exports = {
             plugins: [["@babel/plugin-transform-runtime"]],
           },
         },
-      },
-      {
-        test: /\.tsx?$/,
-        exclude: /node_modules/,
-        use: { loader: "ts-loader" },
       },
       {
         test: /\.css$/,

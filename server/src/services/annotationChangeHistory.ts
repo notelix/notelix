@@ -5,13 +5,13 @@ import {
   AnnotationChangeHistoryKindSave,
 } from '../models/annotationChangeHistory.entity';
 import { Annotation } from '../models/annotation.entity';
-import { EntityManager, getManager } from 'typeorm';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export default class AnnotationChangeHistoryService {
   createAnnotationChangeHistoryForSave = async (
     annotation: Annotation,
-    manager: EntityManager = getManager(),
+    manager?: EntityManager,
   ) => {
     let history = new AnnotationChangeHistory();
     history.uid = annotation.uid;
@@ -19,13 +19,15 @@ export default class AnnotationChangeHistoryService {
     history.data = annotation;
     history.user = annotation.user;
     history.kind = AnnotationChangeHistoryKindSave;
-    history = await manager.save(history);
+    history = manager
+      ? await manager.save(history)
+      : await AnnotationChangeHistory.save(history);
     return history;
   };
 
   createAnnotationChangeHistoryForDelete = async (
     annotation: Annotation,
-    manager: EntityManager = getManager(),
+    manager?: EntityManager,
   ) => {
     let history = new AnnotationChangeHistory();
     history.uid = annotation.uid;
@@ -33,7 +35,9 @@ export default class AnnotationChangeHistoryService {
     history.data = annotation;
     history.user = annotation.user;
     history.kind = AnnotationChangeHistoryKindDelete;
-    history = await manager.save(history);
+    history = manager
+      ? await manager.save(history)
+      : await AnnotationChangeHistory.save(history);
     return history;
   };
 

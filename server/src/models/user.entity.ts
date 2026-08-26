@@ -11,11 +11,11 @@ import {
 import { Annotation } from './annotation.entity';
 
 @Entity()
+@Index('UQ_user_name', ['name'], { unique: true })
 export class User extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Index()
   @Column({ length: 255 })
   name: string;
 

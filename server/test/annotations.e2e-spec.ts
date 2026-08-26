@@ -1,12 +1,13 @@
 import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
-import * as typeorm from 'typeorm';
 import { AuthenticationService } from '../src/authenticators/authentication.service';
 import { AnnotationsController } from '../src/controllers/annotations.controller';
 import { meilisearchClient } from '../src/meilisearch';
 import { Annotation } from '../src/models/annotation.entity';
 import AnnotationChangeHistoryService from '../src/services/annotationChangeHistory';
+import { AppDataSource } from '../src/database';
+import { createValidationPipe } from '../src/application';
 
 describe('Annotations API durability', () => {
   let app: INestApplication;
@@ -26,6 +27,7 @@ describe('Annotations API durability', () => {
     getRepository: jest.Mock;
     transaction: jest.Mock;
   };
+  let databaseQuery: jest.SpyInstance;
 
   const user = {
     id: 9,
@@ -51,7 +53,12 @@ describe('Annotations API durability', () => {
       getRepository: jest.fn().mockReturnValue(annotationRepository),
       transaction: jest.fn(async (callback) => callback(manager)),
     };
-    jest.spyOn(typeorm, 'getManager').mockReturnValue(manager as any);
+    jest
+      .spyOn(AppDataSource, 'transaction')
+      .mockImplementation(manager.transaction);
+    databaseQuery = jest
+      .spyOn(AppDataSource.manager, 'query')
+      .mockResolvedValue([]);
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
 
     const moduleRef = await Test.createTestingModule({
@@ -69,6 +76,7 @@ describe('Annotations API durability', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.useGlobalPipes(createValidationPipe());
     await app.init();
   });
 
@@ -198,5 +206,48 @@ describe('Annotations API durability', () => {
     expect(unindexAnnotation).toHaveBeenCalledWith(
       expect.objectContaining({ id: 12 }),
     );
+  });
+
+  it('uses allowlisted columns and forces the authenticated user scope', async () => {
+    databaseQuery.mockResolvedValue([{ count: '1', title: 'A title' }]);
+
+    const response = await request(app.getHttpServer())
+      .post('/annotations/find')
+      .send({ selectors: { host: 'example.com' }, groupBy: 'title' })
+      .expect(201);
+
+    expect(response.body.list).toEqual([{ count: '1', title: 'A title' }]);
+    expect(databaseQuery).toHaveBeenCalledWith(
+      'select count(1) as count, title from annotation where host=$1 AND "userId"=$2 GROUP BY title',
+      ['example.com', 9],
+    );
+  });
+
+  it('rejects arbitrary selector and grouping identifiers', async () => {
+    await request(app.getHttpServer())
+      .post('/annotations/find')
+      .send({ selectors: { 'host; DROP TABLE annotation': 'example.com' } })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/annotations/find')
+      .send({ selectors: {}, groupBy: 'title; SELECT pg_sleep(10)' })
+      .expect(400);
+
+    expect(databaseQuery).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed annotation and diff payloads before persistence', async () => {
+    await request(app.getHttpServer())
+      .post('/annotations/save')
+      .send({ uid: 'x'.repeat(65), data: {} })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/annotations/listDiff')
+      .send({ sinceId: 1.5 })
+      .expect(400);
+
+    expect(manager.transaction).not.toHaveBeenCalled();
   });
 });

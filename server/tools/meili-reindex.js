@@ -78,24 +78,22 @@ function getUpdateId(update) {
   return update.updateId === undefined ? update.taskUid : update.updateId;
 }
 
-async function waitForUpdate(index, update) {
+async function waitForUpdate(client, update) {
   const updateId = getUpdateId(update);
   if (updateId === undefined) {
     return;
   }
 
   const options = {
-    timeOutMs: updateTimeoutMs,
-    intervalMs: updateIntervalMs,
+    timeout: updateTimeoutMs,
+    interval: updateIntervalMs,
   };
 
-  if (typeof index.waitForTask === 'function') {
-    await index.waitForTask(updateId, options);
-    return;
-  }
-
-  if (typeof index.waitForPendingUpdate === 'function') {
-    await index.waitForPendingUpdate(updateId, options);
+  const task = await client.tasks.waitForTask(updateId, options);
+  if (task.status !== 'succeeded') {
+    throw new Error(
+      `Meilisearch task ${task.uid} ${task.status}: ${JSON.stringify(task.error)}`,
+    );
   }
 }
 
@@ -112,14 +110,14 @@ function isMeiliError(error, code) {
   );
 }
 
-async function ensureIndex(client, index) {
+async function ensureIndex(client) {
   if (typeof client.createIndex !== 'function') {
     return;
   }
 
   try {
     await waitForUpdate(
-      index,
+      client,
       await client.createIndex(indexName, { primaryKey: 'id' }),
     );
   } catch (error) {
@@ -132,9 +130,9 @@ async function ensureIndex(client, index) {
   }
 }
 
-async function clearIndex(index) {
+async function clearIndex(client, index) {
   try {
-    await waitForUpdate(index, await index.deleteAllDocuments());
+    await waitForUpdate(client, await index.deleteAllDocuments());
   } catch (error) {
     if (
       !isMeiliError(error, 'index_not_found') &&
@@ -213,10 +211,10 @@ async function main() {
     }
 
     console.log(`Rebuilding Meilisearch index "${indexName}" at ${meiliHost}`);
-    await ensureIndex(meiliClient, annotationIndex);
-    await clearIndex(annotationIndex);
+    await ensureIndex(meiliClient);
+    await clearIndex(meiliClient, annotationIndex);
     await waitForUpdate(
-      annotationIndex,
+      meiliClient,
       await annotationIndex.updateSettings({
         filterableAttributes: ['userId'],
       }),
@@ -232,7 +230,7 @@ async function main() {
 
       lastId = rows[rows.length - 1].id;
       await waitForUpdate(
-        annotationIndex,
+        meiliClient,
         await annotationIndex.addDocuments(rows.map(toMeiliEntry)),
       );
       indexed += rows.length;
