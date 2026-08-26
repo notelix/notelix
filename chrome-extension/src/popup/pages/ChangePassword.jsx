@@ -5,7 +5,7 @@ import {
   clearLegacyPassword,
   getKey,
 } from "../../encryption";
-import { makeClientSideEncryptionParams } from "../../encryption/utils";
+import { makePasswordChangeClientSideEncryptionParams } from "../../encryption/utils";
 import { changePassword } from "../../api/user";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
@@ -54,9 +54,8 @@ export const ChangePassword = () => {
           }
 
           getKey().then((key) => {
-            const newClientSideEncryptionParams = key
-              ? makeClientSideEncryptionParams(newPassword, { key })
-              : null;
+            const newClientSideEncryptionParams =
+              makePasswordChangeClientSideEncryptionParams(newPassword, key);
 
             changePassword({
               newClientSideEncryptionParams,

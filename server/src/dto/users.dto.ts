@@ -28,6 +28,7 @@ export class SignUpDto {
 
   @ValidateIf((request) => request.enableClientSideEncryption)
   @IsString()
+  @MinLength(1)
   @MaxLength(4096)
   client_side_encryption?: string;
 }
@@ -58,6 +59,7 @@ export class ChangePasswordDto {
 
   @IsOptional()
   @IsString()
+  @MinLength(1)
   @MaxLength(4096)
   newClientSideEncryptionParams?: string;
 }

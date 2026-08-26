@@ -7,3 +7,7 @@ export function makeClientSideEncryptionParams(password, { key } = {}) {
     password
   ).toString();
 }
+
+export function makePasswordChangeClientSideEncryptionParams(password, key) {
+  return key ? makeClientSideEncryptionParams(password, { key }) : null;
+}

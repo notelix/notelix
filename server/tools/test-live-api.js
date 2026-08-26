@@ -453,6 +453,38 @@ async function main() {
   const concurrencyHeaders = {
     Authorization: `jwt ${concurrencyLogin.body.jwt}`,
   };
+  const rejectedEncryptionDisable = await request(
+    '/users/change-password',
+    {
+      oldPassword: password,
+      newPassword: 'unsafe-encryption-mode-change',
+      newClientSideEncryptionParams: null,
+    },
+    concurrencyHeaders,
+  );
+  assert.strictEqual(
+    rejectedEncryptionDisable.status,
+    400,
+    JSON.stringify(rejectedEncryptionDisable.body),
+  );
+  assert.strictEqual(
+    rejectedEncryptionDisable.body.message,
+    'client-side encryption cannot be enabled or disabled during a password change',
+  );
+  const encryptionModeAfterRejectedChange = await request(
+    '/users/who-am-i',
+    undefined,
+    concurrencyHeaders,
+  );
+  assert.strictEqual(
+    encryptionModeAfterRejectedChange.status,
+    200,
+    JSON.stringify(encryptionModeAfterRejectedChange.body),
+  );
+  assert.strictEqual(
+    encryptionModeAfterRejectedChange.body.client_side_encryption,
+    'encrypted-client-key',
+  );
   const concurrencyUid = 'concurrent-annotation';
   const concurrencyUrl = 'https://example.com/concurrent';
   const concurrentSaves = await Promise.all(

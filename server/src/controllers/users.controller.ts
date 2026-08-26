@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -34,6 +35,17 @@ function isUniqueViolation(error: unknown): boolean {
     'driverError' in error &&
     (error as { driverError?: { code?: string } }).driverError?.code === '23505'
   );
+}
+
+function assertEncryptionModeUnchanged(
+  currentEncryptionParams: string,
+  newEncryptionParams: string,
+): void {
+  if (Boolean(currentEncryptionParams) !== Boolean(newEncryptionParams)) {
+    throw new BadRequestException(
+      'client-side encryption cannot be enabled or disabled during a password change',
+    );
+  }
 }
 
 @Controller('users')
@@ -103,7 +115,8 @@ export class UsersController {
   @Post('/change-password')
   @Throttle({ default: { limit: 5, ttl: 10 * 60 * 1000 } })
   async ChangePassword(@Body() request: ChangePasswordDto): Promise<any> {
-    const newClientSideEncryptionParams = request.newClientSideEncryptionParams;
+    const newClientSideEncryptionParams =
+      request.newClientSideEncryptionParams || '';
     const oldPassword = request.oldPassword;
     const newPassword = request.newPassword;
     const authenticatedUser =
@@ -112,6 +125,10 @@ export class UsersController {
     if (!(await bcrypt.compare(oldPassword, authenticatedUser.password))) {
       throw new ForbiddenException(`incorrect password`);
     }
+    assertEncryptionModeUnchanged(
+      authenticatedUser.client_side_encryption,
+      newClientSideEncryptionParams,
+    );
     const newPasswordHash = await bcrypt.hash(newPassword, 10);
 
     return AppDataSource.transaction(async (manager) => {
@@ -123,9 +140,13 @@ export class UsersController {
       if (!user || !(await bcrypt.compare(oldPassword, user.password))) {
         throw new ForbiddenException(`incorrect password`);
       }
+      assertEncryptionModeUnchanged(
+        user.client_side_encryption,
+        newClientSideEncryptionParams,
+      );
 
       user.password = newPasswordHash;
-      user.client_side_encryption = newClientSideEncryptionParams || '';
+      user.client_side_encryption = newClientSideEncryptionParams;
       user.tokenVersion = (user.tokenVersion ?? 0) + 1;
       await repository.save(user);
       return userResponse(user);

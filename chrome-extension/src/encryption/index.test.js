@@ -1,9 +1,11 @@
 import AES from "crypto-js/aes";
 import {
+  decryptKey,
   ensureLocalEncryptionKey,
   getKey,
   storeEncryptionKey,
 } from ".";
+import { makePasswordChangeClientSideEncryptionParams } from "./utils";
 import {
   NotelixChromeStorageKey,
   NotelixEncryptionKeyStorageKey,
@@ -90,5 +92,23 @@ describe("client-side encryption key storage", () => {
 
     await expect(storeEncryptionKey({}, password)).resolves.toBeNull();
     expect(chrome.storage.local.value()).toEqual({});
+  });
+
+  it("rewraps the existing encryption key under a new password", () => {
+    const newPassword = "new correct horse battery staple";
+    const updatedConfig = makePasswordChangeClientSideEncryptionParams(
+      newPassword,
+      key
+    );
+
+    expect(updatedConfig).toEqual(expect.any(String));
+    expect(updatedConfig).not.toBe(encryptedConfig);
+    expect(decryptKey(updatedConfig, newPassword)).toBe(key);
+  });
+
+  it("keeps client-side encryption disabled during a password change", () => {
+    expect(
+      makePasswordChangeClientSideEncryptionParams("new password", null)
+    ).toBeNull();
   });
 });

@@ -147,6 +147,79 @@ describe('Users API', () => {
     });
   });
 
+  it('rejects disabling client-side encryption during a password change', async () => {
+    const user = makeUser(await bcrypt.hash('old-password', 4));
+    authenticationService.getAuthenticatedUser.mockResolvedValue(user);
+    const transaction = jest.spyOn(AppDataSource, 'transaction');
+
+    const response = await request(app.getHttpServer())
+      .post('/users/change-password')
+      .send({
+        oldPassword: 'old-password',
+        newPassword: 'new-password',
+        newClientSideEncryptionParams: null,
+      })
+      .expect(400);
+
+    expect(response.body.message).toBe(
+      'client-side encryption cannot be enabled or disabled during a password change',
+    );
+    expect(transaction).not.toHaveBeenCalled();
+    expect(await bcrypt.compare('old-password', user.password)).toBe(true);
+    expect(user.client_side_encryption).toBe('encrypted-client-key');
+    expect(user.tokenVersion).toBe(3);
+  });
+
+  it('rejects enabling client-side encryption during a password change', async () => {
+    const user = makeUser(await bcrypt.hash('old-password', 4));
+    user.client_side_encryption = '';
+    authenticationService.getAuthenticatedUser.mockResolvedValue(user);
+    const transaction = jest.spyOn(AppDataSource, 'transaction');
+
+    await request(app.getHttpServer())
+      .post('/users/change-password')
+      .send({
+        oldPassword: 'old-password',
+        newPassword: 'new-password',
+        newClientSideEncryptionParams: 'new-encrypted-client-key',
+      })
+      .expect(400);
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(user.client_side_encryption).toBe('');
+    expect(user.tokenVersion).toBe(3);
+  });
+
+  it('rechecks the encryption mode after locking the user row', async () => {
+    const authenticatedUser = makeUser(await bcrypt.hash('old-password', 4));
+    const lockedUser = makeUser(authenticatedUser.password);
+    lockedUser.client_side_encryption = '';
+    authenticationService.getAuthenticatedUser.mockResolvedValue(
+      authenticatedUser,
+    );
+    const repository = {
+      findOne: jest.fn().mockResolvedValue(lockedUser),
+      save: jest.fn(),
+    };
+    jest
+      .spyOn(AppDataSource, 'transaction')
+      .mockImplementation(async (callback: any) =>
+        callback({ getRepository: () => repository }),
+      );
+
+    await request(app.getHttpServer())
+      .post('/users/change-password')
+      .send({
+        oldPassword: 'old-password',
+        newPassword: 'new-password',
+        newClientSideEncryptionParams: 'new-encrypted-client-key',
+      })
+      .expect(400);
+
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(lockedUser.tokenVersion).toBe(3);
+  });
+
   it('rejects malformed and unexpected signup fields', async () => {
     await request(app.getHttpServer())
       .post('/users/signup')
@@ -159,6 +232,16 @@ describe('Users API', () => {
         username: 'alice',
         password: 'long-enough-password',
         administrator: true,
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/users/signup')
+      .send({
+        username: 'alice',
+        password: 'long-enough-password',
+        enableClientSideEncryption: true,
+        client_side_encryption: '',
       })
       .expect(400);
   });
