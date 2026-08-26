@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  EntityManager,
   Index,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -14,7 +15,7 @@ export const AnnotationChangeHistoryKindSave = 1;
 export const AnnotationChangeHistoryKindDelete = 2;
 
 @Entity()
-@Index(['user'])
+@Index('IDX_history_user_id', ['user', 'id'])
 export class AnnotationChangeHistory extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
@@ -40,17 +41,21 @@ export class AnnotationChangeHistory extends BaseEntity {
   @UpdateDateColumn({ name: 'updated_at' })
   updated_at: Date;
 
-  public static async getLatestIdForUser(user: User) {
-    const latestAnnotationChangeHistory = (
-      await AnnotationChangeHistory.getRepository()
-        .createQueryBuilder()
-        .where({ user })
-        .select('MAX(id)', 'max')
-        .getRawOne()
-    ).max;
-    if (!latestAnnotationChangeHistory) {
+  public static async getLatestIdForUser(
+    user: User,
+    manager?: EntityManager,
+  ): Promise<number> {
+    const repository = manager
+      ? manager.getRepository(AnnotationChangeHistory)
+      : AnnotationChangeHistory.getRepository();
+    const result = await repository
+      .createQueryBuilder('history')
+      .where('history."userId" = :userId', { userId: user.id })
+      .select('MAX(history.id)', 'max')
+      .getRawOne<{ max: string | null }>();
+    if (!result?.max) {
       return 0;
     }
-    return latestAnnotationChangeHistory;
+    return Number(result.max);
   }
 }

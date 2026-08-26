@@ -7,17 +7,20 @@ const ormconfig = require('../ormconfig');
 const serverUrl = new URL(
   process.env.TEST_SERVER_URL || 'http://127.0.0.1:18575',
 );
+const secondaryServerUrl = process.env.TEST_SECONDARY_SERVER_URL
+  ? new URL(process.env.TEST_SECONDARY_SERVER_URL)
+  : null;
 
 function sleep(delay) {
   return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
-function request(path, body, headers = {}) {
+function requestAt(baseUrl, path, body, headers = {}) {
   const serializedBody = body === undefined ? undefined : JSON.stringify(body);
 
   return new Promise((resolve, reject) => {
     const req = http.request(
-      new URL(path, serverUrl),
+      new URL(path, baseUrl),
       {
         method: body === undefined ? 'GET' : 'POST',
         headers: {
@@ -59,10 +62,14 @@ function request(path, body, headers = {}) {
   });
 }
 
-async function waitForServer() {
+function request(path, body, headers = {}) {
+  return requestAt(serverUrl, path, body, headers);
+}
+
+async function waitForServer(baseUrl = serverUrl) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
-      const response = await request('/meta/ready');
+      const response = await requestAt(baseUrl, '/meta/ready');
       if (response.status === 200 && response.body.status === 'ok') {
         return;
       }
@@ -71,7 +78,7 @@ async function waitForServer() {
     }
     await sleep(250);
   }
-  throw new Error(`Server did not become ready at ${serverUrl}`);
+  throw new Error(`Server did not become ready at ${baseUrl}`);
 }
 
 async function waitForSearch(headers, query, expectedHits) {
@@ -134,7 +141,9 @@ async function assertStaticTokenIsProtected(staticToken) {
 }
 
 async function main() {
-  await waitForServer();
+  await Promise.all(
+    [serverUrl, secondaryServerUrl].filter(Boolean).map(waitForServer),
+  );
 
   const metadata = await request('/meta/version');
   assert.strictEqual(metadata.headers['x-content-type-options'], 'nosniff');
@@ -325,7 +334,27 @@ async function main() {
     JSON.stringify(secondUserSave.body),
   );
 
-  const listDiff = await request(
+  const syncReadUrl = secondaryServerUrl || serverUrl;
+  const fullSnapshot = await requestAt(
+    syncReadUrl,
+    '/annotations/list',
+    {},
+    headers,
+  );
+  assert.strictEqual(
+    fullSnapshot.status,
+    201,
+    JSON.stringify(fullSnapshot.body),
+  );
+  assert.strictEqual(fullSnapshot.body.list.length, 1);
+  assert.strictEqual(fullSnapshot.body.list[0].uid, uid);
+  assert.strictEqual(
+    Number.isInteger(fullSnapshot.body.annotationChangeHistoryLatestId),
+    true,
+  );
+
+  const listDiff = await requestAt(
+    syncReadUrl,
     '/annotations/listDiff',
     { sinceId: 0 },
     headers,
@@ -335,11 +364,48 @@ async function main() {
   assert.strictEqual(listDiff.body.diff.length, 1);
   assert.strictEqual(listDiff.body.diff[0].kind, 1);
   const saveHistoryId = listDiff.body.diff[0].id;
+  assert.strictEqual(
+    fullSnapshot.body.annotationChangeHistoryLatestId,
+    saveHistoryId,
+  );
+
+  const update = await request(
+    '/annotations/save',
+    {
+      uid,
+      url,
+      host: 'example.com',
+      title: 'Integration test updated',
+      data: {
+        text: 'durable searchable text updated',
+        notes: 'integration note updated',
+      },
+    },
+    headers,
+  );
+  assert.strictEqual(update.status, 201, JSON.stringify(update.body));
+
+  const replicaDiff = await requestAt(
+    syncReadUrl,
+    '/annotations/listDiff',
+    { sinceId: saveHistoryId },
+    headers,
+  );
+  assert.strictEqual(replicaDiff.status, 201, JSON.stringify(replicaDiff.body));
+  assert.strictEqual(replicaDiff.body.ok, true);
+  assert.strictEqual(replicaDiff.body.diff.length, 1);
+  assert.strictEqual(replicaDiff.body.diff[0].kind, 1);
+  assert.strictEqual(
+    replicaDiff.body.diff[0].data.title,
+    'Integration test updated',
+  );
+  const updateHistoryId = replicaDiff.body.diff[0].id;
 
   const byUrl = await request('/annotations/queryByUrl', { url }, headers);
   assert.strictEqual(byUrl.status, 201, JSON.stringify(byUrl.body));
   assert.strictEqual(byUrl.body.list.length, 1);
   assert.strictEqual(byUrl.body.list[0].uid, uid);
+  assert.strictEqual(byUrl.body.list[0].title, 'Integration test updated');
 
   const searchHits = await waitForSearch(headers, 'searchable text', 1);
   assert.strictEqual(searchHits[0].id, byUrl.body.list[0].id);
@@ -349,7 +415,7 @@ async function main() {
 
   const deleteDiff = await request(
     '/annotations/listDiff',
-    { sinceId: saveHistoryId },
+    { sinceId: updateHistoryId },
     headers,
   );
   assert.strictEqual(deleteDiff.status, 201, JSON.stringify(deleteDiff.body));

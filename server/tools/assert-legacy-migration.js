@@ -37,10 +37,21 @@ async function main() {
           'UQ_annotation_user_uid',
           'IDX_annotation_user_url_host',
           'IDX_history_user',
+          'IDX_history_user_id',
           'UQ_static_token_token'
         )
+      ORDER BY indexname
     `);
-    assert.strictEqual(indexes.rowCount, 5);
+    assert.deepStrictEqual(
+      indexes.rows.map((row) => row.indexname),
+      [
+        'IDX_annotation_user_url_host',
+        'IDX_history_user_id',
+        'UQ_annotation_user_uid',
+        'UQ_static_token_token',
+        'UQ_user_name',
+      ],
+    );
 
     const oldUidConstraint = await client.query(`
       SELECT 1
@@ -71,6 +82,7 @@ async function main() {
     assert.deepStrictEqual(migrations.rows, [
       { name: 'InitializeProductionSchema1787745600000' },
       { name: 'ProtectAuthenticationSecrets1787752800000' },
+      { name: 'OptimizeAnnotationSync1787839200000' },
     ]);
 
     const legacyToken = 'l'.repeat(64);

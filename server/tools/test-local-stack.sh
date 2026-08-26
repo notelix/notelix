@@ -8,8 +8,11 @@ integration_compose=(
   --file "${integration_server_dir}/docker-compose.test.yml"
 )
 integration_server_log="$(mktemp)"
+integration_secondary_server_log="$(mktemp)"
 integration_server_pid=""
+integration_secondary_server_pid=""
 integration_server_port="${NOTELIX_TEST_SERVER_PORT:-18575}"
+integration_secondary_server_port="${NOTELIX_TEST_SECONDARY_SERVER_PORT:-18578}"
 integration_db_port="${NOTELIX_TEST_DB_PORT:-18576}"
 integration_meili_port="${NOTELIX_TEST_MEILI_PORT:-18577}"
 integration_meili_key="notelix-integration-meili-master-key"
@@ -22,14 +25,20 @@ cleanup() {
     kill "${integration_server_pid}" >/dev/null 2>&1 || true
     wait "${integration_server_pid}" >/dev/null 2>&1 || true
   fi
+  if [[ -n "${integration_secondary_server_pid}" ]]; then
+    kill "${integration_secondary_server_pid}" >/dev/null 2>&1 || true
+    wait "${integration_secondary_server_pid}" >/dev/null 2>&1 || true
+  fi
 
   "${integration_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 
   if [[ ${integration_exit_code} -ne 0 ]]; then
     echo "Notelix server log:" >&2
     sed -n '1,240p' "${integration_server_log}" >&2
+    echo "Notelix secondary server log:" >&2
+    sed -n '1,240p' "${integration_secondary_server_log}" >&2
   fi
-  rm -f "${integration_server_log}"
+  rm -f "${integration_server_log}" "${integration_secondary_server_log}"
   exit "${integration_exit_code}"
 }
 trap cleanup EXIT
@@ -51,6 +60,7 @@ export MEILISEARCH_HOST="http://127.0.0.1:${integration_meili_port}"
 export MEILISEARCH_API_KEY="${integration_meili_key}"
 export MEILISEARCH_ANNOTATIONS_INDEX=annotations_integration
 export TEST_SERVER_URL="http://127.0.0.1:${integration_server_port}"
+export TEST_SECONDARY_SERVER_URL="http://127.0.0.1:${integration_secondary_server_port}"
 
 meili_unauthenticated_status="$(
   curl --silent --output /dev/null --write-out '%{http_code}' \
@@ -85,6 +95,9 @@ node ./tools/assert-legacy-migration.js
 export DB_DATABASE=notelix_integration
 node ./dist/main.js >"${integration_server_log}" 2>&1 &
 integration_server_pid=$!
+PORT="${integration_secondary_server_port}" \
+  node ./dist/main.js >"${integration_secondary_server_log}" 2>&1 &
+integration_secondary_server_pid=$!
 
 node ./tools/test-live-api.js
 node ./tools/meili-reindex.js

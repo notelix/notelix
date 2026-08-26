@@ -40,24 +40,4 @@ export default class AnnotationChangeHistoryService {
       : await AnnotationChangeHistory.save(history);
     return history;
   };
-
-  userIdToAnnotationChangeHistoryLatestId = {};
-
-  public rememberAnnotationChangeHistoryLatestId(
-    userId,
-    annotationChangeHistoryLatestId,
-  ) {
-    if (
-      this.userIdToAnnotationChangeHistoryLatestId[userId] >
-      annotationChangeHistoryLatestId
-    ) {
-      return;
-    }
-    this.userIdToAnnotationChangeHistoryLatestId[userId] =
-      annotationChangeHistoryLatestId;
-  }
-
-  public getCachedAnnotationChangeHistoryLatestId(userId) {
-    return this.userIdToAnnotationChangeHistoryLatestId[userId];
-  }
 }

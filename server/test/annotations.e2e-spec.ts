@@ -5,6 +5,7 @@ import { AuthenticationService } from '../src/authenticators/authentication.serv
 import { AnnotationsController } from '../src/controllers/annotations.controller';
 import { meilisearchClient } from '../src/meilisearch';
 import { Annotation } from '../src/models/annotation.entity';
+import { AnnotationChangeHistory } from '../src/models/annotationChangeHistory.entity';
 import AnnotationChangeHistoryService from '../src/services/annotationChangeHistory';
 import { AppDataSource } from '../src/database';
 import { createValidationPipe } from '../src/application';
@@ -15,13 +16,17 @@ describe('Annotations API durability', () => {
   let historyService: {
     createAnnotationChangeHistoryForSave: jest.Mock;
     createAnnotationChangeHistoryForDelete: jest.Mock;
-    rememberAnnotationChangeHistoryLatestId: jest.Mock;
     getCachedAnnotationChangeHistoryLatestId: jest.Mock;
   };
   let annotationRepository: {
     findOne: jest.Mock;
+    find: jest.Mock;
     save: jest.Mock;
     remove: jest.Mock;
+  };
+  let historyRepository: {
+    findOne: jest.Mock;
+    find: jest.Mock;
   };
   let manager: {
     getRepository: jest.Mock;
@@ -41,17 +46,26 @@ describe('Annotations API durability', () => {
     historyService = {
       createAnnotationChangeHistoryForSave: jest.fn(),
       createAnnotationChangeHistoryForDelete: jest.fn(),
-      rememberAnnotationChangeHistoryLatestId: jest.fn(),
       getCachedAnnotationChangeHistoryLatestId: jest.fn(),
     };
     annotationRepository = {
       findOne: jest.fn(),
+      find: jest.fn(),
       save: jest.fn(),
       remove: jest.fn(),
     };
+    historyRepository = {
+      findOne: jest.fn(),
+      find: jest.fn(),
+    };
     manager = {
-      getRepository: jest.fn().mockReturnValue(annotationRepository),
-      transaction: jest.fn(async (callback) => callback(manager)),
+      getRepository: jest.fn((entity) =>
+        entity === Annotation ? annotationRepository : historyRepository,
+      ),
+      transaction: jest.fn(async (...args) => {
+        const callback = args[args.length - 1];
+        return callback(manager);
+      }),
     };
     jest
       .spyOn(AppDataSource, 'transaction')
@@ -99,7 +113,8 @@ describe('Annotations API durability', () => {
         return { id: 34 };
       },
     );
-    manager.transaction.mockImplementation(async (callback) => {
+    manager.transaction.mockImplementation(async (...args) => {
+      const callback = args[args.length - 1];
       const result = await callback(manager);
       events.push('commit');
       return result;
@@ -124,9 +139,6 @@ describe('Annotations API durability', () => {
     expect(
       historyService.createAnnotationChangeHistoryForSave,
     ).toHaveBeenCalledWith(expect.objectContaining({ id: 12 }), manager);
-    expect(
-      historyService.rememberAnnotationChangeHistoryLatestId,
-    ).toHaveBeenCalledWith(9, 34);
   });
 
   it('does not acknowledge or index a save when history persistence fails', async () => {
@@ -146,9 +158,6 @@ describe('Annotations API durability', () => {
       .expect(500);
 
     expect(indexAnnotation).not.toHaveBeenCalled();
-    expect(
-      historyService.rememberAnnotationChangeHistoryLatestId,
-    ).not.toHaveBeenCalled();
   });
 
   it('keeps a durable save successful when search indexing is unavailable', async () => {
@@ -200,12 +209,62 @@ describe('Annotations API durability', () => {
     expect(
       historyService.createAnnotationChangeHistoryForDelete,
     ).toHaveBeenCalledWith(expect.objectContaining({ id: 12 }), manager);
-    expect(
-      historyService.rememberAnnotationChangeHistoryLatestId,
-    ).toHaveBeenCalledWith(9, 35);
     expect(unindexAnnotation).toHaveBeenCalledWith(
       expect.objectContaining({ id: 12 }),
     );
+  });
+
+  it('returns a full snapshot and watermark from one repeatable-read transaction', async () => {
+    const annotation = Object.assign(new Annotation(), {
+      id: 12,
+      uid: 'annotation-uid',
+      user,
+      data: {},
+    });
+    annotationRepository.find.mockResolvedValue([annotation]);
+    const getLatestId = jest
+      .spyOn(AnnotationChangeHistory, 'getLatestIdForUser')
+      .mockResolvedValue(41);
+
+    const response = await request(app.getHttpServer())
+      .post('/annotations/list')
+      .send({})
+      .expect(201);
+
+    expect(response.body.annotationChangeHistoryLatestId).toBe(41);
+    expect(response.body.list).toHaveLength(1);
+    expect(manager.transaction).toHaveBeenCalledWith(
+      'REPEATABLE READ',
+      expect.any(Function),
+    );
+    expect(annotationRepository.find).toHaveBeenCalledWith({
+      where: { user: { id: 9 } },
+    });
+    expect(getLatestId).toHaveBeenCalledWith(user, manager);
+  });
+
+  it('queries committed history even when a replica-local watermark is stale', async () => {
+    historyService.getCachedAnnotationChangeHistoryLatestId.mockReturnValue(41);
+    historyRepository.findOne.mockResolvedValue({ id: 41 });
+    historyRepository.find.mockResolvedValue([
+      { id: 42, kind: 1, uid: 'annotation-uid' },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .post('/annotations/listDiff')
+      .send({ sinceId: 41 })
+      .expect(201);
+
+    expect(response.body).toEqual({
+      ok: true,
+      diff: [{ id: 42, kind: 1, uid: 'annotation-uid' }],
+    });
+    expect(manager.transaction).toHaveBeenCalledWith(
+      'REPEATABLE READ',
+      expect.any(Function),
+    );
+    expect(historyRepository.findOne).toHaveBeenCalled();
+    expect(historyRepository.find).toHaveBeenCalled();
   });
 
   it('uses allowlisted columns and forces the authenticated user scope', async () => {

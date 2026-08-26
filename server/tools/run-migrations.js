@@ -1,6 +1,24 @@
 const { AppDataSource } = require('../dist/database');
 
 const migrationLockName = 'notelix-database-migrations';
+const migrationLockRetryMs = 250;
+
+function sleep(delay) {
+  return new Promise((resolve) => setTimeout(resolve, delay));
+}
+
+async function acquireMigrationLock(queryRunner) {
+  while (true) {
+    const result = await queryRunner.query(
+      'SELECT pg_try_advisory_lock(hashtext($1)) AS acquired',
+      [migrationLockName],
+    );
+    if (result[0]?.acquired) {
+      return;
+    }
+    await sleep(migrationLockRetryMs);
+  }
+}
 
 async function main() {
   await AppDataSource.initialize();
@@ -8,11 +26,9 @@ async function main() {
   await lockConnection.connect();
 
   try {
-    await lockConnection.query('SELECT pg_advisory_lock(hashtext($1))', [
-      migrationLockName,
-    ]);
+    await acquireMigrationLock(lockConnection);
     const migrations = await AppDataSource.runMigrations({
-      transaction: 'all',
+      transaction: 'each',
     });
     if (migrations.length === 0) {
       console.log('No migrations are pending.');
