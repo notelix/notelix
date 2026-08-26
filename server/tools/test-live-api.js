@@ -423,19 +423,33 @@ async function main() {
   );
   assert.strictEqual(concurrentAnnotations.body.list.length, 1);
   assert.strictEqual(concurrentAnnotations.body.list[0].uid, concurrencyUid);
-  const concurrentHistory = await request(
-    '/annotations/listDiff',
-    { sinceId: 0 },
-    concurrencyHeaders,
-  );
-  assert.strictEqual(
-    concurrentHistory.status,
-    201,
-    JSON.stringify(concurrentHistory.body),
-  );
-  assert.strictEqual(concurrentHistory.body.diff.length, 5);
+  const concurrentHistoryEntries = [];
+  const concurrentHistoryPageSizes = [];
+  let concurrentHistoryCursor = 0;
+  let concurrentHistoryHasMore = true;
+  while (concurrentHistoryHasMore) {
+    const concurrentHistory = await request(
+      '/annotations/listDiff',
+      { sinceId: concurrentHistoryCursor, limit: 2 },
+      concurrencyHeaders,
+    );
+    assert.strictEqual(
+      concurrentHistory.status,
+      201,
+      JSON.stringify(concurrentHistory.body),
+    );
+    assert.strictEqual(concurrentHistory.body.ok, true);
+    assert.ok(concurrentHistory.body.diff.length > 0);
+    assert.ok(concurrentHistory.body.diff.length <= 2);
+    concurrentHistoryEntries.push(...concurrentHistory.body.diff);
+    concurrentHistoryPageSizes.push(concurrentHistory.body.diff.length);
+    concurrentHistoryCursor = concurrentHistory.body.diff.at(-1).id;
+    concurrentHistoryHasMore = concurrentHistory.body.hasMore;
+  }
+  assert.deepStrictEqual(concurrentHistoryPageSizes, [2, 2, 1]);
+  assert.strictEqual(concurrentHistoryEntries.length, 5);
   assert.ok(
-    concurrentHistory.body.diff.every(
+    concurrentHistoryEntries.every(
       (entry) => entry.kind === 1 && !Object.hasOwn(entry.data, 'user'),
     ),
   );

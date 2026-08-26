@@ -177,6 +177,10 @@ docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agen
 Agent sync requests time out after 30 seconds and accept at most 64 MiB of JSON
 by default. `AGENT_SYNC_REQUEST_TIMEOUT_MS` supports values from 100 to 300000,
 and `AGENT_SYNC_MAX_RESPONSE_BYTES` supports values from 1024 to 268435456.
+Diff history is served in pages of at most 250 entries by default. The agent
+drains up to 10 pages per cycle; `AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE` supports
+values from 1 to 100 so large backlogs make bounded progress without starving
+other work.
 The agent aborts an active request during shutdown and atomically persists its
 sync cursor. The state is bound to a one-way identity of the server, user,
 token version, and client-side encryption key; no credential is persisted.

@@ -20,6 +20,7 @@ describe('Agent control API', () => {
   const originalRunMode = process.env.RUN_MODE;
   const originalRequestTimeout = process.env.AGENT_SYNC_REQUEST_TIMEOUT_MS;
   const originalMaxResponseBytes = process.env.AGENT_SYNC_MAX_RESPONSE_BYTES;
+  const originalMaxDiffPages = process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE;
   const originalStatePath = process.env.AGENT_SYNC_STATE_PATH;
   const temporaryDirectories: string[] = [];
 
@@ -82,6 +83,11 @@ describe('Agent control API', () => {
       delete process.env.AGENT_SYNC_MAX_RESPONSE_BYTES;
     } else {
       process.env.AGENT_SYNC_MAX_RESPONSE_BYTES = originalMaxResponseBytes;
+    }
+    if (originalMaxDiffPages === undefined) {
+      delete process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE;
+    } else {
+      process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE = originalMaxDiffPages;
     }
     if (originalStatePath === undefined) {
       delete process.env.AGENT_SYNC_STATE_PATH;
@@ -249,6 +255,12 @@ describe('Agent control API', () => {
     expect(() => new AgentSyncController()).toThrow(
       'AGENT_SYNC_MAX_RESPONSE_BYTES must be an integer between 1024 and 268435456',
     );
+
+    delete process.env.AGENT_SYNC_MAX_RESPONSE_BYTES;
+    process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE = '101';
+    expect(() => new AgentSyncController()).toThrow(
+      'AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE must be an integer between 1 and 100',
+    );
   });
 
   it('atomically persists zero and positive sync cursors', () => {
@@ -311,6 +323,86 @@ describe('Agent control API', () => {
     expect(
       parseAgentSyncState(fs.readFileSync(statePath, 'utf8'))?.cursor,
     ).toBe(0);
+  });
+
+  it('drains bounded diff pages and advances the cursor between requests', async () => {
+    const controller = new AgentSyncController();
+    configureController(controller);
+    (controller as any).saveAnnotationChangeHistoryLatestId(
+      0,
+      controller.config.sourceIdentity,
+    );
+    jest.spyOn(controller, 'applyDiff').mockResolvedValue(undefined);
+    const fetchRequest = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            diff: [{ id: 1, kind: AnnotationChangeHistoryKindSave }],
+            hasMore: true,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            diff: [{ id: 2, kind: AnnotationChangeHistoryKindSave }],
+            hasMore: false,
+          }),
+          { status: 200 },
+        ),
+      );
+
+    await (controller as any).sync();
+
+    expect(fetchRequest).toHaveBeenNthCalledWith(
+      1,
+      'https://notelix.example/annotations/listDiff',
+      expect.objectContaining({ body: JSON.stringify({ sinceId: 0 }) }),
+    );
+    expect(fetchRequest).toHaveBeenNthCalledWith(
+      2,
+      'https://notelix.example/annotations/listDiff',
+      expect.objectContaining({ body: JSON.stringify({ sinceId: 1 }) }),
+    );
+    expect(
+      parseAgentSyncState(
+        fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
+      )?.cursor,
+    ).toBe(2);
+  });
+
+  it('caps diff pages per cycle while retaining progress', async () => {
+    process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE = '1';
+    const controller = new AgentSyncController();
+    configureController(controller);
+    (controller as any).saveAnnotationChangeHistoryLatestId(
+      0,
+      controller.config.sourceIdentity,
+    );
+    jest.spyOn(controller, 'applyDiff').mockResolvedValue(undefined);
+    const fetchRequest = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          diff: [{ id: 1, kind: AnnotationChangeHistoryKindSave }],
+          hasMore: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await (controller as any).sync();
+
+    expect(fetchRequest).toHaveBeenCalledTimes(1);
+    expect(
+      parseAgentSyncState(
+        fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
+      )?.cursor,
+    ).toBe(1);
   });
 
   it('preserves state for a refreshed token and invalidates it on source changes', async () => {

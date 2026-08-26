@@ -31,6 +31,7 @@ const annotationColumnSql = {
   host: 'host',
   userId: '"userId"',
 };
+const defaultAnnotationDiffPageSize = 250;
 
 function getAnnotationColumnSql(column: string): string {
   const sql = annotationColumnSql[column];
@@ -183,6 +184,7 @@ export class AnnotationsController {
   async ListDiff(@Body() request: ListDiffDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
     const sinceId = request.sinceId;
+    const limit = request.limit ?? defaultAnnotationDiffPageSize;
 
     return AppDataSource.transaction('REPEATABLE READ', async (manager) => {
       const historyRepository = manager.getRepository(AnnotationChangeHistory);
@@ -196,15 +198,18 @@ export class AnnotationsController {
         }
       }
 
-      const diff = await historyRepository.find({
+      const rows = await historyRepository.find({
         where: {
           id: MoreThan(sinceId),
           user: { id: user.id },
         },
         order: { id: 'ASC' },
+        take: limit + 1,
       });
+      const hasMore = rows.length > limit;
+      const diff = hasMore ? rows.slice(0, limit) : rows;
 
-      return { ok: true, diff };
+      return { ok: true, diff, hasMore };
     });
   }
 

@@ -29,6 +29,7 @@ const defaultAnnotationChangeHistoryLatestIdSavePath =
   '/data/.annotation_change_history_latest_id';
 const defaultSyncRequestTimeoutMs = 30000;
 const defaultSyncMaxResponseBytes = 64 * 1024 * 1024;
+const defaultSyncMaxDiffPagesPerCycle = 10;
 const syncStateVersion = 1;
 
 interface AgentSyncState {
@@ -197,6 +198,12 @@ export class AgentSyncController
     defaultSyncMaxResponseBytes,
     1024,
     256 * 1024 * 1024,
+  );
+  private readonly syncMaxDiffPagesPerCycle = readBoundedInteger(
+    'AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE',
+    defaultSyncMaxDiffPagesPerCycle,
+    1,
+    100,
   );
   config = emptyAgentConfig();
   private stopping = false;
@@ -511,41 +518,57 @@ export class AgentSyncController
       return;
     }
 
-    const data = await this.requestJson(
-      'annotation diff request',
-      '/annotations/listDiff',
-      { sinceId: latestId },
-      generation,
-    );
-    this.assertCurrentSync(generation, sourceIdentity);
-    if (!data || typeof data.ok !== 'boolean') {
-      throw new Error('annotation diff response must contain an ok flag');
-    }
-    if (!data.ok) {
-      this.logger.warn('Sync history is stale; scheduling a full re-list');
-      await this.resetData();
-      this.assertCurrentSync(generation, sourceIdentity);
-      return;
-    }
-    if (!Array.isArray(data.diff)) {
-      throw new Error('annotation diff response must contain a diff list');
-    }
-
-    this.logger.debug(`Applying ${data.diff.length} annotation changes`);
     let appliedId = latestId;
-    for (const diff of data.diff) {
-      const diffId = assertSyncCursor(diff?.id, 'annotation diff id');
-      if (diffId <= appliedId) {
-        throw new Error('annotation diff ids must be strictly increasing');
-      }
-      this.assertCurrentSync(generation, sourceIdentity);
-      await this.applyDiff(diff, () =>
-        this.assertCurrentSync(generation, sourceIdentity),
+    for (let page = 0; page < this.syncMaxDiffPagesPerCycle; page += 1) {
+      const data = await this.requestJson(
+        'annotation diff request',
+        '/annotations/listDiff',
+        { sinceId: appliedId },
+        generation,
       );
       this.assertCurrentSync(generation, sourceIdentity);
-      this.saveAnnotationChangeHistoryLatestId(diffId, sourceIdentity);
-      appliedId = diffId;
+      if (!data || typeof data.ok !== 'boolean') {
+        throw new Error('annotation diff response must contain an ok flag');
+      }
+      if (!data.ok) {
+        this.logger.warn('Sync history is stale; scheduling a full re-list');
+        await this.resetData();
+        this.assertCurrentSync(generation, sourceIdentity);
+        return;
+      }
+      if (!Array.isArray(data.diff)) {
+        throw new Error('annotation diff response must contain a diff list');
+      }
+      if (data.hasMore !== undefined && typeof data.hasMore !== 'boolean') {
+        throw new Error(
+          'annotation diff response hasMore flag must be a boolean',
+        );
+      }
+      if (data.hasMore === true && data.diff.length === 0) {
+        throw new Error(
+          'annotation diff response cannot have more empty pages',
+        );
+      }
+
+      this.logger.debug(`Applying ${data.diff.length} annotation changes`);
+      for (const diff of data.diff) {
+        const diffId = assertSyncCursor(diff?.id, 'annotation diff id');
+        if (diffId <= appliedId) {
+          throw new Error('annotation diff ids must be strictly increasing');
+        }
+        this.assertCurrentSync(generation, sourceIdentity);
+        await this.applyDiff(diff, () =>
+          this.assertCurrentSync(generation, sourceIdentity),
+        );
+        this.assertCurrentSync(generation, sourceIdentity);
+        this.saveAnnotationChangeHistoryLatestId(diffId, sourceIdentity);
+        appliedId = diffId;
+      }
+      if (data.hasMore !== true) {
+        return;
+      }
     }
+    this.logger.debug('More annotation changes remain for the next sync cycle');
   }
 
   private async resetData() {

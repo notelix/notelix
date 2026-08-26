@@ -277,6 +277,7 @@ describe('Annotations API durability', () => {
     expect(response.body).toEqual({
       ok: true,
       diff: [{ id: 42, kind: 1, uid: 'annotation-uid' }],
+      hasMore: false,
     });
     expect(manager.transaction).toHaveBeenCalledWith(
       'REPEATABLE READ',
@@ -284,6 +285,39 @@ describe('Annotations API durability', () => {
     );
     expect(historyRepository.findOne).toHaveBeenCalled();
     expect(historyRepository.find).toHaveBeenCalled();
+    expect(historyRepository.find).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 251 }),
+    );
+  });
+
+  it('returns bounded history pages and advertises remaining changes', async () => {
+    historyRepository.find.mockResolvedValue([
+      { id: 1, kind: 1 },
+      { id: 2, kind: 1 },
+      { id: 3, kind: 1 },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .post('/annotations/listDiff')
+      .send({ sinceId: 0, limit: 2 })
+      .expect(201);
+
+    expect(response.body).toEqual({
+      ok: true,
+      diff: [
+        { id: 1, kind: 1 },
+        { id: 2, kind: 1 },
+      ],
+      hasMore: true,
+    });
+    expect(historyRepository.find).toHaveBeenCalledWith({
+      where: {
+        id: expect.anything(),
+        user: { id: 9 },
+      },
+      order: { id: 'ASC' },
+      take: 3,
+    });
   });
 
   it('uses allowlisted columns and forces the authenticated user scope', async () => {
@@ -324,6 +358,11 @@ describe('Annotations API durability', () => {
     await request(app.getHttpServer())
       .post('/annotations/listDiff')
       .send({ sinceId: 1.5 })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/annotations/listDiff')
+      .send({ sinceId: 0, limit: 501 })
       .expect(400);
 
     expect(manager.transaction).not.toHaveBeenCalled();
