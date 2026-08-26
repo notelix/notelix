@@ -36,7 +36,7 @@
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "run-script-webpack-plugin": "^0.0.11",
-    "rxjs": "^7.2.0",
+    "rxjs": "^7.8.2",
     "typeorm": "^0.2.34",
     "webpack": "^5.45.1"
   },
