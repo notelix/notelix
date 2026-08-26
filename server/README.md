@@ -169,6 +169,9 @@ Requests are rate limited per client IP. `RATE_LIMIT_MAX` and
 password changes have tighter fixed limits. When the backend is behind a
 trusted reverse proxy, set `TRUST_PROXY_HOPS` to the exact number of proxy hops
 so clients are tracked separately; do not enable it for untrusted proxies.
+JSON and URL-encoded request bodies are limited to 1 MiB by default.
+`REQUEST_BODY_LIMIT_BYTES` accepts values from 1024 through 16777216; larger
+requests receive `413 Payload Too Large` before authentication or persistence.
 
 `GET /meta/health` is a process liveness check. `GET /meta/ready` checks both
 PostgreSQL and Meilisearch and returns `503` when either dependency is down.

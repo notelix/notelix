@@ -9,6 +9,7 @@ const validEnvironment = {
   PORT: '3000',
   MEILISEARCH_TASK_TIMEOUT_MS: '30000',
   RATE_LIMIT_TTL_MS: '60000',
+  REQUEST_BODY_LIMIT_BYTES: '1048576',
 };
 
 const cases = [
@@ -33,6 +34,12 @@ const cases = [
     environment: { RATE_LIMIT_TTL_MS: '1e3' },
     message:
       'RATE_LIMIT_TTL_MS must be an integer between 1 and 2147483647',
+  },
+  {
+    name: 'request body limit',
+    environment: { REQUEST_BODY_LIMIT_BYTES: '1e6' },
+    message:
+      'REQUEST_BODY_LIMIT_BYTES must be an integer between 1024 and 16777216',
   },
 ];
 

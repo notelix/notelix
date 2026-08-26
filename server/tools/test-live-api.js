@@ -209,6 +209,15 @@ async function main() {
     status: 'ok',
     checks: { postgres: 'up', meilisearch: 'up' },
   });
+  const oversizedRequest = await request('/users/login', {
+    username: 'oversized-request',
+    password: 'x'.repeat(1100000),
+  });
+  assert.strictEqual(
+    oversizedRequest.status,
+    413,
+    JSON.stringify(oversizedRequest.body),
+  );
   assert.strictEqual(
     (
       await request('/agentsync/set', {

@@ -1,6 +1,15 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { isAgentControlOriginAllowed } from './agentControl';
+import { readBoundedIntegerEnvironment } from '../runtime-config';
+
+const requestBodyLimitBytes = readBoundedIntegerEnvironment(
+  'REQUEST_BODY_LIMIT_BYTES',
+  1024 * 1024,
+  1024,
+  16 * 1024 * 1024,
+);
 
 export function createValidationPipe(): ValidationPipe {
   return new ValidationPipe({
@@ -38,8 +47,13 @@ function configureTrustedProxy(app: INestApplication): void {
   server.set('trust proxy', hops);
 }
 
-export function configureApplication(app: INestApplication): void {
+export function configureApplication(app: NestExpressApplication): void {
   configureTrustedProxy(app);
+  app.useBodyParser('json', { limit: requestBodyLimitBytes });
+  app.useBodyParser('urlencoded', {
+    extended: true,
+    limit: requestBodyLimitBytes,
+  });
   app.use(helmet());
   app.useGlobalPipes(createValidationPipe());
   if (process.env.RUN_MODE === 'AGENT' && !process.env.CORS_ORIGINS) {

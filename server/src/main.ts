@@ -14,6 +14,7 @@ import { bootstrapMeiliSearch } from './meilisearch';
 import { AppDataSource, DatabaseLifecycle } from './database';
 import { configureApplication } from './application';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import {
   AnnotationSearchSyncService,
   enqueueAllAnnotationSearchUpdates,
@@ -76,7 +77,9 @@ async function bootstrap() {
       ? rebuildAgentAnnotationSearchIndex
       : () => enqueueAllAnnotationSearchUpdates(AppDataSource.manager),
   );
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
   configureApplication(app);
   await app.listen(httpPort);
 }
