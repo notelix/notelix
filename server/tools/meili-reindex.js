@@ -1,4 +1,5 @@
 const ormconfig = require('../ormconfig');
+const { createHash, randomBytes } = require('crypto');
 const { Client } = require('pg');
 const { MeiliSearch } = require('meilisearch');
 const {
@@ -109,7 +110,7 @@ function isMeiliError(error, code) {
   );
 }
 
-async function ensureIndex(client) {
+async function ensureIndex(client, uid = indexName) {
   if (typeof client.createIndex !== 'function') {
     return;
   }
@@ -117,7 +118,7 @@ async function ensureIndex(client) {
   try {
     await waitForUpdate(
       client,
-      await client.createIndex(indexName, { primaryKey: 'id' }),
+      await client.createIndex(uid, { primaryKey: 'id' }),
     );
   } catch (error) {
     if (
@@ -129,9 +130,9 @@ async function ensureIndex(client) {
   }
 }
 
-async function clearIndex(client, index) {
+async function deleteIndexIfExists(client, uid) {
   try {
-    await waitForUpdate(client, await index.deleteAllDocuments());
+    await waitForUpdate(client, await client.deleteIndex(uid));
   } catch (error) {
     if (
       !isMeiliError(error, 'index_not_found') &&
@@ -140,6 +141,20 @@ async function clearIndex(client, index) {
       throw error;
     }
   }
+}
+
+function createReplacementIndexName() {
+  const indexDigest = createHash('sha256')
+    .update(indexName, 'utf8')
+    .digest('hex')
+    .slice(0, 12);
+  return [
+    'notelix_reindex',
+    indexDigest,
+    Date.now().toString(36),
+    process.pid,
+    randomBytes(6).toString('hex'),
+  ].join('_');
 }
 
 async function getAnnotationCounts(client) {
@@ -192,35 +207,48 @@ async function fetchAnnotationBatch(client, lastId) {
   return result.rows;
 }
 
-async function main() {
-  const postgres = createPostgresClient();
-  const meiliClient = createMeiliClient();
-  const annotationIndex = meiliClient.index(indexName);
+async function rebuildIndex(
+  postgres,
+  meiliClient,
+  {
+    replacementIndexName = createReplacementIndexName(),
+    logger = console,
+  } = {},
+) {
+  const replacementIndex = meiliClient.index(replacementIndexName);
+  let operationError;
+  let indexed = 0;
+  let indexMayExist = false;
 
-  await postgres.connect();
   try {
     const counts = await getAnnotationCounts(postgres);
-    console.log(
+    logger.log(
       `Found ${counts.total} annotations: ${counts.indexable} indexable, ${counts.skipped} skipped.`,
     );
     if (counts.skipped > 0) {
-      console.log(
+      logger.log(
         'Skipped annotations belong to client-side encrypted users. Reindex them from the agent instead.',
       );
     }
 
-    console.log(`Rebuilding Meilisearch index "${indexName}" at ${meiliHost}`);
-    await ensureIndex(meiliClient);
-    await clearIndex(meiliClient, annotationIndex);
+    logger.log(
+      `Building replacement Meilisearch index "${replacementIndexName}" at ${meiliHost}`,
+    );
+    indexMayExist = true;
     await waitForUpdate(
       meiliClient,
-      await annotationIndex.updateSettings({
+      await meiliClient.createIndex(replacementIndexName, {
+        primaryKey: 'id',
+      }),
+    );
+    await waitForUpdate(
+      meiliClient,
+      await replacementIndex.updateSettings({
         filterableAttributes: ['userId'],
       }),
     );
 
     let lastId = 0;
-    let indexed = 0;
     while (true) {
       const rows = await fetchAnnotationBatch(postgres, lastId);
       if (rows.length === 0) {
@@ -230,19 +258,70 @@ async function main() {
       lastId = rows[rows.length - 1].id;
       await waitForUpdate(
         meiliClient,
-        await annotationIndex.addDocuments(rows.map(toMeiliEntry)),
+        await replacementIndex.addDocuments(rows.map(toMeiliEntry)),
       );
       indexed += rows.length;
-      console.log(`Indexed ${indexed}/${counts.indexable} annotations`);
+      logger.log(`Indexed ${indexed}/${counts.indexable} annotations`);
     }
 
-    console.log(`Done. Indexed ${indexed} annotations into "${indexName}".`);
+    // Meilisearch requires both UIDs to exist before a swap. Creating an empty
+    // public index at this late stage keeps a first-time rebuild's empty-index
+    // window as short as possible, while an existing public index is untouched.
+    await ensureIndex(meiliClient, indexName);
+    logger.log(
+      `Replacement complete. Atomically swapping it into "${indexName}".`,
+    );
+    await waitForUpdate(
+      meiliClient,
+      await meiliClient.swapIndexes([
+        { indexes: [indexName, replacementIndexName] },
+      ]),
+    );
+  } catch (error) {
+    operationError = error;
+    throw error;
+  } finally {
+    if (indexMayExist) {
+      try {
+        // Before the swap this removes a partial replacement. After the swap,
+        // the same UID contains the superseded public index.
+        await deleteIndexIfExists(meiliClient, replacementIndexName);
+      } catch (cleanupError) {
+        if (!operationError) {
+          throw cleanupError;
+        }
+        logger.warn(
+          `Could not remove replacement index "${replacementIndexName}" after the rebuild failed: ${cleanupError.message}`,
+        );
+      }
+    }
+  }
+
+  logger.log(`Done. Indexed ${indexed} annotations into "${indexName}".`);
+  return indexed;
+}
+
+async function main() {
+  const postgres = createPostgresClient();
+  const meiliClient = createMeiliClient();
+
+  await postgres.connect();
+  try {
+    await rebuildIndex(postgres, meiliClient);
   } finally {
     await postgres.end();
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  rebuildIndex,
+  createReplacementIndexName,
+  toMeiliEntry,
+};

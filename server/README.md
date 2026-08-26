@@ -97,8 +97,10 @@ cursor; the server cannot rebuild those encrypted search documents.
 # rebuild Meilisearch index
 
 Run this after restoring or migrating Postgres without the matching Meilisearch
-volume. It clears and rebuilds the search index, so run it during a quiet period
-or briefly pause writes:
+volume. It builds a temporary index and atomically swaps it into service only
+after every batch succeeds. A failed rebuild leaves the active index untouched.
+Run it during a quiet period or briefly pause writes so changes made during the
+database scan cannot be missed by the replacement index:
 
 ```
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod exec backend npm run meili:reindex

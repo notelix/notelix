@@ -98,6 +98,7 @@ done
 npm run build
 node ./tools/test-runtime-config.js
 node ./tools/test-database-connect-timeout.js
+node ./tools/test-meili-reindex-atomic.js
 npm run migration:run:compiled &
 integration_migration_pid_one=$!
 npm run migration:run:compiled &
