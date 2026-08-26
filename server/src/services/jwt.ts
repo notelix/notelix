@@ -55,13 +55,17 @@ export default class JwtService implements OnModuleInit {
           reject('failed to verify jwt as ' + err.toString());
           return;
         }
-        resolve(User.findOne(decoded.id));
+        if (!decoded || typeof decoded !== 'object' || !decoded.id) {
+          reject('jwt payload does not contain a user id');
+          return;
+        }
+        resolve(User.findOne({ where: { id: decoded.id } }));
       });
     });
   }
 
   private async loadJwtPrivateKey(): Promise<JwtPrivateKey> {
-    const jwtPrivateKey = await JwtPrivateKey.findOne({});
+    const jwtPrivateKey = await JwtPrivateKey.findOne({ where: {} });
     if (!jwtPrivateKey) {
       await this.createJwtPrivateKey();
       return this.loadJwtPrivateKey();

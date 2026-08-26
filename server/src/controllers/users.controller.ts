@@ -42,7 +42,7 @@ export class UsersController {
     const enableClientSideEncryption =
       request.body['enableClientSideEncryption'];
 
-    const existingUser = await User.findOne({ name: username });
+    const existingUser = await User.findOne({ where: { name: username } });
     if (existingUser) {
       throw new ConflictException(`username ${username} already taken`);
     }
@@ -65,7 +65,7 @@ export class UsersController {
     const username = request.body['username'];
     const password = request.body['password'];
 
-    const user = await User.findOne({ name: username });
+    const user = await User.findOne({ where: { name: username } });
     if (!user) {
       throw new ForbiddenException(`user ${username} does not exist`);
     }

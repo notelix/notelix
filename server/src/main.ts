@@ -9,9 +9,8 @@ import JwtAuth from './authenticators/authenticators/jwtAuth';
 import StaticTokenAuth from './authenticators/authenticators/staticTokenAuth';
 import AnnotationChangeHistoryService from './services/annotationChangeHistory';
 import { AgentSyncController } from './controllers/agentSyncController';
-import { createConnection } from 'typeorm';
-import * as ormConfig from '../ormconfig';
 import { bootstrapMeiliSearch } from './meilisearch';
+import { AppDataSource, DatabaseLifecycle } from './database';
 
 @Module({
   imports: [],
@@ -27,16 +26,15 @@ import { bootstrapMeiliSearch } from './meilisearch';
     JwtAuth,
     StaticTokenAuth,
     AnnotationChangeHistoryService,
+    DatabaseLifecycle,
   ],
 })
 class AppModule {}
 
 export async function bootstrapSQL() {
-  await createConnection({
-    ...ormConfig,
-
-    synchronize: false,
-  });
+  if (!AppDataSource.isInitialized) {
+    await AppDataSource.initialize();
+  }
 }
 
 async function bootstrap() {
@@ -44,6 +42,7 @@ async function bootstrap() {
   await bootstrapMeiliSearch();
   const app = await NestFactory.create(AppModule);
   app.enableCors();
+  app.enableShutdownHooks();
   await app.listen(Number(process.env.PORT || 3000));
 }
 

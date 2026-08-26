@@ -3,7 +3,6 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  getManager,
   Index,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -50,14 +49,16 @@ export class Annotation extends BaseEntity {
       await meilisearchClient.IndexAnnotation(annotation);
     });
 
-    const existing = await Annotation.findOne({ id: annotation.id });
+    const existing = await Annotation.findOne({
+      where: { id: annotation.id },
+    });
     if (existing) {
       Object.assign(existing, annotation);
       await existing.save();
       return;
     }
 
-    await getManager().query(
+    await Annotation.getRepository().query(
       `insert into annotation (id, uid, url, title, host, data, "userId", created_at, updated_at)
              values ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
       [
