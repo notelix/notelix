@@ -1318,10 +1318,10 @@
   dependencies:
     "@tybys/wasm-util" "^0.10.3"
 
-"@notelix/web-marker@^2.0.6":
-  version "2.0.6"
-  resolved "https://registry.yarnpkg.com/@notelix/web-marker/-/web-marker-2.0.6.tgz#82e7d1f48b292244650bcdc81ffcca32acaf9b39"
-  integrity sha512-O+Z8HKVaRgzszL0k0fR7p5iGhMNjoeLZwPsusFo9IhlMwbbNLJo0oZcky0dXW7N8F5irdD9VddSCfXL3H3p1yg==
+"@notelix/web-marker@^2.0.10":
+  version "2.0.10"
+  resolved "https://registry.yarnpkg.com/@notelix/web-marker/-/web-marker-2.0.10.tgz#a3d008d4fbf146d64a6e937fc73d351123cff5ea"
+  integrity sha512-u8KQ3Ds3kXrRHeKQXc5i+wLnegwdg3kr1bXkk+jOUWc0YWN91S0vCuGnpGbD22DmVCRI9AmcwDJvP9aUHwcbNQ==
   dependencies:
     uuid "^8.3.2"
 
