@@ -1,6 +1,9 @@
 const ormconfig = require('../ormconfig');
 const { Client } = require('pg');
-const { readBoundedIntegerEnvironment } = require('../runtime-config');
+const {
+  readBooleanEnvironment,
+  readBoundedIntegerEnvironment,
+} = require('../runtime-config');
 
 const retryableConnectionCodes = new Set([
   '57P03',
@@ -17,17 +20,7 @@ function sleep(delay) {
 }
 
 function readBoolean(name, fallback) {
-  const value = process.env[name];
-  if (value === undefined || value === '') {
-    return fallback;
-  }
-  if (value === 'true') {
-    return true;
-  }
-  if (value === 'false') {
-    return false;
-  }
-  throw new Error(`${name} must be true or false`);
+  return readBooleanEnvironment(name, fallback);
 }
 
 function quoteIdentifier(identifier) {

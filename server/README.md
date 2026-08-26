@@ -108,6 +108,12 @@ the agent container instead:
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent exec backend npm run meili:reindex
 ```
 
+Reindex batches default to 500 rows. `MEILI_REINDEX_BATCH_SIZE` accepts 1 to
+5000, `MEILI_REINDEX_TIMEOUT_MS` accepts 1000 to 3600000 milliseconds, and
+`MEILI_REINDEX_INTERVAL_MS` accepts 100 to 30000 milliseconds. In agent mode,
+client-side-encrypted rows are included by default. Override that behavior only
+with an explicit true/false `MEILI_REINDEX_INCLUDE_CLIENT_SIDE_ENCRYPTED` value.
+
 Normal API saves and deletes enqueue a coalescing search-index update in the
 same PostgreSQL transaction as the annotation and its sync history. A
 replica-safe background worker retries failed Meilisearch batches with leased,
@@ -150,6 +156,8 @@ service instances through `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_DATABASE`,
 Numeric runtime settings accept decimal integers only. `DB_PORT` and `PORT`
 must be valid TCP ports from 1 to 65535; invalid values fail startup with a
 specific configuration error instead of reaching a database or socket driver.
+`RUN_MODE` defaults to `SERVER`; `AGENT` is the only alternative. Other values
+fail startup so a misspelled agent mode cannot silently enable server behavior.
 
 At startup, the backend first connects directly to `DB_DATABASE`. If it does not
 exist and `DB_AUTO_CREATE` is `true`, creation is serialized across replicas and

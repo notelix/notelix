@@ -22,10 +22,15 @@ import {
 import { rebuildAgentAnnotationSearchIndex } from './services/agentSearchIndex';
 import {
   readBoundedIntegerEnvironment,
+  readEnvironmentChoice,
   readPortEnvironment,
 } from '../runtime-config';
 
 const httpPort = readPortEnvironment('PORT', 3000);
+const runMode = readEnvironmentChoice('RUN_MODE', 'SERVER', [
+  'SERVER',
+  'AGENT',
+] as const);
 
 @Module({
   imports: [
@@ -73,7 +78,7 @@ export async function bootstrapSQL() {
 async function bootstrap() {
   await bootstrapSQL();
   await bootstrapMeiliSearch(
-    process.env.RUN_MODE === 'AGENT'
+    runMode === 'AGENT'
       ? rebuildAgentAnnotationSearchIndex
       : () => enqueueAllAnnotationSearchUpdates(AppDataSource.manager),
   );

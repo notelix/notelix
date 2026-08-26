@@ -1,43 +1,40 @@
 const ormconfig = require('../ormconfig');
 const { Client } = require('pg');
 const { MeiliSearch } = require('meilisearch');
+const {
+  readBooleanEnvironment,
+  readBoundedIntegerEnvironment,
+  readEnvironmentChoice,
+} = require('../runtime-config');
 
 const meiliHost = process.env.MEILISEARCH_HOST || 'http://meilisearch:7700';
 const indexName = process.env.MEILISEARCH_ANNOTATIONS_INDEX || 'annotations';
-const batchSize = readPositiveIntegerEnv('MEILI_REINDEX_BATCH_SIZE', 500);
-const updateTimeoutMs = readPositiveIntegerEnv(
+const runMode = readEnvironmentChoice('RUN_MODE', 'SERVER', [
+  'SERVER',
+  'AGENT',
+]);
+const batchSize = readBoundedIntegerEnvironment(
+  'MEILI_REINDEX_BATCH_SIZE',
+  500,
+  1,
+  5000,
+);
+const updateTimeoutMs = readBoundedIntegerEnvironment(
   'MEILI_REINDEX_TIMEOUT_MS',
   10 * 60 * 1000,
+  1000,
+  3600000,
 );
-const updateIntervalMs = readPositiveIntegerEnv(
+const updateIntervalMs = readBoundedIntegerEnvironment(
   'MEILI_REINDEX_INTERVAL_MS',
   500,
+  100,
+  30000,
 );
-const includeClientSideEncrypted = readBooleanEnv(
+const includeClientSideEncrypted = readBooleanEnvironment(
   'MEILI_REINDEX_INCLUDE_CLIENT_SIDE_ENCRYPTED',
-  process.env.RUN_MODE === 'AGENT',
+  runMode === 'AGENT',
 );
-
-function readPositiveIntegerEnv(name, fallback) {
-  const value = process.env[name];
-  if (!value) {
-    return fallback;
-  }
-
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`${name} must be a positive integer`);
-  }
-  return parsed;
-}
-
-function readBooleanEnv(name, fallback) {
-  const value = process.env[name];
-  if (value === undefined) {
-    return fallback;
-  }
-  return ['1', 'true', 'yes', 'y'].includes(value.toLowerCase());
-}
 
 function createPostgresClient() {
   return new Client({
@@ -92,7 +89,9 @@ async function waitForUpdate(client, update) {
   const task = await client.tasks.waitForTask(updateId, options);
   if (task.status !== 'succeeded') {
     throw new Error(
-      `Meilisearch task ${task.uid} ${task.status}: ${JSON.stringify(task.error)}`,
+      `Meilisearch task ${task.uid} ${task.status}: ${JSON.stringify(
+        task.error,
+      )}`,
     );
   }
 }

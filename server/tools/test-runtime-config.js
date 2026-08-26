@@ -3,6 +3,7 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 
 const serverEntryPoint = path.join(__dirname, '..', 'dist', 'main.js');
+const reindexEntryPoint = path.join(__dirname, 'meili-reindex.js');
 const validEnvironment = {
   ...process.env,
   DB_PORT: '5432',
@@ -11,6 +12,7 @@ const validEnvironment = {
   RATE_LIMIT_TTL_MS: '60000',
   REQUEST_BODY_LIMIT_BYTES: '1048576',
   TRUST_PROXY_HOPS: '',
+  RUN_MODE: 'SERVER',
 };
 
 const cases = [
@@ -33,8 +35,7 @@ const cases = [
   {
     name: 'rate limit duration',
     environment: { RATE_LIMIT_TTL_MS: '1e3' },
-    message:
-      'RATE_LIMIT_TTL_MS must be an integer between 1 and 2147483647',
+    message: 'RATE_LIMIT_TTL_MS must be an integer between 1 and 2147483647',
   },
   {
     name: 'request body limit',
@@ -47,14 +48,36 @@ const cases = [
     environment: { TRUST_PROXY_HOPS: '1e0' },
     message: 'TRUST_PROXY_HOPS must be an integer between 1 and 10',
   },
+  {
+    name: 'run mode',
+    environment: { RUN_MODE: 'agent' },
+    message: 'RUN_MODE must be one of: SERVER, AGENT',
+  },
+  {
+    name: 'reindex batch size',
+    entryPoint: reindexEntryPoint,
+    environment: { MEILI_REINDEX_BATCH_SIZE: '1e3' },
+    message: 'MEILI_REINDEX_BATCH_SIZE must be an integer between 1 and 5000',
+  },
+  {
+    name: 'reindex encryption switch',
+    entryPoint: reindexEntryPoint,
+    environment: { MEILI_REINDEX_INCLUDE_CLIENT_SIDE_ENCRYPTED: 'maybe' },
+    message:
+      'MEILI_REINDEX_INCLUDE_CLIENT_SIDE_ENCRYPTED must be true or false',
+  },
 ];
 
 for (const testCase of cases) {
-  const result = spawnSync(process.execPath, [serverEntryPoint], {
-    encoding: 'utf8',
-    env: { ...validEnvironment, ...testCase.environment },
-    timeout: 5000,
-  });
+  const result = spawnSync(
+    process.execPath,
+    [testCase.entryPoint || serverEntryPoint],
+    {
+      encoding: 'utf8',
+      env: { ...validEnvironment, ...testCase.environment },
+      timeout: 5000,
+    },
+  );
   assert.strictEqual(result.signal, null, `${testCase.name} check timed out`);
   assert.notStrictEqual(result.status, 0, `${testCase.name} was accepted`);
   assert.match(

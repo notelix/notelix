@@ -1,5 +1,7 @@
 import {
   readBoundedIntegerEnvironment,
+  readBooleanEnvironment,
+  readEnvironmentChoice,
   readPortEnvironment,
 } from '../runtime-config';
 
@@ -67,6 +69,34 @@ describe('Runtime numeric configuration', () => {
     expect(() => readPortEnvironment('PORT', 3000, { PORT: '65536' })).toThrow(
       'PORT must be an integer between 1 and 65535',
     );
+  });
+
+  it('accepts only explicit runtime modes', () => {
+    expect(
+      readEnvironmentChoice('RUN_MODE', 'SERVER', ['SERVER', 'AGENT'], {}),
+    ).toBe('SERVER');
+    expect(
+      readEnvironmentChoice('RUN_MODE', 'SERVER', ['SERVER', 'AGENT'], {
+        RUN_MODE: 'AGENT',
+      }),
+    ).toBe('AGENT');
+    expect(() =>
+      readEnvironmentChoice('RUN_MODE', 'SERVER', ['SERVER', 'AGENT'], {
+        RUN_MODE: 'agent',
+      }),
+    ).toThrow('RUN_MODE must be one of: SERVER, AGENT');
+  });
+
+  it('rejects ambiguous boolean values', () => {
+    expect(readBooleanEnvironment('ENABLED', false, { ENABLED: 'true' })).toBe(
+      true,
+    );
+    expect(readBooleanEnvironment('ENABLED', true, { ENABLED: 'false' })).toBe(
+      false,
+    );
+    expect(() =>
+      readBooleanEnvironment('ENABLED', false, { ENABLED: 'sometimes' }),
+    ).toThrow('ENABLED must be true or false');
   });
 
   it('fails while loading database configuration with an invalid port', () => {

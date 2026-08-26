@@ -37,4 +37,39 @@ function readPortEnvironment(name, fallback, environment = process.env) {
   return readBoundedIntegerEnvironment(name, fallback, 1, 65535, environment);
 }
 
-module.exports = { readBoundedIntegerEnvironment, readPortEnvironment };
+function readEnvironmentChoice(
+  name,
+  fallback,
+  allowedValues,
+  environment = process.env,
+) {
+  const configured = environment[name];
+  const value =
+    configured === undefined || configured === '' ? fallback : configured;
+  if (!allowedValues.includes(value)) {
+    throw new Error(`${name} must be one of: ${allowedValues.join(', ')}`);
+  }
+  return value;
+}
+
+function readBooleanEnvironment(name, fallback, environment = process.env) {
+  const configured = environment[name];
+  if (configured === undefined || configured === '') {
+    return fallback;
+  }
+  const normalized = configured.toLowerCase();
+  if (normalized === 'true') {
+    return true;
+  }
+  if (normalized === 'false') {
+    return false;
+  }
+  throw new Error(`${name} must be true or false`);
+}
+
+module.exports = {
+  readBooleanEnvironment,
+  readBoundedIntegerEnvironment,
+  readEnvironmentChoice,
+  readPortEnvironment,
+};
