@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@notelix/web-marker": "^2.0.10",
-    "@babel/runtime": "^7.29.7",
+    "@babel/runtime": "^8.0.0",
     "classnames": "^2.5.1",
     "core-js": "^3.36.0",
     "crypto-js": "^4.2.0",
