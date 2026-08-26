@@ -160,6 +160,41 @@ async function assertStaticTokenIsProtected(staticToken) {
   }
 }
 
+async function assertStaticTokenIsAbsent(staticToken) {
+  const client = new Client({
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  });
+  await client.connect();
+  try {
+    const tokenDigest = createHash('sha256')
+      .update(staticToken, 'utf8')
+      .digest('hex');
+    const persisted = await client.query(
+      'SELECT 1 FROM "static_token" WHERE "staticToken" = $1',
+      [tokenDigest],
+    );
+    assert.strictEqual(persisted.rowCount, 0);
+  } finally {
+    await client.end();
+  }
+}
+
+async function assertStaticTokenIsRejected(baseUrl, staticToken) {
+  const response = await requestAt(baseUrl, '/users/who-am-i', undefined, {
+    Authorization: `static-token ${staticToken}`,
+  });
+  assert.strictEqual(response.status, 401, JSON.stringify(response.body));
+  assert.deepStrictEqual(response.body, {
+    message: 'authentication failed',
+    clearClientCredentials: true,
+  });
+  await assertStaticTokenIsAbsent(staticToken);
+}
+
 async function assertAnnotationHistoryIsProtected(username) {
   const client = new Client({
     user: ormconfig.username,
@@ -275,6 +310,9 @@ async function main() {
   );
 
   const staticToken = 's'.repeat(64);
+  if (secondaryServerUrl) {
+    await assertStaticTokenIsRejected(secondaryServerUrl, 'u'.repeat(64));
+  }
   const staticTokenResponses = await Promise.all(
     Array.from({ length: 5 }, () =>
       request('/users/who-am-i', undefined, {
@@ -288,6 +326,24 @@ async function main() {
     1,
   );
   await assertStaticTokenIsProtected(staticToken);
+  if (secondaryServerUrl) {
+    const registeredTokenResponse = await requestAt(
+      secondaryServerUrl,
+      '/users/who-am-i',
+      undefined,
+      { Authorization: `static-token ${staticToken}` },
+    );
+    assert.strictEqual(
+      registeredTokenResponse.status,
+      200,
+      JSON.stringify(registeredTokenResponse.body),
+    );
+    assert.strictEqual(
+      registeredTokenResponse.body.id,
+      staticTokenResponses[0].body.id,
+    );
+  }
+  await assertStaticTokenIsRejected(serverUrl, 'v'.repeat(64));
   const emptySnapshot = await request(
     '/annotations/listPage',
     {},

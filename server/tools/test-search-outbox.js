@@ -4,7 +4,7 @@ const ormconfig = require('../ormconfig');
 
 const mode = process.argv[2];
 const serverUrl = process.env.TEST_SERVER_URL || 'http://127.0.0.1:18575';
-const staticToken = 'b'.repeat(64);
+const staticToken = 's'.repeat(64);
 const headers = {
   authorization: `static-token ${staticToken}`,
   'content-type': 'application/json',
@@ -104,7 +104,9 @@ async function main() {
     const response = await request('/annotations/delete', { uid });
     assert.strictEqual(response.status, 201, JSON.stringify(response));
     assert.strictEqual((await getOutboxRows()).length, 1);
-    console.log('Search outbox retained a deletion while Meilisearch was down.');
+    console.log(
+      'Search outbox retained a deletion while Meilisearch was down.',
+    );
     return;
   }
 

@@ -38,7 +38,7 @@ async function main() {
   const search = await fetch(new URL('/annotations/search', serverUrl), {
     method: 'POST',
     headers: {
-      Authorization: `static-token ${'d'.repeat(64)}`,
+      Authorization: `static-token ${'s'.repeat(64)}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ q: 'unavailable search' }),

@@ -131,6 +131,8 @@ npm run test:compose
 "${integration_compose[@]}" up --detach --wait
 
 export NODE_ENV=test
+export STATIC_TOKEN_AUTO_PROVISION=true
+export STATIC_TOKEN_AUTO_PROVISION_LIMIT=1
 export PORT="${integration_server_port}"
 export DB_HOST=127.0.0.1
 export DB_PORT="${integration_db_port}"
@@ -195,6 +197,7 @@ DB_POOL_ACQUIRE_TIMEOUT_MS=1000 DB_QUERY_TIMEOUT_MS=5000 \
   node ./dist/main.js >"${integration_server_log}" 2>&1 &
 integration_server_pid=$!
 PORT="${integration_secondary_server_port}" \
+  STATIC_TOKEN_AUTO_PROVISION=false \
   DB_POOL_ACQUIRE_TIMEOUT_MS=1000 DB_QUERY_TIMEOUT_MS=5000 \
   node ./dist/main.js >"${integration_secondary_server_log}" 2>&1 &
 integration_secondary_server_pid=$!

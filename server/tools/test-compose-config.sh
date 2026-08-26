@@ -102,6 +102,26 @@ for (const stack of stacks) {
   );
 }
 
+assert.equal(
+  configs.prod.services.backend.environment.STATIC_TOKEN_AUTO_PROVISION,
+  'false',
+);
+assert.equal(
+  configs.agent.services.backend.environment.STATIC_TOKEN_AUTO_PROVISION,
+  'false',
+);
+assert.equal(
+  configs.dev.services.backend.environment.STATIC_TOKEN_AUTO_PROVISION,
+  'true',
+);
+for (const stack of stacks) {
+  assert.equal(
+    configs[stack].services.backend.environment
+      .STATIC_TOKEN_AUTO_PROVISION_LIMIT,
+    '1000',
+  );
+}
+
 function backendPort(config) {
   const port = config.services.backend.ports.find(
     (candidate) => candidate.target === 3000,

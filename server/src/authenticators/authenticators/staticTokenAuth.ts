@@ -3,13 +3,21 @@ import { Injectable } from '@nestjs/common';
 import { StaticToken } from '../../models/staticToken.entity';
 import { User } from '../../models/user.entity';
 import { AppDataSource } from '../../database';
-import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { digestStaticToken } from '../../security/staticToken';
+import { readStaticTokenProvisioningConfig } from '../../security/staticTokenProvisioning';
 import { InvalidAuthenticationCredentialError } from '../invalidAuthenticationCredential.error';
+
+// This is a valid bcrypt hash of a discarded random value. Static-token-only
+// accounts must have no usable password, and provisioning should not spend a
+// bcrypt operation on every new account.
+const staticTokenOnlyPasswordHash =
+  '$2b$10$OMs94UKu6b4hrVocX6MrHefLtaoLMn5St/XcyyeFnM9jNb4TYEmYu';
 
 @Injectable()
 export class StaticTokenAuth implements Authenticator {
+  private readonly provisioning = readStaticTokenProvisioningConfig();
+
   getAuthenticatorName() {
     return 'static-token';
   }
@@ -37,6 +45,12 @@ export class StaticTokenAuth implements Authenticator {
       return existingToken.user;
     }
 
+    if (!this.provisioning.enabled) {
+      throw new InvalidAuthenticationCredentialError(
+        'static-token is not registered',
+      );
+    }
+
     return AppDataSource.transaction(async (manager) => {
       await manager.query(
         'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
@@ -50,9 +64,24 @@ export class StaticTokenAuth implements Authenticator {
       });
 
       if (!staticTokenEntity) {
+        const [provisioningLock] = await manager.query(
+          'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+          ['notelix-static-token-provisioning'],
+        );
+        if (!provisioningLock?.acquired) {
+          throw new Error('static-token provisioning is busy');
+        }
+
+        const accountCount = await staticTokenRepository.count();
+        if (accountCount >= this.provisioning.accountLimit) {
+          throw new InvalidAuthenticationCredentialError(
+            'static-token provisioning limit reached',
+          );
+        }
+
         let user = new User();
         user.name = `guest_${randomBytes(16).toString('hex')}`;
-        user.password = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
+        user.password = staticTokenOnlyPasswordHash;
         user.client_side_encryption = '';
         user = await manager.save(user);
 
