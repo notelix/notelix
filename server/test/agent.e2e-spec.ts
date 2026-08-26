@@ -21,6 +21,8 @@ describe('Agent control API', () => {
   const originalRequestTimeout = process.env.AGENT_SYNC_REQUEST_TIMEOUT_MS;
   const originalMaxResponseBytes = process.env.AGENT_SYNC_MAX_RESPONSE_BYTES;
   const originalMaxDiffPages = process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE;
+  const originalMaxSnapshotPages =
+    process.env.AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE;
   const originalStatePath = process.env.AGENT_SYNC_STATE_PATH;
   const temporaryDirectories: string[] = [];
 
@@ -49,6 +51,13 @@ describe('Agent control API', () => {
     );
     const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
     return `${header}.${body}.${signature}`;
+  }
+
+  function readPersistedCursor(): number | null {
+    const state = parseAgentSyncState(
+      fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
+    );
+    return state?.version === 1 ? state.cursor : null;
   }
 
   beforeEach(async () => {
@@ -88,6 +97,12 @@ describe('Agent control API', () => {
       delete process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE;
     } else {
       process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE = originalMaxDiffPages;
+    }
+    if (originalMaxSnapshotPages === undefined) {
+      delete process.env.AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE;
+    } else {
+      process.env.AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE =
+        originalMaxSnapshotPages;
     }
     if (originalStatePath === undefined) {
       delete process.env.AGENT_SYNC_STATE_PATH;
@@ -261,6 +276,12 @@ describe('Agent control API', () => {
     expect(() => new AgentSyncController()).toThrow(
       'AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE must be an integer between 1 and 100',
     );
+
+    delete process.env.AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE;
+    process.env.AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE = '0';
+    expect(() => new AgentSyncController()).toThrow(
+      'AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE must be an integer between 1 and 100',
+    );
   });
 
   it('atomically persists zero and positive sync cursors', () => {
@@ -284,9 +305,7 @@ describe('Agent control API', () => {
     ).toBe(0);
 
     (controller as any).saveAnnotationChangeHistoryLatestId(41, sourceIdentity);
-    expect(
-      parseAgentSyncState(fs.readFileSync(statePath, 'utf8'))?.cursor,
-    ).toBe(41);
+    expect(readPersistedCursor()).toBe(41);
     expect(fs.readdirSync(directory)).toEqual(['cursor']);
 
     fs.writeFileSync(statePath, 'partial-write', 'utf8');
@@ -320,9 +339,7 @@ describe('Agent control API', () => {
       'https://notelix.example/annotations/listDiff',
       expect.objectContaining({ body: JSON.stringify({ sinceId: 0 }) }),
     );
-    expect(
-      parseAgentSyncState(fs.readFileSync(statePath, 'utf8'))?.cursor,
-    ).toBe(0);
+    expect(readPersistedCursor()).toBe(0);
   });
 
   it('drains bounded diff pages and advances the cursor between requests', async () => {
@@ -368,11 +385,7 @@ describe('Agent control API', () => {
       'https://notelix.example/annotations/listDiff',
       expect.objectContaining({ body: JSON.stringify({ sinceId: 1 }) }),
     );
-    expect(
-      parseAgentSyncState(
-        fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
-      )?.cursor,
-    ).toBe(2);
+    expect(readPersistedCursor()).toBe(2);
   });
 
   it('caps diff pages per cycle while retaining progress', async () => {
@@ -398,11 +411,7 @@ describe('Agent control API', () => {
     await (controller as any).sync();
 
     expect(fetchRequest).toHaveBeenCalledTimes(1);
-    expect(
-      parseAgentSyncState(
-        fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
-      )?.cursor,
-    ).toBe(1);
+    expect(readPersistedCursor()).toBe(1);
   });
 
   it('preserves state for a refreshed token and invalidates it on source changes', async () => {
@@ -431,9 +440,7 @@ describe('Agent control API', () => {
       .set('Origin', 'chrome-extension://extension-id')
       .send({ config: refreshedConfig })
       .expect(201);
-    expect(
-      parseAgentSyncState(fs.readFileSync(statePath, 'utf8'))?.cursor,
-    ).toBe(41);
+    expect(readPersistedCursor()).toBe(41);
 
     await request(app.getHttpServer())
       .post('/agentsync/set')
@@ -555,11 +562,191 @@ describe('Agent control API', () => {
         body: JSON.stringify({ snapshotId, afterId: 1 }),
       }),
     );
+    expect(readPersistedCursor()).toBe(7);
+  });
+
+  it('checkpoints a bounded snapshot cycle and resumes it after restart', async () => {
+    process.env.AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE = '1';
+    const snapshotId = '123e4567-e89b-42d3-a456-426614174000';
+    const persist = jest
+      .spyOn(Annotation, 'agentSyncPersist')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(meilisearchClient, 'IndexAnnotation')
+      .mockResolvedValue(undefined);
+    const fetchRequest = jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          list: [{ id: 1, uid: 'one', data: {} }],
+          annotationChangeHistoryLatestId: 7,
+          snapshotId,
+          nextAfterId: 1,
+          hasMore: true,
+        }),
+        { status: 200 },
+      ),
+    );
+    const firstController = new AgentSyncController();
+    configureController(firstController);
+    const firstReset = jest
+      .spyOn(firstController as any, 'resetData')
+      .mockResolvedValue(undefined);
+
+    await (firstController as any).sync();
+
+    expect(firstReset).toHaveBeenCalledTimes(1);
     expect(
       parseAgentSyncState(
         fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
-      )?.cursor,
-    ).toBe(7);
+      ),
+    ).toEqual({
+      version: 2,
+      sourceIdentity: firstController.config.sourceIdentity,
+      snapshotId,
+      afterId: 1,
+      watermark: 7,
+    });
+
+    fetchRequest.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          list: [{ id: 2, uid: 'two', data: {} }],
+          annotationChangeHistoryLatestId: 7,
+          snapshotId,
+          nextAfterId: 2,
+          hasMore: false,
+        }),
+        { status: 200 },
+      ),
+    );
+    const resumedController = new AgentSyncController();
+    configureController(resumedController);
+    const resumedReset = jest.spyOn(resumedController as any, 'resetData');
+
+    await (resumedController as any).sync();
+
+    expect(resumedReset).not.toHaveBeenCalled();
+    expect(fetchRequest).toHaveBeenNthCalledWith(
+      2,
+      'https://notelix.example/annotations/listPage',
+      expect.objectContaining({
+        body: JSON.stringify({ snapshotId, afterId: 1 }),
+      }),
+    );
+    expect(persist.mock.calls.map(([annotation]) => annotation.id)).toEqual([
+      1, 2,
+    ]);
+    expect(readPersistedCursor()).toBe(7);
+  });
+
+  it('replays a partially persisted snapshot page from its last checkpoint', async () => {
+    const snapshotId = '123e4567-e89b-42d3-a456-426614174000';
+    const controller = new AgentSyncController();
+    configureController(controller);
+    (controller as any).saveSnapshotProgress(
+      controller.config.sourceIdentity,
+      snapshotId,
+      1,
+      7,
+    );
+    const page = new Response(
+      JSON.stringify({
+        list: [
+          { id: 2, uid: 'two', data: {} },
+          { id: 3, uid: 'three', data: {} },
+        ],
+        annotationChangeHistoryLatestId: 7,
+        snapshotId,
+        nextAfterId: 3,
+        hasMore: false,
+      }),
+      { status: 200 },
+    );
+    const fetchRequest = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(page)
+      .mockResolvedValueOnce(page.clone());
+    const persistedIds: number[] = [];
+    let failOnce = true;
+    jest
+      .spyOn(Annotation, 'agentSyncPersist')
+      .mockImplementation(async (annotation) => {
+        persistedIds.push(annotation.id);
+        if (annotation.id === 3 && failOnce) {
+          failOnce = false;
+          throw new Error('simulated persistence failure');
+        }
+      });
+    jest
+      .spyOn(meilisearchClient, 'IndexAnnotation')
+      .mockResolvedValue(undefined);
+    const resetData = jest.spyOn(controller as any, 'resetData');
+
+    await expect((controller as any).sync()).rejects.toThrow(
+      'simulated persistence failure',
+    );
+    expect(
+      parseAgentSyncState(
+        fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
+      ),
+    ).toEqual({
+      version: 2,
+      sourceIdentity: controller.config.sourceIdentity,
+      snapshotId,
+      afterId: 1,
+      watermark: 7,
+    });
+
+    await (controller as any).sync();
+
+    expect(fetchRequest).toHaveBeenCalledTimes(2);
+    expect(persistedIds).toEqual([2, 3, 2, 3]);
+    expect(resetData).not.toHaveBeenCalled();
+    expect(readPersistedCursor()).toBe(7);
+  });
+
+  it('discards expired snapshot progress before starting over', async () => {
+    const snapshotId = '123e4567-e89b-42d3-a456-426614174000';
+    const controller = new AgentSyncController();
+    configureController(controller);
+    (controller as any).saveSnapshotProgress(
+      controller.config.sourceIdentity,
+      snapshotId,
+      1,
+      7,
+    );
+    const resetData = jest.spyOn(controller as any, 'resetData');
+    const fetchRequest = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response('expired', { status: 410 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            list: [],
+            annotationChangeHistoryLatestId: 8,
+            snapshotId: '123e4567-e89b-42d3-a456-426614174001',
+            nextAfterId: 0,
+            hasMore: false,
+          }),
+          { status: 200 },
+        ),
+      );
+
+    await (controller as any).sync();
+
+    expect(resetData).not.toHaveBeenCalled();
+    expect(fs.existsSync(process.env.AGENT_SYNC_STATE_PATH)).toBe(false);
+
+    resetData.mockResolvedValue(undefined);
+    await (controller as any).sync();
+
+    expect(fetchRequest).toHaveBeenNthCalledWith(
+      2,
+      'https://notelix.example/annotations/listPage',
+      expect.objectContaining({ body: '{}' }),
+    );
+    expect(resetData).toHaveBeenCalledTimes(1);
+    expect(readPersistedCursor()).toBe(8);
   });
 
   it('falls back to the legacy full-list endpoint for older servers', async () => {
@@ -587,11 +774,7 @@ describe('Agent control API', () => {
     expect(fetchRequest.mock.calls[1][0]).toBe(
       'https://notelix.example/annotations/list',
     );
-    expect(
-      parseAgentSyncState(
-        fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
-      )?.cursor,
-    ).toBe(0);
+    expect(readPersistedCursor()).toBe(0);
   });
 
   it('preserves local data when a full snapshot request fails', async () => {

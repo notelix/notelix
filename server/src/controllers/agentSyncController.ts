@@ -30,13 +30,27 @@ const defaultAnnotationChangeHistoryLatestIdSavePath =
 const defaultSyncRequestTimeoutMs = 30000;
 const defaultSyncMaxResponseBytes = 64 * 1024 * 1024;
 const defaultSyncMaxDiffPagesPerCycle = 10;
-const syncStateVersion = 1;
+const defaultSyncMaxSnapshotPagesPerCycle = 10;
+const syncCursorStateVersion = 1;
+const syncSnapshotStateVersion = 2;
+const snapshotIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-interface AgentSyncState {
-  version: typeof syncStateVersion;
+interface AgentSyncCursorState {
+  version: typeof syncCursorStateVersion;
   sourceIdentity: string;
   cursor: number;
 }
+
+interface AgentSyncSnapshotState {
+  version: typeof syncSnapshotStateVersion;
+  sourceIdentity: string;
+  snapshotId: string;
+  afterId: number;
+  watermark: number;
+}
+
+type AgentSyncState = AgentSyncCursorState | AgentSyncSnapshotState;
 
 class SyncSupersededError extends Error {
   constructor() {
@@ -90,17 +104,39 @@ export function parseSyncCursor(value: string): number | null {
 
 export function parseAgentSyncState(value: string): AgentSyncState | null {
   try {
-    const state = JSON.parse(value) as Partial<AgentSyncState>;
+    const state = JSON.parse(value) as {
+      version?: unknown;
+      sourceIdentity?: unknown;
+      cursor?: unknown;
+      snapshotId?: unknown;
+      afterId?: unknown;
+      watermark?: unknown;
+    };
     if (
-      state.version !== syncStateVersion ||
       typeof state.sourceIdentity !== 'string' ||
-      !/^[a-f\d]{64}$/.test(state.sourceIdentity) ||
-      !Number.isSafeInteger(state.cursor) ||
-      (state.cursor as number) < 0
+      !/^[a-f\d]{64}$/.test(state.sourceIdentity)
     ) {
       return null;
     }
-    return state as AgentSyncState;
+    if (
+      state.version === syncCursorStateVersion &&
+      Number.isSafeInteger(state.cursor) &&
+      (state.cursor as number) >= 0
+    ) {
+      return state as AgentSyncCursorState;
+    }
+    if (
+      state.version === syncSnapshotStateVersion &&
+      typeof state.snapshotId === 'string' &&
+      snapshotIdPattern.test(state.snapshotId) &&
+      Number.isSafeInteger(state.afterId) &&
+      (state.afterId as number) >= 0 &&
+      Number.isSafeInteger(state.watermark) &&
+      (state.watermark as number) >= 0
+    ) {
+      return state as AgentSyncSnapshotState;
+    }
+    return null;
   } catch (_error) {
     return null;
   }
@@ -208,6 +244,12 @@ export class AgentSyncController
   private readonly syncMaxDiffPagesPerCycle = readBoundedInteger(
     'AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE',
     defaultSyncMaxDiffPagesPerCycle,
+    1,
+    100,
+  );
+  private readonly syncMaxSnapshotPagesPerCycle = readBoundedInteger(
+    'AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE',
+    defaultSyncMaxSnapshotPagesPerCycle,
     1,
     100,
   );
@@ -491,7 +533,15 @@ export class AgentSyncController
     const generation = this.configGeneration;
     const sourceIdentity = this.config.sourceIdentity;
     this.assertCurrentSync(generation, sourceIdentity);
-    const latestId = this.getAnnotationChangeHistoryLatestId(sourceIdentity);
+    const syncState = this.getAgentSyncState(sourceIdentity);
+    if (syncState?.version === syncSnapshotStateVersion) {
+      this.logger.debug(
+        `Resuming snapshot ${syncState.snapshotId} after annotation ${syncState.afterId}`,
+      );
+      await this.syncFullSnapshot(generation, sourceIdentity, syncState);
+      return;
+    }
+    const latestId = syncState?.cursor ?? null;
     this.logger.debug(`Synchronizing after history id ${latestId ?? 'none'}`);
     if (latestId === null) {
       await this.syncFullSnapshot(generation, sourceIdentity);
@@ -568,111 +618,140 @@ export class AgentSyncController
   private async syncFullSnapshot(
     generation: number,
     sourceIdentity: string,
+    progress?: AgentSyncSnapshotState,
   ): Promise<void> {
-    let firstPage: any;
     try {
-      firstPage = await this.requestJson(
+      let page = await this.requestJson(
         'annotation snapshot request',
         '/annotations/listPage',
-        {},
+        progress
+          ? { snapshotId: progress.snapshotId, afterId: progress.afterId }
+          : {},
         generation,
       );
-    } catch (error) {
-      if (!(error instanceof SyncRequestError) || error.status !== 404) {
-        throw error;
-      }
-      this.logger.warn(
-        'Source does not support paged snapshots; using the legacy list endpoint',
-      );
-      await this.syncLegacyFullSnapshot(generation, sourceIdentity);
-      return;
-    }
-
-    let page = firstPage;
-    let snapshotId: string | undefined;
-    let historyId: number | undefined;
-    let afterId = 0;
-    let totalAnnotations = 0;
-    let isFirstPage = true;
-    while (true) {
-      this.assertCurrentSync(generation, sourceIdentity);
-      if (!page || !Array.isArray(page.list)) {
-        throw new Error('annotation snapshot response must contain a list');
-      }
-      if (typeof page.snapshotId !== 'string' || !page.snapshotId) {
-        throw new Error(
-          'annotation snapshot response must contain a snapshotId',
-        );
-      }
-      if (typeof page.hasMore !== 'boolean') {
-        throw new Error(
-          'annotation snapshot response must contain a hasMore flag',
-        );
-      }
-      const pageHistoryId = assertSyncCursor(
-        page.annotationChangeHistoryLatestId,
-        'annotationChangeHistoryLatestId',
-      );
-      const nextAfterId = assertSyncCursor(
-        page.nextAfterId,
-        'annotation snapshot nextAfterId',
-      );
-      if (snapshotId && page.snapshotId !== snapshotId) {
-        throw new Error('annotation snapshot id changed between pages');
-      }
-      if (historyId !== undefined && pageHistoryId !== historyId) {
-        throw new Error('annotation snapshot watermark changed between pages');
-      }
-      if (page.hasMore && page.list.length === 0) {
-        throw new Error('annotation snapshot cannot have more empty pages');
-      }
-      let lastAnnotationId = afterId;
-      for (const annotation of page.list) {
-        const annotationId = assertSyncCursor(
-          annotation?.id,
-          'annotation snapshot id',
-        );
-        if (annotationId <= lastAnnotationId) {
+      let snapshotId = progress?.snapshotId;
+      let historyId = progress?.watermark;
+      let afterId = progress?.afterId ?? 0;
+      let cycleAnnotations = 0;
+      let isFirstPage = !progress;
+      for (
+        let pageIndex = 0;
+        pageIndex < this.syncMaxSnapshotPagesPerCycle;
+        pageIndex += 1
+      ) {
+        this.assertCurrentSync(generation, sourceIdentity);
+        if (!page || !Array.isArray(page.list)) {
+          throw new Error('annotation snapshot response must contain a list');
+        }
+        if (
+          typeof page.snapshotId !== 'string' ||
+          !snapshotIdPattern.test(page.snapshotId)
+        ) {
           throw new Error(
-            'annotation snapshot ids must be strictly increasing',
+            'annotation snapshot response must contain a valid snapshotId',
           );
         }
-        lastAnnotationId = annotationId;
-      }
-      if (nextAfterId !== lastAnnotationId) {
-        throw new Error(
-          'annotation snapshot nextAfterId does not match its list',
+        if (typeof page.hasMore !== 'boolean') {
+          throw new Error(
+            'annotation snapshot response must contain a hasMore flag',
+          );
+        }
+        const pageHistoryId = assertSyncCursor(
+          page.annotationChangeHistoryLatestId,
+          'annotationChangeHistoryLatestId',
         );
-      }
+        const nextAfterId = assertSyncCursor(
+          page.nextAfterId,
+          'annotation snapshot nextAfterId',
+        );
+        if (snapshotId && page.snapshotId !== snapshotId) {
+          throw new Error('annotation snapshot id changed between pages');
+        }
+        if (historyId !== undefined && pageHistoryId !== historyId) {
+          throw new Error(
+            'annotation snapshot watermark changed between pages',
+          );
+        }
+        if (page.hasMore && page.list.length === 0) {
+          throw new Error('annotation snapshot cannot have more empty pages');
+        }
+        let lastAnnotationId = afterId;
+        for (const annotation of page.list) {
+          const annotationId = assertSyncCursor(
+            annotation?.id,
+            'annotation snapshot id',
+          );
+          if (annotationId <= lastAnnotationId) {
+            throw new Error(
+              'annotation snapshot ids must be strictly increasing',
+            );
+          }
+          lastAnnotationId = annotationId;
+        }
+        if (nextAfterId !== lastAnnotationId) {
+          throw new Error(
+            'annotation snapshot nextAfterId does not match its list',
+          );
+        }
 
-      snapshotId = page.snapshotId;
-      historyId = pageHistoryId;
-      const annotations = await Promise.all(
-        page.list.map((annotation) => this.decryptAnnotation(annotation)),
-      );
-      this.assertCurrentSync(generation, sourceIdentity);
-      if (isFirstPage) {
-        await this.resetData();
-        this.assertCurrentSync(generation, sourceIdentity);
-        isFirstPage = false;
-      }
-      await this.persistSnapshotPage(annotations, generation, sourceIdentity);
-      totalAnnotations += page.list.length;
-      if (!page.hasMore) {
-        this.logger.log(
-          `Persisted ${totalAnnotations} synchronized annotations`,
+        snapshotId = page.snapshotId;
+        historyId = pageHistoryId;
+        const annotations = await Promise.all(
+          page.list.map((annotation) => this.decryptAnnotation(annotation)),
         );
-        this.saveAnnotationChangeHistoryLatestId(historyId, sourceIdentity);
+        this.assertCurrentSync(generation, sourceIdentity);
+        if (isFirstPage) {
+          await this.resetData();
+          this.assertCurrentSync(generation, sourceIdentity);
+          isFirstPage = false;
+        }
+        await this.persistSnapshotPage(annotations, generation, sourceIdentity);
+        cycleAnnotations += page.list.length;
+        if (!page.hasMore) {
+          this.logger.log(
+            `Persisted final snapshot page (${cycleAnnotations} annotations this cycle)`,
+          );
+          this.saveAnnotationChangeHistoryLatestId(historyId, sourceIdentity);
+          return;
+        }
+
+        afterId = nextAfterId;
+        this.saveSnapshotProgress(
+          sourceIdentity,
+          snapshotId,
+          afterId,
+          historyId,
+        );
+        if (pageIndex + 1 >= this.syncMaxSnapshotPagesPerCycle) {
+          this.logger.debug(
+            `Checkpointed snapshot ${snapshotId} after annotation ${afterId}`,
+          );
+          return;
+        }
+        page = await this.requestJson(
+          'annotation snapshot request',
+          '/annotations/listPage',
+          { snapshotId, afterId },
+          generation,
+        );
+      }
+    } catch (error) {
+      if (error instanceof SyncRequestError && error.status === 410) {
+        this.logger.warn(
+          'Snapshot session expired; scheduling a fresh re-list',
+        );
+        this.clearAgentSyncState();
         return;
       }
-
-      afterId = nextAfterId;
-      page = await this.requestJson(
-        'annotation snapshot request',
-        '/annotations/listPage',
-        { snapshotId, afterId },
-        generation,
-      );
+      if (error instanceof SyncRequestError && error.status === 404) {
+        this.clearAgentSyncState();
+        this.logger.warn(
+          'Source does not support paged snapshots; using the legacy list endpoint',
+        );
+        await this.syncLegacyFullSnapshot(generation, sourceIdentity);
+        return;
+      }
+      throw error;
     }
   }
 
@@ -741,16 +820,39 @@ export class AgentSyncController
     const existingState = this.loadAgentSyncState();
     if (
       existingState?.sourceIdentity === sourceIdentity &&
+      existingState.version === syncCursorStateVersion &&
       existingState.cursor > cursor
     ) {
       return;
     }
 
-    const state: AgentSyncState = {
-      version: syncStateVersion,
+    this.writeAgentSyncState({
+      version: syncCursorStateVersion,
       sourceIdentity,
       cursor,
+    });
+  }
+
+  private saveSnapshotProgress(
+    sourceIdentity: string,
+    snapshotId: string,
+    afterId: number,
+    watermark: number,
+  ): void {
+    const state: AgentSyncSnapshotState = {
+      version: syncSnapshotStateVersion,
+      sourceIdentity,
+      snapshotId,
+      afterId: assertSyncCursor(afterId, 'annotation snapshot afterId'),
+      watermark: assertSyncCursor(watermark, 'annotation snapshot watermark'),
     };
+    if (!parseAgentSyncState(JSON.stringify(state))) {
+      throw new Error('agent snapshot progress is invalid');
+    }
+    this.writeAgentSyncState(state);
+  }
+
+  private writeAgentSyncState(state: AgentSyncState): void {
     const statePath = getSyncStatePath();
     const temporaryPath = `${statePath}.${process.pid}.tmp`;
     let fileDescriptor: number | undefined;
@@ -797,6 +899,11 @@ export class AgentSyncController
   private getAnnotationChangeHistoryLatestId(
     sourceIdentity: string,
   ): number | null {
+    const state = this.getAgentSyncState(sourceIdentity);
+    return state?.version === syncCursorStateVersion ? state.cursor : null;
+  }
+
+  private getAgentSyncState(sourceIdentity: string): AgentSyncState | null {
     const state = this.loadAgentSyncState();
     if (!state) {
       return null;
@@ -807,7 +914,7 @@ export class AgentSyncController
       );
       return null;
     }
-    return state.cursor;
+    return state;
   }
 
   private clearAgentSyncState(): void {

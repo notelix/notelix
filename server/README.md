@@ -183,7 +183,10 @@ values from 1 to 100 so large backlogs make bounded progress without starving
 other work. Full re-lists use expiring, repeatable-read snapshot sessions with
 pages of at most 100 annotations, keeping responses bounded without missing
 writes that commit between pages. Older servers fall back to the legacy list
-endpoint.
+endpoint. The agent atomically checkpoints each completed snapshot page and
+drains at most 10 per cycle; `AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE` supports
+values from 1 to 100, allowing large or interrupted snapshots to resume without
+replaying page one or exhausting the API rate limit.
 The agent aborts an active request during shutdown and atomically persists its
 sync cursor. The state is bound to a one-way identity of the server, user,
 token version, and client-side encryption key; no credential is persisted.
