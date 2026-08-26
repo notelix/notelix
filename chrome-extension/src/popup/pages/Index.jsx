@@ -1,25 +1,34 @@
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
-import { NotelixChromeStorageKey, NotelixDefaultServer } from "../consts";
+import { NotelixDefaultServer } from "../consts";
+import { clearUser, getServer, getUser, setServer } from "../../storage";
+import { getKey } from "../../encryption";
 
 export const Index = () => {
-  const history = useHistory();
+  const navigate = useNavigate();
   useEffect(() => {
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      value[NotelixChromeStorageKey] = value[NotelixChromeStorageKey] || {};
-      const { notelixServer, notelixUser } = value[NotelixChromeStorageKey];
+    async function resolveRoute() {
+      const [notelixServer, notelixUser] = await Promise.all([
+        getServer(),
+        getUser(),
+      ]);
       if (!notelixServer) {
-        value[NotelixChromeStorageKey].notelixServer = NotelixDefaultServer;
-        chrome.storage.sync.set(value, () => {
-          history.push("/login");
-        });
+        await setServer(NotelixDefaultServer);
+        navigate("/login");
       } else if (!notelixUser) {
-        history.push("/login");
+        navigate("/login");
       } else {
-        history.push("/user-info");
+        try {
+          await getKey();
+          navigate("/user-info");
+        } catch {
+          await clearUser();
+          navigate("/login");
+        }
       }
-    });
-  }, []);
+    }
+    resolveRoute();
+  }, [navigate]);
 
   return null;
 };

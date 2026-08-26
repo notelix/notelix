@@ -1,4 +1,4 @@
-function handleApiCall(request, sender, sendResponse) {
+function handleApiCall(request, sendResponse) {
   fetch(request.params.url, {
     method: request.params.method,
     body:
@@ -11,7 +11,16 @@ function handleApiCall(request, sender, sendResponse) {
     },
   })
     .then(async (res) => {
-      const response = { status: res.status, body: await res.json() };
+      const text = await res.text();
+      let body = null;
+      if (text) {
+        try {
+          body = JSON.parse(text);
+        } catch {
+          body = text;
+        }
+      }
+      const response = { status: res.status, body };
       sendResponse(response);
     })
     .catch((err) => {
@@ -23,7 +32,7 @@ function handleApiCall(request, sender, sendResponse) {
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   switch (request.cmd) {
     case "apiCall":
-      handleApiCall(request, sender, sendResponse);
+      handleApiCall(request, sendResponse);
       break;
   }
   return true;

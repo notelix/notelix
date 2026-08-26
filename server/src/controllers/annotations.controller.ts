@@ -1,18 +1,44 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Logger,
   NotFoundException,
   Post,
-  Req,
-  Request,
 } from '@nestjs/common';
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { Annotation } from '../models/annotation.entity';
-import { getManager, MoreThan } from 'typeorm';
+import { MoreThan } from 'typeorm';
 import { AnnotationChangeHistory } from '../models/annotationChangeHistory.entity';
 import AnnotationChangeHistoryService from '../services/annotationChangeHistory';
 import { meilisearchClient } from '../meilisearch';
 import { isRunModeAgent } from './agentSyncController';
+import { AppDataSource } from '../database';
+import {
+  DeleteAnnotationDto,
+  FindAnnotationsDto,
+  ListDiffDto,
+  QueryAnnotationsByUrlDto,
+  SaveAnnotationDto,
+  SearchAnnotationsDto,
+} from '../dto/annotations.dto';
+
+const annotationColumnSql = {
+  id: 'id',
+  uid: 'uid',
+  url: 'url',
+  title: 'title',
+  host: 'host',
+  userId: '"userId"',
+};
+
+function getAnnotationColumnSql(column: string): string {
+  const sql = annotationColumnSql[column];
+  if (!sql) {
+    throw new BadRequestException(`unsupported annotation field ${column}`);
+  }
+  return sql;
+}
 
 @Controller('annotations')
 export class AnnotationsController {
@@ -24,26 +50,26 @@ export class AnnotationsController {
   ) {}
 
   @Post('/save')
-  async Save(@Req() request: Request): Promise<any> {
+  async Save(@Body() request: SaveAnnotationDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const uid = request.body['uid'];
+    const uid = request.uid;
 
-    const { annotation, history } = await getManager().transaction(
+    const { annotation, history } = await AppDataSource.transaction(
       async (manager) => {
         const annotationRepository = manager.getRepository(Annotation);
         let annotation = await annotationRepository.findOne({
-          where: { user, uid },
+          where: { user: { id: user.id }, uid },
         });
 
         if (!annotation) {
           annotation = new Annotation();
         }
         annotation.user = user;
-        annotation.data = request.body['data'] || {};
+        annotation.data = request.data || {};
         annotation.uid = uid;
-        annotation.url = request.body['url'] || '';
-        annotation.title = request.body['title'] || '';
-        annotation.host = request.body['host'] || '';
+        annotation.url = request.url || '';
+        annotation.title = request.title || '';
+        annotation.host = request.host || '';
         delete annotation.data.uid;
         delete annotation.data.url;
         delete annotation.data.title;
@@ -86,13 +112,16 @@ export class AnnotationsController {
   }
 
   @Post('/delete')
-  async Delete(@Req() request: Request): Promise<any> {
+  async Delete(@Body() request: DeleteAnnotationDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const { annotation, history } = await getManager().transaction(
+    const { annotation, history } = await AppDataSource.transaction(
       async (manager) => {
         const annotationRepository = manager.getRepository(Annotation);
         const annotation = await annotationRepository.findOne({
-          where: { user, uid: request.body['uid'] },
+          where: {
+            user: { id: user.id },
+            uid: request.uid,
+          },
         });
 
         if (!annotation) {
@@ -125,11 +154,13 @@ export class AnnotationsController {
   }
 
   @Post('/queryByUrl')
-  async QueryByUrl(@Req() request: Request): Promise<any> {
+  async QueryByUrl(@Body() request: QueryAnnotationsByUrlDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
     const list = await Annotation.find({
-      user: user,
-      url: request.body['url'],
+      where: {
+        user: { id: user.id },
+        url: request.url,
+      },
     });
 
     return { list: list.map(Annotation.Neat) };
@@ -140,9 +171,9 @@ export class AnnotationsController {
     const user = await this.authenticationService.getAuthenticatedUser();
 
     return await new Promise(async (resolve) => {
-      await getManager().transaction(async () => {
+      await AppDataSource.transaction(async () => {
         const list = await Annotation.find({
-          user: user,
+          where: { user: { id: user.id } },
         });
         const annotationChangeHistoryLatestId =
           await AnnotationChangeHistory.getLatestIdForUser(user);
@@ -153,9 +184,9 @@ export class AnnotationsController {
   }
 
   @Post('/listDiff')
-  async ListDiff(@Req() request: Request): Promise<any> {
+  async ListDiff(@Body() request: ListDiffDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const sinceId = request.body['sinceId'];
+    const sinceId = request.sinceId;
     const cachedSinceId =
       this.annotationChangeHistoryService.getCachedAnnotationChangeHistoryLatestId(
         user.id,
@@ -166,12 +197,11 @@ export class AnnotationsController {
     }
 
     return await new Promise(async (resolve) => {
-      await getManager().transaction(async () => {
+      await AppDataSource.transaction(async () => {
         let diff = [];
         if (sinceId !== 0) {
           const history = await AnnotationChangeHistory.findOne({
-            id: sinceId,
-            user,
+            where: { id: sinceId, user: { id: user.id } },
           });
           if (!history) {
             // already pruned
@@ -181,8 +211,11 @@ export class AnnotationsController {
         }
 
         diff = await AnnotationChangeHistory.find({
-          id: MoreThan(sinceId),
-          user: user,
+          where: {
+            id: MoreThan(sinceId),
+            user: { id: user.id },
+          },
+          order: { id: 'ASC' },
         });
 
         if (diff.length > 0) {
@@ -203,13 +236,13 @@ export class AnnotationsController {
   }
 
   @Post('/search')
-  async Search(@Req() request: Request): Promise<any> {
+  async Search(@Body() request: SearchAnnotationsDto): Promise<any> {
     let userId = 0;
     if (!isRunModeAgent()) {
       const user = await this.authenticationService.getAuthenticatedUser();
       userId = user.id;
     }
-    const q = request.body['q'];
+    const q = request.q;
     if (!q || !q.trim()) {
       return { results: { hits: [] } };
     }
@@ -218,40 +251,42 @@ export class AnnotationsController {
   }
 
   @Post('/find')
-  async Find(@Req() request: Request): Promise<any> {
+  async Find(@Body() request: FindAnnotationsDto): Promise<any> {
     let userId = 0;
     if (!isRunModeAgent()) {
       const user = await this.authenticationService.getAuthenticatedUser();
       userId = user.id;
     }
-    const selectors = request.body['selectors'] || {};
-    const groupBy = request.body['groupBy'] || '';
+    const requestedSelectors = request.selectors || {};
+    if (
+      typeof requestedSelectors !== 'object' ||
+      Array.isArray(requestedSelectors)
+    ) {
+      throw new BadRequestException('selectors must be an object');
+    }
+    const selectors = { ...requestedSelectors };
+    const groupBy = request.groupBy || '';
     selectors['userId'] = userId;
 
     const selectorsKeyAndValues = Object.entries(selectors);
+    const whereSql = selectorsKeyAndValues
+      .map(
+        (entry, index) => `${getAnnotationColumnSql(entry[0])}=$${index + 1}`,
+      )
+      .join(' AND ');
+    const values = selectorsKeyAndValues.map((entry) => entry[1]);
 
     if (groupBy) {
-      const sqlQuery = `select count(1) as count, ${JSON.stringify(
-        groupBy,
-      )} from annotation where ${selectorsKeyAndValues
-        .map((entry, index) => `${JSON.stringify(entry[0])}=$${index + 1}`)
-        .join(' AND ')} GROUP BY ${JSON.stringify(groupBy)}`;
+      const groupBySql = getAnnotationColumnSql(groupBy);
+      const sqlQuery = `select count(1) as count, ${groupBySql} from annotation where ${whereSql} GROUP BY ${groupBySql}`;
 
-      const list = await getManager().query(
-        sqlQuery,
-        selectorsKeyAndValues.map((x) => x[1]),
-      );
+      const list = await AppDataSource.manager.query(sqlQuery, values);
 
       return { list };
     } else {
-      const sqlQuery = `select * from annotation where ${selectorsKeyAndValues
-        .map((entry, index) => `${JSON.stringify(entry[0])}=$${index + 1}`)
-        .join(' AND ')}`;
+      const sqlQuery = `select * from annotation where ${whereSql}`;
 
-      const list = await getManager().query(
-        sqlQuery,
-        selectorsKeyAndValues.map((x) => x[1]),
-      );
+      const list = await AppDataSource.manager.query(sqlQuery, values);
 
       return { list };
     }

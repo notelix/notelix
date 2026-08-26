@@ -40,7 +40,11 @@ function request(path, body, headers = {}) {
           } catch (_error) {
             // Preserve non-JSON responses for useful assertion messages.
           }
-          resolve({ status: response.statusCode, body: parsedBody });
+          resolve({
+            status: response.statusCode,
+            body: parsedBody,
+            headers: response.headers,
+          });
         });
       },
     );
@@ -55,8 +59,8 @@ function request(path, body, headers = {}) {
 async function waitForServer() {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
-      const response = await request('/meta/version');
-      if (response.status === 200 && response.body.notelix === true) {
+      const response = await request('/meta/ready');
+      if (response.status === 200 && response.body.status === 'ok') {
         return;
       }
     } catch (_error) {
@@ -89,10 +93,45 @@ async function waitForSearch(headers, query, expectedHits) {
 async function main() {
   await waitForServer();
 
+  const metadata = await request('/meta/version');
+  assert.strictEqual(metadata.headers['x-content-type-options'], 'nosniff');
+  assert.strictEqual(metadata.headers['x-frame-options'], 'SAMEORIGIN');
+  assert.strictEqual(metadata.headers['access-control-allow-origin'], '*');
+  assert.deepStrictEqual((await request('/meta/health')).body, {
+    status: 'ok',
+  });
+  assert.deepStrictEqual((await request('/meta/ready')).body, {
+    status: 'ok',
+    checks: { postgres: 'up', meilisearch: 'up' },
+  });
+  assert.strictEqual(
+    (
+      await request('/agentsync/set', {
+        config: {
+          enabled: true,
+          url: 'https://notelix.example',
+          token: 'signed-jwt',
+          clientSideEncryptionKey: null,
+        },
+      })
+    ).status,
+    403,
+  );
+
   const username = `integration-${Date.now()}`;
   const password = 'integration-password';
   const uid = 'integration-annotation';
   const url = 'https://example.com/integration';
+
+  assert.strictEqual(
+    (
+      await request('/users/signup', {
+        username: `${username}-invalid`,
+        password: 'short',
+      })
+    ).status,
+    400,
+  );
 
   assert.strictEqual(
     (await request('/users/signup', { username, password })).status,
@@ -104,8 +143,57 @@ async function main() {
   assert.strictEqual(login.body.name, username);
   assert.strictEqual(Object.hasOwn(login.body, 'password'), false);
   assert.ok(login.body.jwt);
+  const jwtPayload = JSON.parse(
+    Buffer.from(login.body.jwt.split('.')[1], 'base64url').toString('utf8'),
+  );
+  assert.strictEqual(jwtPayload.iss, 'notelix');
+  assert.ok(jwtPayload.exp > jwtPayload.iat);
+
+  const duplicateSignup = await request('/users/signup', {
+    username: `  ${username}  `,
+    password,
+  });
+  assert.strictEqual(
+    duplicateSignup.status,
+    409,
+    JSON.stringify(duplicateSignup.body),
+  );
+
+  const staticToken = 's'.repeat(64);
+  const staticTokenResponses = await Promise.all(
+    Array.from({ length: 5 }, () =>
+      request('/users/who-am-i', undefined, {
+        Authorization: `static-token ${staticToken}`,
+      }),
+    ),
+  );
+  assert.ok(staticTokenResponses.every((response) => response.status === 200));
+  assert.strictEqual(
+    new Set(staticTokenResponses.map((response) => response.body.id)).size,
+    1,
+  );
 
   const headers = { Authorization: `jwt ${login.body.jwt}` };
+  assert.strictEqual(
+    (
+      await request(
+        '/annotations/find',
+        { selectors: { 'host; DROP TABLE annotation': 'example.com' } },
+        headers,
+      )
+    ).status,
+    400,
+  );
+  assert.strictEqual(
+    (
+      await request(
+        '/annotations/save',
+        { uid: 'x'.repeat(65), data: {} },
+        headers,
+      )
+    ).status,
+    400,
+  );
   const save = await request(
     '/annotations/save',
     {
@@ -118,6 +206,37 @@ async function main() {
     headers,
   );
   assert.strictEqual(save.status, 201, JSON.stringify(save.body));
+
+  const secondUsername = `${username}-second`;
+  assert.strictEqual(
+    (await request('/users/signup', { username: secondUsername, password }))
+      .status,
+    201,
+  );
+  const secondLogin = await request('/users/login', {
+    username: secondUsername,
+    password,
+  });
+  assert.strictEqual(secondLogin.status, 201, JSON.stringify(secondLogin.body));
+  const secondUserHeaders = {
+    Authorization: `jwt ${secondLogin.body.jwt}`,
+  };
+  const secondUserSave = await request(
+    '/annotations/save',
+    {
+      uid,
+      url: `${url}/second-user`,
+      host: 'example.com',
+      title: 'Second user annotation',
+      data: { text: 'same uid, separate tenant' },
+    },
+    secondUserHeaders,
+  );
+  assert.strictEqual(
+    secondUserSave.status,
+    201,
+    JSON.stringify(secondUserSave.body),
+  );
 
   const listDiff = await request(
     '/annotations/listDiff',
@@ -151,6 +270,20 @@ async function main() {
   assert.strictEqual(deleteDiff.body.diff.length, 1);
   assert.strictEqual(deleteDiff.body.diff[0].kind, 2);
   await waitForSearch(headers, 'searchable text', 0);
+
+  let rateLimited = false;
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const response = await request('/users/login', {
+      username: `rate-limit-${attempt}`,
+      password: 'incorrect-password',
+    });
+    if (response.status === 429) {
+      rateLimited = true;
+      break;
+    }
+    assert.strictEqual(response.status, 403, JSON.stringify(response.body));
+  }
+  assert.strictEqual(rateLimited, true, 'login endpoint was not rate limited');
 
   console.log('Live API integration test passed.');
 }

@@ -39,6 +39,14 @@ class ApiClient {
       chrome.runtime.sendMessage(
         { cmd: "apiCall", params: { method: method, url, data, headers } },
         function (response) {
+          if (chrome.runtime.lastError) {
+            reject(new RequestError(chrome.runtime.lastError.message));
+            return;
+          }
+          if (!response) {
+            reject(new RequestError("background request returned no response"));
+            return;
+          }
           if (response.err) {
             reject(new RequestError(response.err));
           } else {

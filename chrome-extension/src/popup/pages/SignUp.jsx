@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { signUp } from "../../api/user";
-import { useHistory } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { makeClientSideEncryptionParams } from "../../encryption/utils";
 import { NotelixDefaultServer } from "../consts";
 import { getServer } from "../../api/common";
 
 export const SignUp = () => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [enableClientSideEncryption, setEnableClientSideEncryption] =
@@ -64,7 +64,7 @@ export const SignUp = () => {
       enableClientSideEncryption,
       client_side_encryption,
     }).then(() => {
-      history.push("/login");
+      navigate("/login");
       alert("Sign up successful");
     });
   };

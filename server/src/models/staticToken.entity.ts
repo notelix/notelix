@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   OneToOne,
   PrimaryGeneratedColumn,
@@ -11,6 +12,7 @@ import {
 import { User } from './user.entity';
 
 @Entity()
+@Index('UQ_static_token_token', ['staticToken'], { unique: true })
 export class StaticToken extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
