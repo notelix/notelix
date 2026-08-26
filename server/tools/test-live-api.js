@@ -367,6 +367,89 @@ async function main() {
     JSON.stringify(secondUserSave.body),
   );
 
+  const concurrencyUsername = `${username}-concurrency`;
+  assert.strictEqual(
+    (
+      await request('/users/signup', {
+        username: concurrencyUsername,
+        password,
+        enableClientSideEncryption: true,
+        client_side_encryption: 'encrypted-client-key',
+      })
+    ).status,
+    201,
+  );
+  const concurrencyLogin = await request('/users/login', {
+    username: concurrencyUsername,
+    password,
+  });
+  assert.strictEqual(
+    concurrencyLogin.status,
+    201,
+    JSON.stringify(concurrencyLogin.body),
+  );
+  const concurrencyHeaders = {
+    Authorization: `jwt ${concurrencyLogin.body.jwt}`,
+  };
+  const concurrencyUid = 'concurrent-annotation';
+  const concurrencyUrl = 'https://example.com/concurrent';
+  const concurrentSaves = await Promise.all(
+    Array.from({ length: 5 }, (_, index) =>
+      request(
+        '/annotations/save',
+        {
+          uid: concurrencyUid,
+          url: concurrencyUrl,
+          title: `Concurrent update ${index}`,
+          data: { text: `encrypted update ${index}` },
+        },
+        concurrencyHeaders,
+      ),
+    ),
+  );
+  assert.ok(
+    concurrentSaves.every((response) => response.status === 201),
+    JSON.stringify(concurrentSaves),
+  );
+  const concurrentAnnotations = await request(
+    '/annotations/queryByUrl',
+    { url: concurrencyUrl },
+    concurrencyHeaders,
+  );
+  assert.strictEqual(
+    concurrentAnnotations.status,
+    201,
+    JSON.stringify(concurrentAnnotations.body),
+  );
+  assert.strictEqual(concurrentAnnotations.body.list.length, 1);
+  assert.strictEqual(concurrentAnnotations.body.list[0].uid, concurrencyUid);
+  const concurrentHistory = await request(
+    '/annotations/listDiff',
+    { sinceId: 0 },
+    concurrencyHeaders,
+  );
+  assert.strictEqual(
+    concurrentHistory.status,
+    201,
+    JSON.stringify(concurrentHistory.body),
+  );
+  assert.strictEqual(concurrentHistory.body.diff.length, 5);
+  assert.ok(
+    concurrentHistory.body.diff.every(
+      (entry) => entry.kind === 1 && !Object.hasOwn(entry.data, 'user'),
+    ),
+  );
+  assert.strictEqual(
+    (
+      await request(
+        '/annotations/delete',
+        { uid: concurrencyUid },
+        concurrencyHeaders,
+      )
+    ).status,
+    201,
+  );
+
   const syncReadUrl = secondaryServerUrl || serverUrl;
   const fullSnapshot = await requestAt(
     syncReadUrl,

@@ -30,6 +30,7 @@ describe('Annotations API durability', () => {
   };
   let manager: {
     getRepository: jest.Mock;
+    query: jest.Mock;
     transaction: jest.Mock;
   };
   let databaseQuery: jest.SpyInstance;
@@ -62,6 +63,7 @@ describe('Annotations API durability', () => {
       getRepository: jest.fn((entity) =>
         entity === Annotation ? annotationRepository : historyRepository,
       ),
+      query: jest.fn(),
       transaction: jest.fn(async (...args) => {
         const callback = args[args.length - 1];
         return callback(manager);
@@ -102,6 +104,9 @@ describe('Annotations API durability', () => {
   it('commits annotation and sync history before acknowledging a save', async () => {
     const events = [];
     annotationRepository.findOne.mockResolvedValue(undefined);
+    manager.query.mockImplementation(async () => {
+      events.push('lock');
+    });
     annotationRepository.save.mockImplementation(async (annotation) => {
       events.push('annotation');
       annotation.id = 12;
@@ -135,7 +140,17 @@ describe('Annotations API durability', () => {
       })
       .expect(201);
 
-    expect(events).toEqual(['annotation', 'history', 'commit', 'index']);
+    expect(events).toEqual([
+      'lock',
+      'annotation',
+      'history',
+      'commit',
+      'index',
+    ]);
+    expect(manager.query).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      ['notelix-annotation:9:annotation-uid'],
+    );
     expect(
       historyService.createAnnotationChangeHistoryForSave,
     ).toHaveBeenCalledWith(expect.objectContaining({ id: 12 }), manager);
@@ -209,6 +224,10 @@ describe('Annotations API durability', () => {
     expect(
       historyService.createAnnotationChangeHistoryForDelete,
     ).toHaveBeenCalledWith(expect.objectContaining({ id: 12 }), manager);
+    expect(manager.query).toHaveBeenCalledWith(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      ['notelix-annotation:9:annotation-uid'],
+    );
     expect(unindexAnnotation).toHaveBeenCalledWith(
       expect.objectContaining({ id: 12 }),
     );

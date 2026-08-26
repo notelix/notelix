@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { Annotation } from '../models/annotation.entity';
-import { MoreThan } from 'typeorm';
+import { EntityManager, MoreThan } from 'typeorm';
 import { AnnotationChangeHistory } from '../models/annotationChangeHistory.entity';
 import AnnotationChangeHistoryService from '../services/annotationChangeHistory';
 import { meilisearchClient } from '../meilisearch';
@@ -40,6 +40,16 @@ function getAnnotationColumnSql(column: string): string {
   return sql;
 }
 
+async function lockAnnotation(
+  manager: EntityManager,
+  userId: number,
+  uid: string,
+): Promise<void> {
+  await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+    `notelix-annotation:${userId}:${uid}`,
+  ]);
+}
+
 @Controller('annotations')
 export class AnnotationsController {
   private readonly logger = new Logger(AnnotationsController.name);
@@ -55,6 +65,7 @@ export class AnnotationsController {
     const uid = request.uid;
 
     const annotation = await AppDataSource.transaction(async (manager) => {
+      await lockAnnotation(manager, user.id, uid);
       const annotationRepository = manager.getRepository(Annotation);
       let annotation = await annotationRepository.findOne({
         where: { user: { id: user.id }, uid },
@@ -108,6 +119,7 @@ export class AnnotationsController {
   async Delete(@Body() request: DeleteAnnotationDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
     const annotation = await AppDataSource.transaction(async (manager) => {
+      await lockAnnotation(manager, user.id, request.uid);
       const annotationRepository = manager.getRepository(Annotation);
       const annotation = await annotationRepository.findOne({
         where: {
