@@ -61,7 +61,9 @@ describe('Users API', () => {
   it('returns only client-safe user fields from login', async () => {
     const user = makeUser(await bcrypt.hash('correct-password', 4));
     jest.spyOn(User, 'findOne').mockResolvedValue(user);
-    jest.spyOn(User.prototype, 'save').mockResolvedValue(user);
+    const save = jest
+      .spyOn(User.prototype, 'save')
+      .mockRejectedValue(new Error('login must not persist a stale user'));
     jwtService.signForUser.mockReturnValue('signed-jwt');
 
     const response = await request(app.getHttpServer())
@@ -78,6 +80,7 @@ describe('Users API', () => {
       jwt: 'signed-jwt',
     });
     expect(response.body).not.toHaveProperty('password');
+    expect(save).not.toHaveBeenCalled();
   });
 
   it('does not reveal whether a username exists during login', async () => {

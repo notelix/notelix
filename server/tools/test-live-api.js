@@ -309,6 +309,11 @@ async function main() {
     'integration-password-updated-a',
     'integration-password-updated-b',
   ];
+  const racingLoginsPromise = Promise.all(
+    Array.from({ length: 2 }, () =>
+      request('/users/login', { username, password }),
+    ),
+  );
   const passwordChanges = await Promise.all(
     candidatePasswords.map((newPassword, index) =>
       requestAt(
@@ -322,6 +327,11 @@ async function main() {
         originalHeaders,
       ),
     ),
+  );
+  const racingLogins = await racingLoginsPromise;
+  assert.ok(
+    racingLogins.every((response) => [201, 403].includes(response.status)),
+    JSON.stringify(racingLogins),
   );
   assert.deepStrictEqual(
     passwordChanges.map((response) => response.status).sort(),

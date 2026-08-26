@@ -107,8 +107,6 @@ export class UsersController {
       throw new ForbiddenException('invalid username or password');
     }
 
-    await user.save();
-
     return { ...userResponse(user), jwt: this.jwtService.signForUser(user) };
   }
 
