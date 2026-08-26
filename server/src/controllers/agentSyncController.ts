@@ -243,6 +243,8 @@ export class AgentSyncController
   private syncLoopPromise?: Promise<void>;
   private activeSyncPromise?: Promise<void>;
   private activeRequestController?: AbortController;
+  private sourceResetRequired = false;
+  private controlOperationTail: Promise<void> = Promise.resolve();
 
   decryptAnnotation = async (annotation) => {
     if (!this.config.clientSideEncryptionKey) {
@@ -299,6 +301,16 @@ export class AgentSyncController
     this.configGeneration += 1;
     this.activeRequestController?.abort();
     await this.syncLoopPromise;
+    await this.controlOperationTail;
+  }
+
+  private runControlOperation<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.controlOperationTail.then(operation, operation);
+    this.controlOperationTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private async runSync(): Promise<void> {
@@ -337,13 +349,16 @@ export class AgentSyncController
   async ResetData(@Req() request: Request): Promise<any> {
     assertRunModeAgent();
     assertAgentControlOrigin(request);
-    this.configGeneration += 1;
-    this.config = emptyAgentConfig();
-    this.activeRequestController?.abort();
-    this.clearAgentSyncState();
-    await this.activeSyncPromise?.catch(() => undefined);
-    await this.resetData();
-    return { ok: true };
+    return this.runControlOperation(async () => {
+      this.configGeneration += 1;
+      this.config = emptyAgentConfig();
+      this.activeRequestController?.abort();
+      this.clearAgentSyncState();
+      await this.activeSyncPromise?.catch(() => undefined);
+      await this.resetData();
+      this.sourceResetRequired = false;
+      return { ok: true };
+    });
   }
 
   @Post('/set')
@@ -353,6 +368,10 @@ export class AgentSyncController
   ): Promise<any> {
     assertRunModeAgent();
     assertAgentControlOrigin(httpRequest);
+    return this.runControlOperation(() => this.setConfig(request));
+  }
+
+  private async setConfig(request: SetAgentSyncDto): Promise<any> {
     const nextConfig = {
       ...emptyAgentConfig(),
       ...request.config,
@@ -368,27 +387,41 @@ export class AgentSyncController
     }
     nextConfig.sourceIdentity = createAgentSyncSourceIdentity(nextConfig);
 
+    const persistedState = this.loadAgentSyncState();
+    const sourceChanged = [
+      this.config.sourceIdentity,
+      persistedState?.sourceIdentity,
+    ].some(
+      (sourceIdentity) =>
+        Boolean(sourceIdentity) && sourceIdentity !== nextConfig.sourceIdentity,
+    );
+    const mustResetSourceData = sourceChanged || this.sourceResetRequired;
+    if (mustResetSourceData) {
+      this.sourceResetRequired = true;
+    }
     const executionChanged =
       this.config.enabled !== nextConfig.enabled ||
-      this.config.sourceIdentity !== nextConfig.sourceIdentity;
+      this.config.sourceIdentity !== nextConfig.sourceIdentity ||
+      mustResetSourceData;
     if (executionChanged) {
       this.configGeneration += 1;
       this.activeRequestController?.abort();
     }
-    this.config = nextConfig;
+    this.config = mustResetSourceData
+      ? { ...nextConfig, enabled: false }
+      : nextConfig;
 
-    const persistedState = this.loadAgentSyncState();
-    if (
-      persistedState &&
-      persistedState.sourceIdentity !== nextConfig.sourceIdentity
-    ) {
-      this.logger.log('Sync source changed; scheduling a full re-list');
-      this.clearAgentSyncState();
-    } else if (!persistedState && fs.existsSync(getSyncStatePath())) {
+    if (!persistedState && fs.existsSync(getSyncStatePath())) {
       this.clearAgentSyncState();
     }
     if (executionChanged) {
       await this.activeSyncPromise?.catch(() => undefined);
+    }
+    if (mustResetSourceData) {
+      this.logger.log('Sync source changed; clearing local annotation data');
+      await this.resetData();
+      this.sourceResetRequired = false;
+      this.config = nextConfig;
     }
 
     return { ok: true, enabled: this.config.enabled };

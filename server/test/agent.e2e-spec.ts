@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 import { createValidationPipe } from '../src/application';
@@ -488,6 +488,11 @@ describe('Agent control API', () => {
     };
     const sourceIdentity = createAgentSyncSourceIdentity(firstConfig);
     const controller = app.get(AgentSyncController);
+    const resetData = jest
+      .spyOn(controller as any, 'resetData')
+      .mockImplementation(async () =>
+        (controller as any).clearAgentSyncState(),
+      );
     (controller as any).saveAnnotationChangeHistoryLatestId(41, sourceIdentity);
 
     await request(app.getHttpServer())
@@ -505,6 +510,7 @@ describe('Agent control API', () => {
       })
       .expect(201);
     expect(fs.existsSync(statePath)).toBe(false);
+    expect(resetData).toHaveBeenCalledTimes(1);
   });
 
   it('invalidates a legacy cursor that has no source identity', async () => {
@@ -524,6 +530,9 @@ describe('Agent control API', () => {
   it('aborts and fences an in-flight sync when its source changes', async () => {
     process.env.RUN_MODE = 'AGENT';
     const controller = app.get(AgentSyncController);
+    const resetData = jest
+      .spyOn(controller as any, 'resetData')
+      .mockResolvedValue(undefined);
     await request(app.getHttpServer())
       .post('/agentsync/set')
       .set('Origin', 'chrome-extension://extension-id')
@@ -555,6 +564,36 @@ describe('Agent control API', () => {
     await syncRejection;
     expect(requestSignal.aborted).toBe(true);
     expect(fs.existsSync(process.env.AGENT_SYNC_STATE_PATH)).toBe(false);
+    expect(resetData).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a failed source-data purge before accepting the source', async () => {
+    process.env.RUN_MODE = 'AGENT';
+    jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const controller = app.get(AgentSyncController);
+    configureController(controller);
+    const resetData = jest
+      .spyOn(controller as any, 'resetData')
+      .mockRejectedValueOnce(new Error('search unavailable'))
+      .mockResolvedValueOnce(undefined);
+    const nextConfig = {
+      ...validConfig,
+      url: 'https://other.notelix.example',
+    };
+
+    await request(app.getHttpServer())
+      .post('/agentsync/set')
+      .set('Origin', 'chrome-extension://extension-id')
+      .send({ config: nextConfig })
+      .expect(500);
+
+    await request(app.getHttpServer())
+      .post('/agentsync/set')
+      .set('Origin', 'chrome-extension://extension-id')
+      .send({ config: nextConfig })
+      .expect(201);
+
+    expect(resetData).toHaveBeenCalledTimes(2);
   });
 
   it('applies bounded full-snapshot pages before saving their watermark', async () => {

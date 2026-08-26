@@ -116,9 +116,7 @@ async function waitForRecoveredSearch() {
     }
     await sleep(250);
   }
-  assert.fail(
-    `Agent search did not recover: ${JSON.stringify(lastResponse)}`,
-  );
+  assert.fail(`Agent search did not recover: ${JSON.stringify(lastResponse)}`);
 }
 
 async function enableAgentSync() {
@@ -136,6 +134,36 @@ async function enableAgentSync() {
   );
   assert.strictEqual(response.status, 201, JSON.stringify(response.body));
   assert.deepStrictEqual(response.body, { ok: true, enabled: true });
+}
+
+async function switchAgentSourceAndAssertPurged() {
+  const response = await request(
+    '/agentsync/set',
+    {
+      config: {
+        enabled: true,
+        url: 'https://notelix.example',
+        token: 'different-agent-source-token',
+        clientSideEncryptionKey: null,
+      },
+    },
+    { Origin: 'chrome-extension://integration-test' },
+  );
+  assert.strictEqual(response.status, 201, JSON.stringify(response.body));
+
+  const search = await request('/annotations/search', { q: marker });
+  assert.strictEqual(search.status, 201, JSON.stringify(search.body));
+  assert.deepStrictEqual(search.body.results.hits, []);
+
+  const client = await databaseClient();
+  try {
+    const annotations = await client.query(
+      'SELECT COUNT(*)::int AS count FROM "annotation"',
+    );
+    assert.strictEqual(annotations.rows[0].count, 0);
+  } finally {
+    await client.end();
+  }
 }
 
 async function assertAgentCorsIsolation() {
@@ -174,14 +202,19 @@ async function main() {
   if (mode === 'verify-startup') {
     await waitForRecoveredSearch();
     await assertAgentCorsIsolation();
-    console.log('Agent CORS isolation and startup search rebuild tests passed.');
+    console.log(
+      'Agent CORS isolation and startup search rebuild tests passed.',
+    );
     return;
   }
   if (mode === 'verify-runtime') {
     await deleteIndexIfPresent();
     await enableAgentSync();
     await waitForRecoveredSearch();
-    console.log('Agent runtime search rebuild test passed.');
+    await switchAgentSourceAndAssertPurged();
+    console.log(
+      'Agent runtime search rebuild and source isolation tests passed.',
+    );
     return;
   }
   throw new Error(
