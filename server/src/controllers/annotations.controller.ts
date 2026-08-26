@@ -1,5 +1,6 @@
 import {
   Controller,
+  Logger,
   NotFoundException,
   Post,
   Req,
@@ -15,6 +16,8 @@ import { isRunModeAgent } from './agentSyncController';
 
 @Controller('annotations')
 export class AnnotationsController {
+  private readonly logger = new Logger(AnnotationsController.name);
+
   constructor(
     private authenticationService: AuthenticationService,
     private annotationChangeHistoryService: AnnotationChangeHistoryService,
@@ -25,65 +28,99 @@ export class AnnotationsController {
     const user = await this.authenticationService.getAuthenticatedUser();
     const uid = request.body['uid'];
 
-    let annotation = await Annotation.findOne({
-      user,
-      uid,
-    });
+    const { annotation, history } = await getManager().transaction(
+      async (manager) => {
+        const annotationRepository = manager.getRepository(Annotation);
+        let annotation = await annotationRepository.findOne({
+          where: { user, uid },
+        });
 
-    if (!annotation) {
-      annotation = new Annotation();
-    }
-    annotation.user = user;
-    annotation.data = request.body['data'] || {};
-    annotation.uid = uid;
-    annotation.url = request.body['url'] || '';
-    annotation.title = request.body['title'] || '';
-    annotation.host = request.body['host'] || '';
-    delete annotation.data.uid;
-    delete annotation.data.url;
-    delete annotation.data.title;
-    delete annotation.data.host;
-    annotation = await annotation.save();
+        if (!annotation) {
+          annotation = new Annotation();
+        }
+        annotation.user = user;
+        annotation.data = request.body['data'] || {};
+        annotation.uid = uid;
+        annotation.url = request.body['url'] || '';
+        annotation.title = request.body['title'] || '';
+        annotation.host = request.body['host'] || '';
+        delete annotation.data.uid;
+        delete annotation.data.url;
+        delete annotation.data.title;
+        delete annotation.data.host;
+        annotation = await annotationRepository.save(annotation);
 
-    setTimeout(() => {
-      this.annotationChangeHistoryService.createAnnotationChangeHistoryForSave(
-        annotation,
+        const history =
+          await this.annotationChangeHistoryService.createAnnotationChangeHistoryForSave(
+            annotation,
+            manager,
+          );
+        return { annotation, history };
+      },
+    );
+
+    this.annotationChangeHistoryService.rememberAnnotationChangeHistoryLatestId(
+      user.id,
+      history.id,
+    );
+    if (!user.client_side_encryption) {
+      this.runSearchUpdate('index annotation', () =>
+        meilisearchClient.IndexAnnotation(annotation),
       );
-
-      if (!user.client_side_encryption) {
-        meilisearchClient.IndexAnnotation(annotation);
-      }
-    });
+    }
     return {};
+  }
+
+  private runSearchUpdate(
+    description: string,
+    operation: () => Promise<any>,
+  ): void {
+    void (async () => {
+      try {
+        await operation();
+      } catch (error) {
+        const trace = error instanceof Error ? error.stack : String(error);
+        this.logger.error(`Failed to ${description}`, trace);
+      }
+    })();
   }
 
   @Post('/delete')
   async Delete(@Req() request: Request): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const annotation = await Annotation.findOne({
-      user: user,
-      uid: request.body['uid'],
-    });
+    const { annotation, history } = await getManager().transaction(
+      async (manager) => {
+        const annotationRepository = manager.getRepository(Annotation);
+        const annotation = await annotationRepository.findOne({
+          where: { user, uid: request.body['uid'] },
+        });
 
-    if (!annotation) {
-      throw new NotFoundException();
-    }
+        if (!annotation) {
+          throw new NotFoundException();
+        }
 
-    const annotationId = annotation.id;
-    await annotation.remove();
-    setTimeout(() => {
-      const anno = {
-        ...annotation,
-        user: user,
-        id: annotationId,
-      } as any;
+        const deletedAnnotation = {
+          ...annotation,
+          user,
+          id: annotation.id,
+        } as Annotation;
+        await annotationRepository.remove(annotation);
+        const history =
+          await this.annotationChangeHistoryService.createAnnotationChangeHistoryForDelete(
+            deletedAnnotation,
+            manager,
+          );
+        return { annotation: deletedAnnotation, history };
+      },
+    );
 
-      this.annotationChangeHistoryService.createAnnotationChangeHistoryForDelete(
-        anno,
-      );
-
-      meilisearchClient.UnIndexAnnotation(anno);
-    });
+    this.annotationChangeHistoryService.rememberAnnotationChangeHistoryLatestId(
+      user.id,
+      history.id,
+    );
+    this.runSearchUpdate('remove annotation from index', () =>
+      meilisearchClient.UnIndexAnnotation(annotation),
+    );
     return {};
   }
 
