@@ -26,7 +26,7 @@ WORKDIR /app
 COPY --from=production-dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node package.json ormconfig.js ./
-COPY --chown=node:node tools/ensure-pg-db.js tools/meili-reindex.js ./tools/
+COPY --chown=node:node tools/ensure-pg-db.js tools/meili-reindex.js tools/run-migrations.js ./tools/
 
 RUN mkdir -p /data && chown node:node /data
 

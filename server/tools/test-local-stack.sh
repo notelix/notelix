@@ -51,7 +51,24 @@ export MEILISEARCH_ANNOTATIONS_INDEX=annotations_integration
 export TEST_SERVER_URL="http://127.0.0.1:${integration_server_port}"
 
 node ./tools/ensure-pg-db.js
-npm run schema:sync
+npm run build
+npm run migration:run:compiled &
+integration_migration_pid_one=$!
+npm run migration:run:compiled &
+integration_migration_pid_two=$!
+wait "${integration_migration_pid_one}"
+wait "${integration_migration_pid_two}"
+npm run migration:run:compiled
+
+export DB_DATABASE=notelix_legacy_integration
+node ./tools/ensure-pg-db.js
+"${integration_compose[@]}" exec --no-TTY postgres \
+  psql --set ON_ERROR_STOP=1 --username postgres --dbname "${DB_DATABASE}" \
+  <"${integration_server_dir}/test/fixtures/legacy-schema.sql"
+npm run migration:run:compiled
+node ./tools/assert-legacy-migration.js
+
+export DB_DATABASE=notelix_integration
 node ./dist/main.js >"${integration_server_log}" 2>&1 &
 integration_server_pid=$!
 

@@ -13,11 +13,12 @@ import { meilisearchClient } from '../meilisearch';
 
 @Entity()
 @Index(['user', 'url', 'host'])
+@Index('UQ_annotation_user_uid', ['user', 'uid'], { unique: true })
 export class Annotation extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 64, unique: true })
+  @Column({ type: 'varchar', length: 64 })
   uid: string;
 
   @Column({ type: 'varchar', length: 32768 })

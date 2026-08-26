@@ -22,6 +22,15 @@ function userResponse(user: User) {
   };
 }
 
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'driverError' in error &&
+    (error as { driverError?: { code?: string } }).driverError?.code === '23505'
+  );
+}
+
 @Controller('users')
 export class UsersController {
   constructor(
@@ -37,8 +46,7 @@ export class UsersController {
 
   @Post('/signup')
   async SignUp(@Body() request: SignUpDto): Promise<any> {
-    const username = request.username;
-    const password = await bcrypt.hash(request.password, 10);
+    const username = request.username.trim();
     const enableClientSideEncryption = request.enableClientSideEncryption;
 
     const existingUser = await User.findOne({ where: { name: username } });
@@ -48,20 +56,27 @@ export class UsersController {
 
     const user = new User();
     user.name = username;
-    user.password = password;
+    user.password = await bcrypt.hash(request.password, 10);
     if (enableClientSideEncryption) {
       user.client_side_encryption = request.client_side_encryption;
     } else {
       user.client_side_encryption = '';
     }
-    await user.save();
+    try {
+      await user.save();
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException(`username ${username} already taken`);
+      }
+      throw error;
+    }
 
     return {};
   }
 
   @Post('/login')
   async Login(@Body() request: LoginDto): Promise<any> {
-    const username = request.username;
+    const username = request.username.trim();
     const password = request.password;
 
     const user = await User.findOne({ where: { name: username } });

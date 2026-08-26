@@ -123,6 +123,35 @@ async function main() {
   assert.strictEqual(login.body.name, username);
   assert.strictEqual(Object.hasOwn(login.body, 'password'), false);
   assert.ok(login.body.jwt);
+  const jwtPayload = JSON.parse(
+    Buffer.from(login.body.jwt.split('.')[1], 'base64url').toString('utf8'),
+  );
+  assert.strictEqual(jwtPayload.iss, 'notelix');
+  assert.ok(jwtPayload.exp > jwtPayload.iat);
+
+  const duplicateSignup = await request('/users/signup', {
+    username: `  ${username}  `,
+    password,
+  });
+  assert.strictEqual(
+    duplicateSignup.status,
+    409,
+    JSON.stringify(duplicateSignup.body),
+  );
+
+  const staticToken = 's'.repeat(64);
+  const staticTokenResponses = await Promise.all(
+    Array.from({ length: 5 }, () =>
+      request('/users/who-am-i', undefined, {
+        Authorization: `static-token ${staticToken}`,
+      }),
+    ),
+  );
+  assert.ok(staticTokenResponses.every((response) => response.status === 200));
+  assert.strictEqual(
+    new Set(staticTokenResponses.map((response) => response.body.id)).size,
+    1,
+  );
 
   const headers = { Authorization: `jwt ${login.body.jwt}` };
   assert.strictEqual(
@@ -157,6 +186,37 @@ async function main() {
     headers,
   );
   assert.strictEqual(save.status, 201, JSON.stringify(save.body));
+
+  const secondUsername = `${username}-second`;
+  assert.strictEqual(
+    (await request('/users/signup', { username: secondUsername, password }))
+      .status,
+    201,
+  );
+  const secondLogin = await request('/users/login', {
+    username: secondUsername,
+    password,
+  });
+  assert.strictEqual(secondLogin.status, 201, JSON.stringify(secondLogin.body));
+  const secondUserHeaders = {
+    Authorization: `jwt ${secondLogin.body.jwt}`,
+  };
+  const secondUserSave = await request(
+    '/annotations/save',
+    {
+      uid,
+      url: `${url}/second-user`,
+      host: 'example.com',
+      title: 'Second user annotation',
+      data: { text: 'same uid, separate tenant' },
+    },
+    secondUserHeaders,
+  );
+  assert.strictEqual(
+    secondUserSave.status,
+    201,
+    JSON.stringify(secondUserSave.body),
+  );
 
   const listDiff = await request(
     '/annotations/listDiff',
