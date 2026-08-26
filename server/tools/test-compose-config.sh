@@ -24,6 +24,19 @@ for stack in prod agent dev; do
     config --format json >"$compose_test_dir/${stack}.json"
 done
 
+for stack in prod agent dev; do
+  grep -Ev '^DB_PASSWORD=' \
+    "$compose_test_dir/.env.${stack}" >"$compose_test_dir/.env.${stack}.missing-db-password"
+  if env -u DB_PASSWORD docker compose \
+    --project-name "notelix-compose-test-${stack}-missing-db-password" \
+    --file "$compose_test_dir/docker-compose.${stack}.yml" \
+    --env-file "$compose_test_dir/.env.${stack}.missing-db-password" \
+    config >/dev/null 2>&1; then
+    echo "${stack} compose accepted a missing DB_PASSWORD" >&2
+    exit 1
+  fi
+done
+
 NOTELIX_BIND_ADDRESS=0.0.0.0 NOTELIX_PORT=28555 docker compose \
   --project-name notelix-compose-test-prod-override \
   --file "$compose_test_dir/docker-compose.prod.yml" \

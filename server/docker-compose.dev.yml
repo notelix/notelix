@@ -24,7 +24,7 @@ services:
     image: "postgres:14.24-alpine"
     restart: unless-stopped
     environment:
-      - POSTGRES_PASSWORD=$DB_PASSWORD
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:

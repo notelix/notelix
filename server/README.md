@@ -14,6 +14,10 @@ Use `.env.agent.example` and `.env.dev.example` the same way for the agent and
 development stacks. Do not reuse secrets between environments or commit the
 generated `.env.*` files.
 
+Every Compose stack requires a non-empty `DB_PASSWORD` while rendering its
+configuration, before any container is created. Production and agent stacks
+also require `MEILI_MASTER_KEY` at the same stage.
+
 # published Docker images
 
 GitHub Actions publishes backend images to GHCR:
