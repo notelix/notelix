@@ -10,6 +10,9 @@ const requestBodyLimitBytes = readBoundedIntegerEnvironment(
   1024,
   16 * 1024 * 1024,
 );
+const trustedProxyHops = process.env.TRUST_PROXY_HOPS
+  ? readBoundedIntegerEnvironment('TRUST_PROXY_HOPS', 1, 1, 10)
+  : null;
 
 export function createValidationPipe(): ValidationPipe {
   return new ValidationPipe({
@@ -32,19 +35,14 @@ function getCorsOrigins(): string | string[] {
 }
 
 function configureTrustedProxy(app: INestApplication): void {
-  const configuredHops = process.env.TRUST_PROXY_HOPS;
-  if (!configuredHops) {
+  if (trustedProxyHops === null) {
     return;
-  }
-  const hops = Number(configuredHops);
-  if (!Number.isInteger(hops) || hops < 1 || hops > 10) {
-    throw new Error('TRUST_PROXY_HOPS must be an integer between 1 and 10');
   }
   const server = app.getHttpAdapter().getInstance();
   if (typeof server.set !== 'function') {
     throw new Error('TRUST_PROXY_HOPS requires the Express HTTP adapter');
   }
-  server.set('trust proxy', hops);
+  server.set('trust proxy', trustedProxyHops);
 }
 
 export function configureApplication(app: NestExpressApplication): void {

@@ -10,6 +10,7 @@ const validEnvironment = {
   MEILISEARCH_TASK_TIMEOUT_MS: '30000',
   RATE_LIMIT_TTL_MS: '60000',
   REQUEST_BODY_LIMIT_BYTES: '1048576',
+  TRUST_PROXY_HOPS: '',
 };
 
 const cases = [
@@ -40,6 +41,11 @@ const cases = [
     environment: { REQUEST_BODY_LIMIT_BYTES: '1e6' },
     message:
       'REQUEST_BODY_LIMIT_BYTES must be an integer between 1024 and 16777216',
+  },
+  {
+    name: 'trusted proxy hops',
+    environment: { TRUST_PROXY_HOPS: '1e0' },
+    message: 'TRUST_PROXY_HOPS must be an integer between 1 and 10',
   },
 ];
 
