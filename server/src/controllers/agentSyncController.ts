@@ -21,6 +21,7 @@ import * as CryptoJS from 'crypto-js';
 import { meilisearchClient } from '../meilisearch';
 import { SetAgentSyncDto } from '../dto/agent.dto';
 import { isAgentControlOriginAllowed } from '../agentControl';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -28,6 +29,19 @@ const defaultAnnotationChangeHistoryLatestIdSavePath =
   '/data/.annotation_change_history_latest_id';
 const defaultSyncRequestTimeoutMs = 30000;
 const defaultSyncMaxResponseBytes = 64 * 1024 * 1024;
+const syncStateVersion = 1;
+
+interface AgentSyncState {
+  version: typeof syncStateVersion;
+  sourceIdentity: string;
+  cursor: number;
+}
+
+class SyncSupersededError extends Error {
+  constructor() {
+    super('agent sync configuration changed');
+  }
+}
 
 function readBoundedInteger(
   name: string,
@@ -67,6 +81,71 @@ export function parseSyncCursor(value: string): number | null {
   return cursor;
 }
 
+export function parseAgentSyncState(value: string): AgentSyncState | null {
+  try {
+    const state = JSON.parse(value) as Partial<AgentSyncState>;
+    if (
+      state.version !== syncStateVersion ||
+      typeof state.sourceIdentity !== 'string' ||
+      !/^[a-f\d]{64}$/.test(state.sourceIdentity) ||
+      !Number.isSafeInteger(state.cursor) ||
+      (state.cursor as number) < 0
+    ) {
+      return null;
+    }
+    return state as AgentSyncState;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function digest(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function getTokenIdentity(token: string): Record<string, unknown> {
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(
+        Buffer.from(parts[1], 'base64url').toString('utf8'),
+      );
+      const tokenVersion = payload.tokenVersion ?? 0;
+      if (
+        Number.isSafeInteger(payload.id) &&
+        payload.id > 0 &&
+        Number.isSafeInteger(tokenVersion) &&
+        tokenVersion >= 0
+      ) {
+        return {
+          kind: 'jwt',
+          issuer: typeof payload.iss === 'string' ? payload.iss : '',
+          userId: payload.id,
+          tokenVersion,
+        };
+      }
+    }
+  } catch (_error) {
+    // Invalid tokens are rejected by the source server. Hashing still keeps
+    // their local sync state isolated without persisting the credential.
+  }
+  return { kind: 'opaque', tokenDigest: digest(token) };
+}
+
+export function createAgentSyncSourceIdentity(config: {
+  url: string;
+  token: string;
+  clientSideEncryptionKey?: string | null;
+}): string {
+  return digest(
+    JSON.stringify({
+      url: new URL(config.url).toString(),
+      token: getTokenIdentity(config.token),
+      encryptionKeyDigest: digest(config.clientSideEncryptionKey || ''),
+    }),
+  );
+}
+
 function assertSyncCursor(value: unknown, field: string): number {
   if (!Number.isSafeInteger(value) || (value as number) < 0) {
     throw new Error(`${field} must be a non-negative safe integer`);
@@ -98,6 +177,7 @@ function emptyAgentConfig() {
     url: '',
     clientSideEncryptionKey: '',
     clientSideEncryptionKeyHexParsed: null as any,
+    sourceIdentity: '',
   };
 }
 
@@ -120,7 +200,9 @@ export class AgentSyncController
   );
   config = emptyAgentConfig();
   private stopping = false;
+  private configGeneration = 0;
   private syncLoopPromise?: Promise<void>;
+  private activeSyncPromise?: Promise<void>;
   private activeRequestController?: AbortController;
 
   decryptAnnotation = async (annotation) => {
@@ -141,16 +223,22 @@ export class AgentSyncController
     return annotation;
   };
 
-  applyDiff = async (diff: any) => {
+  applyDiff = async (
+    diff: any,
+    assertCurrent: () => void = () => undefined,
+  ) => {
     switch (diff.kind) {
       case AnnotationChangeHistoryKindSave:
         const annotation = await this.decryptAnnotation(diff.data);
+        assertCurrent();
         await Annotation.agentSyncPersist(annotation);
+        assertCurrent();
         await meilisearchClient.IndexAnnotation(annotation);
         break;
       case AnnotationChangeHistoryKindDelete:
         const id = diff.data.id;
         await Annotation.remove(diff.data);
+        assertCurrent();
         await meilisearchClient.UnIndexAnnotation({ ...diff.data, id });
         break;
       default:
@@ -166,8 +254,21 @@ export class AgentSyncController
 
   async onApplicationShutdown() {
     this.stopping = true;
+    this.configGeneration += 1;
     this.activeRequestController?.abort();
     await this.syncLoopPromise;
+  }
+
+  private async runSync(): Promise<void> {
+    const syncPromise = this.sync();
+    this.activeSyncPromise = syncPromise;
+    try {
+      await syncPromise;
+    } finally {
+      if (this.activeSyncPromise === syncPromise) {
+        this.activeSyncPromise = undefined;
+      }
+    }
   }
 
   private async syncLoop() {
@@ -180,9 +281,9 @@ export class AgentSyncController
         continue;
       }
       try {
-        await this.sync();
+        await this.runSync();
       } catch (ex) {
-        if (!this.stopping) {
+        if (!this.stopping && !(ex instanceof SyncSupersededError)) {
           const trace = ex instanceof Error ? ex.stack : String(ex);
           this.logger.error('Failed to synchronize annotations', trace);
         }
@@ -194,7 +295,11 @@ export class AgentSyncController
   async ResetData(@Req() request: Request): Promise<any> {
     assertRunModeAgent();
     assertAgentControlOrigin(request);
+    this.configGeneration += 1;
     this.config = emptyAgentConfig();
+    this.activeRequestController?.abort();
+    this.clearAgentSyncState();
+    await this.activeSyncPromise?.catch(() => undefined);
     await this.resetData();
     return { ok: true };
   }
@@ -206,21 +311,55 @@ export class AgentSyncController
   ): Promise<any> {
     assertRunModeAgent();
     assertAgentControlOrigin(httpRequest);
-    this.config = {
+    const nextConfig = {
       ...emptyAgentConfig(),
       ...request.config,
     };
-    if (this.config.clientSideEncryptionKey) {
-      this.config.clientSideEncryptionKeyHexParsed = CryptoJS.enc.Hex.parse(
-        this.config.clientSideEncryptionKey,
+    if (nextConfig.clientSideEncryptionKey) {
+      nextConfig.clientSideEncryptionKeyHexParsed = CryptoJS.enc.Hex.parse(
+        nextConfig.clientSideEncryptionKey,
       );
     }
     const urlOverride = process.env.AGENT_SYNC_URL_OVERRIDE;
     if (urlOverride) {
-      this.config.url = urlOverride;
+      nextConfig.url = urlOverride;
+    }
+    nextConfig.sourceIdentity = createAgentSyncSourceIdentity(nextConfig);
+
+    const executionChanged =
+      this.config.enabled !== nextConfig.enabled ||
+      this.config.sourceIdentity !== nextConfig.sourceIdentity;
+    if (executionChanged) {
+      this.configGeneration += 1;
+      this.activeRequestController?.abort();
+    }
+    this.config = nextConfig;
+
+    const persistedState = this.loadAgentSyncState();
+    if (
+      persistedState &&
+      persistedState.sourceIdentity !== nextConfig.sourceIdentity
+    ) {
+      this.logger.log('Sync source changed; scheduling a full re-list');
+      this.clearAgentSyncState();
+    } else if (!persistedState && fs.existsSync(getSyncStatePath())) {
+      this.clearAgentSyncState();
+    }
+    if (executionChanged) {
+      await this.activeSyncPromise?.catch(() => undefined);
     }
 
     return { ok: true, enabled: this.config.enabled };
+  }
+
+  private assertCurrentSync(generation: number, sourceIdentity: string): void {
+    if (
+      generation !== this.configGeneration ||
+      sourceIdentity !== this.config.sourceIdentity ||
+      !this.config.enabled
+    ) {
+      throw new SyncSupersededError();
+    }
   }
 
   private getSyncEndpoint(pathname: string): string {
@@ -234,6 +373,7 @@ export class AgentSyncController
     operation: string,
     pathname: string,
     body?: Record<string, unknown>,
+    generation = this.configGeneration,
   ): Promise<any> {
     const requestController = new AbortController();
     this.activeRequestController = requestController;
@@ -265,6 +405,12 @@ export class AgentSyncController
       }
       if (this.stopping && requestController.signal.aborted) {
         throw new Error(`${operation} aborted during shutdown`);
+      }
+      if (
+        generation !== this.configGeneration &&
+        requestController.signal.aborted
+      ) {
+        throw new SyncSupersededError();
       }
       throw error;
     } finally {
@@ -325,13 +471,19 @@ export class AgentSyncController
   }
 
   private async sync() {
-    const latestId = this.getAnnotationChangeHistoryLatestId();
+    const generation = this.configGeneration;
+    const sourceIdentity = this.config.sourceIdentity;
+    this.assertCurrentSync(generation, sourceIdentity);
+    const latestId = this.getAnnotationChangeHistoryLatestId(sourceIdentity);
     this.logger.debug(`Synchronizing after history id ${latestId ?? 'none'}`);
     if (latestId === null) {
       const data = await this.requestJson(
         'annotation list request',
         '/annotations/list',
+        undefined,
+        generation,
       );
+      this.assertCurrentSync(generation, sourceIdentity);
       if (!data || !Array.isArray(data.list)) {
         throw new Error('annotation list response must contain a list');
       }
@@ -342,15 +494,20 @@ export class AgentSyncController
       const annotations = await Promise.all(
         data.list.map((annotation) => this.decryptAnnotation(annotation)),
       );
+      this.assertCurrentSync(generation, sourceIdentity);
       await this.resetData();
+      this.assertCurrentSync(generation, sourceIdentity);
       this.logger.log(
         `Persisting ${annotations.length} synchronized annotations`,
       );
       for (const annotation of annotations) {
+        this.assertCurrentSync(generation, sourceIdentity);
         await Annotation.agentSyncPersist(annotation);
+        this.assertCurrentSync(generation, sourceIdentity);
         await meilisearchClient.IndexAnnotation(annotation);
+        this.assertCurrentSync(generation, sourceIdentity);
       }
-      this.saveAnnotationChangeHistoryLatestId(historyId);
+      this.saveAnnotationChangeHistoryLatestId(historyId, sourceIdentity);
       return;
     }
 
@@ -358,13 +515,16 @@ export class AgentSyncController
       'annotation diff request',
       '/annotations/listDiff',
       { sinceId: latestId },
+      generation,
     );
+    this.assertCurrentSync(generation, sourceIdentity);
     if (!data || typeof data.ok !== 'boolean') {
       throw new Error('annotation diff response must contain an ok flag');
     }
     if (!data.ok) {
       this.logger.warn('Sync history is stale; scheduling a full re-list');
       await this.resetData();
+      this.assertCurrentSync(generation, sourceIdentity);
       return;
     }
     if (!Array.isArray(data.diff)) {
@@ -378,15 +538,19 @@ export class AgentSyncController
       if (diffId <= appliedId) {
         throw new Error('annotation diff ids must be strictly increasing');
       }
-      await this.applyDiff(diff);
-      this.saveAnnotationChangeHistoryLatestId(diffId);
+      this.assertCurrentSync(generation, sourceIdentity);
+      await this.applyDiff(diff, () =>
+        this.assertCurrentSync(generation, sourceIdentity),
+      );
+      this.assertCurrentSync(generation, sourceIdentity);
+      this.saveAnnotationChangeHistoryLatestId(diffId, sourceIdentity);
       appliedId = diffId;
     }
   }
 
   private async resetData() {
     this.logger.log('Resetting synchronized annotation data');
-    this.clearAnnotationChangeHistoryLatestId();
+    this.clearAgentSyncState();
     await AnnotationChangeHistory.getRepository().clear();
     await Annotation.getRepository().clear();
     await meilisearchClient.UnIndexAllAnnotations();
@@ -401,19 +565,35 @@ export class AgentSyncController
     }
   }
 
-  private saveAnnotationChangeHistoryLatestId(id: number): void {
+  private saveAnnotationChangeHistoryLatestId(
+    id: number,
+    sourceIdentity: string,
+  ): void {
     const cursor = assertSyncCursor(id, 'annotation history id');
-    const existingCursor = this.getAnnotationChangeHistoryLatestId();
-    if (existingCursor !== null && existingCursor > cursor) {
+    if (!/^[a-f\d]{64}$/.test(sourceIdentity)) {
+      throw new Error('agent sync source identity is invalid');
+    }
+    const existingState = this.loadAgentSyncState();
+    if (
+      existingState?.sourceIdentity === sourceIdentity &&
+      existingState.cursor > cursor
+    ) {
       return;
     }
 
+    const state: AgentSyncState = {
+      version: syncStateVersion,
+      sourceIdentity,
+      cursor,
+    };
     const statePath = getSyncStatePath();
     const temporaryPath = `${statePath}.${process.pid}.tmp`;
     let fileDescriptor: number | undefined;
     try {
       fileDescriptor = fs.openSync(temporaryPath, 'w', 0o600);
-      fs.writeFileSync(fileDescriptor, `${cursor}\n`, { encoding: 'utf8' });
+      fs.writeFileSync(fileDescriptor, `${JSON.stringify(state)}\n`, {
+        encoding: 'utf8',
+      });
       fs.fsyncSync(fileDescriptor);
       fs.closeSync(fileDescriptor);
       fileDescriptor = undefined;
@@ -429,25 +609,43 @@ export class AgentSyncController
     }
   }
 
-  private getAnnotationChangeHistoryLatestId(): number | null {
+  private loadAgentSyncState(): AgentSyncState | null {
     const statePath = getSyncStatePath();
     if (!fs.existsSync(statePath)) {
       return null;
     }
-    const cursor = parseSyncCursor(
-      fs.readFileSync(statePath, {
-        encoding: 'utf8',
-      }),
-    );
-    if (cursor === null) {
+    const serialized = fs.readFileSync(statePath, {
+      encoding: 'utf8',
+    });
+    const state = parseAgentSyncState(serialized);
+    if (state === null) {
+      const legacyCursor = parseSyncCursor(serialized);
+      const reason =
+        legacyCursor === null ? 'invalid' : 'not bound to a sync source';
       this.logger.warn(
-        'Agent sync cursor is invalid; scheduling a full re-list',
+        `Agent sync state is ${reason}; scheduling a full re-list`,
       );
     }
-    return cursor;
+    return state;
   }
 
-  private clearAnnotationChangeHistoryLatestId(): void {
+  private getAnnotationChangeHistoryLatestId(
+    sourceIdentity: string,
+  ): number | null {
+    const state = this.loadAgentSyncState();
+    if (!state) {
+      return null;
+    }
+    if (state.sourceIdentity !== sourceIdentity) {
+      this.logger.warn(
+        'Agent sync state belongs to a different source; scheduling a full re-list',
+      );
+      return null;
+    }
+    return state.cursor;
+  }
+
+  private clearAgentSyncState(): void {
     const statePath = getSyncStatePath();
     if (fs.existsSync(statePath)) {
       fs.unlinkSync(statePath);

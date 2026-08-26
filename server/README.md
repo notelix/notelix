@@ -178,7 +178,10 @@ Agent sync requests time out after 30 seconds and accept at most 64 MiB of JSON
 by default. `AGENT_SYNC_REQUEST_TIMEOUT_MS` supports values from 100 to 300000,
 and `AGENT_SYNC_MAX_RESPONSE_BYTES` supports values from 1024 to 268435456.
 The agent aborts an active request during shutdown and atomically persists its
-sync cursor; a missing or invalid cursor causes a safe full re-list.
+sync cursor. The state is bound to a one-way identity of the server, user,
+token version, and client-side encryption key; no credential is persisted.
+Missing, legacy, invalid, or mismatched state causes a safe full re-list, and a
+source change aborts and fences any in-flight work before the new source syncs.
 
 ```
 curl 'http://127.0.0.1:18565/agentsync/set' \
