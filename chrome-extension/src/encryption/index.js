@@ -1,28 +1,120 @@
 import AES from "crypto-js/aes";
 import CryptoJS from "crypto-js";
-import { NotelixChromeStorageKey } from "../popup/consts";
+import {
+  NotelixChromeStorageKey,
+  NotelixEncryptionKeyStorageKey,
+} from "../popup/consts";
 
 const emptyIV = { words: [0, 0, 0, 0], sigBytes: 16 };
 
-export function getKey() {
-  return new Promise((resolve) => {
-    if (window.NotelixEmbeddedConfig) {
-      resolve(null);
-      return;
-    }
-    chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
-      const NotelixChromeStorage = value[NotelixChromeStorageKey];
-      if (NotelixChromeStorage.notelixUser.client_side_encryption) {
-        resolve(
-          decryptKey(
-            NotelixChromeStorage.notelixUser.client_side_encryption,
-            NotelixChromeStorage.notelixPassword
-          )
-        );
+function storageGet(area, key) {
+  return new Promise((resolve, reject) => {
+    area.get(key, (value) => {
+      const error = chrome.runtime?.lastError;
+      if (error) {
+        reject(new Error(error.message));
       } else {
-        resolve(null);
+        resolve(value);
       }
     });
+  });
+}
+
+function storageSet(area, value) {
+  return new Promise((resolve, reject) => {
+    area.set(value, () => {
+      const error = chrome.runtime?.lastError;
+      if (error) {
+        reject(new Error(error.message));
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+function storageRemove(area, key) {
+  return new Promise((resolve, reject) => {
+    area.remove(key, () => {
+      const error = chrome.runtime?.lastError;
+      if (error) {
+        reject(new Error(error.message));
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+export async function storeEncryptionKey(user, password) {
+  if (user && user.client_side_encryption) {
+    const key = decryptKey(user.client_side_encryption, password);
+    await storageSet(chrome.storage.local, {
+      [NotelixEncryptionKeyStorageKey]: key,
+    });
+    return key;
+  }
+
+  await clearEncryptionKey();
+  return null;
+}
+
+export function clearEncryptionKey() {
+  return storageRemove(chrome.storage.local, NotelixEncryptionKeyStorageKey);
+}
+
+export async function getKey() {
+  if (window.NotelixEmbeddedConfig) {
+    return null;
+  }
+
+  const syncedValue = await storageGet(
+    chrome.storage.sync,
+    NotelixChromeStorageKey
+  );
+  const syncedStorage = syncedValue[NotelixChromeStorageKey] || {};
+  const encryptedConfig = syncedStorage.notelixUser?.client_side_encryption;
+  if (!encryptedConfig) {
+    return null;
+  }
+
+  const localValue = await storageGet(
+    chrome.storage.local,
+    NotelixEncryptionKeyStorageKey
+  );
+  if (localValue[NotelixEncryptionKeyStorageKey]) {
+    return localValue[NotelixEncryptionKeyStorageKey];
+  }
+
+  if (syncedStorage.notelixPassword) {
+    const key = decryptKey(encryptedConfig, syncedStorage.notelixPassword);
+    await storageSet(chrome.storage.local, {
+      [NotelixEncryptionKeyStorageKey]: key,
+    });
+    delete syncedStorage.notelixPassword;
+    await storageSet(chrome.storage.sync, syncedValue);
+    return key;
+  }
+
+  throw new Error("client-side encryption key is unavailable; log in again");
+}
+
+export async function clearLegacyPassword() {
+  const syncedValue = await storageGet(
+    chrome.storage.sync,
+    NotelixChromeStorageKey
+  );
+  const syncedStorage = syncedValue[NotelixChromeStorageKey];
+  if (syncedStorage && "notelixPassword" in syncedStorage) {
+    delete syncedStorage.notelixPassword;
+    await storageSet(chrome.storage.sync, syncedValue);
+  }
+}
+
+export function ensureLocalEncryptionKey(user, password) {
+  return storeEncryptionKey(user, password).then(async (key) => {
+    await clearLegacyPassword();
+    return key;
   });
 }
 

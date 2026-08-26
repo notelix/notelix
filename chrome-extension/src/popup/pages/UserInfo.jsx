@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
+import { clearEncryptionKey, clearLegacyPassword } from "../../encryption";
 
 export const UserInfo = () => {
   const [notelixServer, setNotelixServer] = useState("");
@@ -29,13 +30,14 @@ export const UserInfo = () => {
     window.open("/app.html");
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (!confirm("Do you want to logout?")) {
       return;
     }
+    await clearEncryptionKey();
+    await clearLegacyPassword();
     chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
       delete value[NotelixChromeStorageKey].notelixUser;
-      delete value[NotelixChromeStorageKey].notelixPassword;
       chrome.storage.sync.set(value, () => {
         sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
         navigate("/");

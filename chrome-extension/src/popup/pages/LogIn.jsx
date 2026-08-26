@@ -5,6 +5,7 @@ import { login } from "../../api/user";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
+import { ensureLocalEncryptionKey } from "../../encryption";
 
 export const LogIn = () => {
   const navigate = useNavigate();
@@ -19,11 +20,11 @@ export const LogIn = () => {
   }, []);
 
   const submit = () => {
-    login({ username, password }).then((resp) => {
+    login({ username, password }).then(async (resp) => {
+      await ensureLocalEncryptionKey(resp, password);
       chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
         value[NotelixChromeStorageKey] = value[NotelixChromeStorageKey] || {};
         value[NotelixChromeStorageKey].notelixUser = resp;
-        value[NotelixChromeStorageKey].notelixPassword = password;
         chrome.storage.sync.set(value, () => {
           sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
           alert("Login successful");

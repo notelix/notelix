@@ -4,7 +4,11 @@ import { NotelixChromeStorageKey } from "../popup/consts";
 import get from "lodash/get";
 import { sendChromeCommandToEveryTab } from "../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../consts";
-import { clientSideEncryptionEnabled } from "../encryption";
+import {
+  clearEncryptionKey,
+  clearLegacyPassword,
+  clientSideEncryptionEnabled,
+} from "../encryption";
 
 export async function getEndpoint(
   path,
@@ -69,7 +73,7 @@ export function getServer() {
 }
 
 export function onRequestError(err) {
-  setTimeout(() => {
+  setTimeout(async () => {
     if (err.toString() === "Error: Extension context invalidated.") {
       iziToast.warning({
         message: `notelix: Please refresh the page before using this plugin`,
@@ -82,9 +86,10 @@ export function onRequestError(err) {
           position: "topRight",
         });
 
+        await clearEncryptionKey();
+        await clearLegacyPassword();
         chrome.storage.sync.get(NotelixChromeStorageKey, (value) => {
           delete value[NotelixChromeStorageKey].notelixUser;
-          delete value[NotelixChromeStorageKey].notelixPassword;
           chrome.storage.sync.set(value, () => {
             sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
           });
