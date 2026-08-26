@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Logger,
   OnApplicationShutdown,
   OnModuleInit,
   Post,
@@ -20,12 +21,58 @@ import * as CryptoJS from 'crypto-js';
 import { meilisearchClient } from '../meilisearch';
 import { SetAgentSyncDto } from '../dto/agent.dto';
 import { isAgentControlOriginAllowed } from '../agentControl';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fs = require('fs');
-
-const AnnotationChangeHistoryLatestIdSavePath =
+const defaultAnnotationChangeHistoryLatestIdSavePath =
   '/data/.annotation_change_history_latest_id';
+const defaultSyncRequestTimeoutMs = 30000;
+const defaultSyncMaxResponseBytes = 64 * 1024 * 1024;
+
+function readBoundedInteger(
+  name: string,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const configured = process.env[name];
+  if (!configured) {
+    return fallback;
+  }
+  const value = Number(configured);
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new Error(
+      `${name} must be an integer between ${minimum} and ${maximum}`,
+    );
+  }
+  return value;
+}
+
+function getSyncStatePath(): string {
+  return (
+    process.env.AGENT_SYNC_STATE_PATH ||
+    defaultAnnotationChangeHistoryLatestIdSavePath
+  );
+}
+
+export function parseSyncCursor(value: string): number | null {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+  const cursor = Number(normalized);
+  if (!Number.isSafeInteger(cursor) || cursor < 0) {
+    return null;
+  }
+  return cursor;
+}
+
+function assertSyncCursor(value: unknown, field: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new Error(`${field} must be a non-negative safe integer`);
+  }
+  return value as number;
+}
 
 export function isRunModeAgent() {
   return process.env.RUN_MODE === 'AGENT';
@@ -58,9 +105,23 @@ function emptyAgentConfig() {
 export class AgentSyncController
   implements OnModuleInit, OnApplicationShutdown
 {
+  private readonly logger = new Logger(AgentSyncController.name);
+  private readonly syncRequestTimeoutMs = readBoundedInteger(
+    'AGENT_SYNC_REQUEST_TIMEOUT_MS',
+    defaultSyncRequestTimeoutMs,
+    100,
+    300000,
+  );
+  private readonly syncMaxResponseBytes = readBoundedInteger(
+    'AGENT_SYNC_MAX_RESPONSE_BYTES',
+    defaultSyncMaxResponseBytes,
+    1024,
+    256 * 1024 * 1024,
+  );
   config = emptyAgentConfig();
   private stopping = false;
   private syncLoopPromise?: Promise<void>;
+  private activeRequestController?: AbortController;
 
   decryptAnnotation = async (annotation) => {
     if (!this.config.clientSideEncryptionKey) {
@@ -92,6 +153,8 @@ export class AgentSyncController
         await Annotation.remove(diff.data);
         await meilisearchClient.UnIndexAnnotation({ ...diff.data, id });
         break;
+      default:
+        throw new Error(`unsupported annotation diff kind ${diff.kind}`);
     }
   };
 
@@ -103,6 +166,7 @@ export class AgentSyncController
 
   async onApplicationShutdown() {
     this.stopping = true;
+    this.activeRequestController?.abort();
     await this.syncLoopPromise;
   }
 
@@ -118,7 +182,10 @@ export class AgentSyncController
       try {
         await this.sync();
       } catch (ex) {
-        console.log('failed to do sync', ex);
+        if (!this.stopping) {
+          const trace = ex instanceof Error ? ex.stack : String(ex);
+          this.logger.error('Failed to synchronize annotations', trace);
+        }
       }
     }
   }
@@ -156,92 +223,235 @@ export class AgentSyncController
     return { ok: true, enabled: this.config.enabled };
   }
 
-  private async sync() {
-    const latestId = this.getAnnotationChangeHistoryLatestId();
-    console.log('SYNC latestId=', latestId);
-    if (latestId === 0) {
-      await this.resetData();
-    }
-    if (latestId === 0) {
-      console.log('fetching list');
-      const resp = await fetch(`${this.config.url}/annotations/list`, {
+  private getSyncEndpoint(pathname: string): string {
+    const baseUrl = this.config.url.endsWith('/')
+      ? this.config.url
+      : `${this.config.url}/`;
+    return new URL(pathname.replace(/^\//, ''), baseUrl).toString();
+  }
+
+  private async requestJson(
+    operation: string,
+    pathname: string,
+    body?: Record<string, unknown>,
+  ): Promise<any> {
+    const requestController = new AbortController();
+    this.activeRequestController = requestController;
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      requestController.abort();
+    }, this.syncRequestTimeoutMs);
+
+    try {
+      const response = await fetch(this.getSyncEndpoint(pathname), {
         headers: {
-          authorization: 'jwt ' + this.config.token,
+          authorization: `jwt ${this.config.token}`,
+          ...(body ? { 'Content-Type': 'application/json' } : {}),
         },
         method: 'POST',
+        body: body ? JSON.stringify(body) : undefined,
+        signal: requestController.signal,
       });
+      if (response.status < 200 || response.status > 201) {
+        throw new Error(`${operation} failed with status ${response.status}`);
+      }
+      return await this.readJsonResponse(response, operation);
+    } catch (error) {
+      if (timedOut) {
+        throw new Error(
+          `${operation} timed out after ${this.syncRequestTimeoutMs}ms`,
+        );
+      }
+      if (this.stopping && requestController.signal.aborted) {
+        throw new Error(`${operation} aborted during shutdown`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      if (this.activeRequestController === requestController) {
+        this.activeRequestController = undefined;
+      }
+    }
+  }
 
-      if (!(resp.status >= 200 && resp.status <= 201)) {
-        throw new Error('list failed ' + resp.status);
+  private async readJsonResponse(
+    response: Response,
+    operation: string,
+  ): Promise<any> {
+    const declaredLength = response.headers.get('content-length');
+    if (declaredLength !== null) {
+      const length = Number(declaredLength);
+      if (Number.isFinite(length) && length > this.syncMaxResponseBytes) {
+        throw new Error(
+          `${operation} response exceeded ${this.syncMaxResponseBytes} bytes`,
+        );
       }
-      const data = await resp.json();
-      console.log('/list ok, persisting', data.list.length, 'items');
-      for (const annotation of data.list) {
-        const decryptedAnnotation = await this.decryptAnnotation(annotation);
-        await Annotation.agentSyncPersist(decryptedAnnotation);
-        await meilisearchClient.IndexAnnotation(decryptedAnnotation);
+    }
+    if (!response.body) {
+      throw new Error(`${operation} returned an empty response`);
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let receivedBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
       }
-      this.saveAnnotationChangeHistoryLatestId(
-        data.annotationChangeHistoryLatestId,
+      receivedBytes += value.byteLength;
+      if (receivedBytes > this.syncMaxResponseBytes) {
+        await reader.cancel();
+        throw new Error(
+          `${operation} response exceeded ${this.syncMaxResponseBytes} bytes`,
+        );
+      }
+      chunks.push(value);
+    }
+
+    const serialized = Buffer.concat(
+      chunks.map((chunk) => Buffer.from(chunk)),
+      receivedBytes,
+    ).toString('utf8');
+    if (!serialized) {
+      throw new Error(`${operation} returned an empty response`);
+    }
+    try {
+      return JSON.parse(serialized);
+    } catch (_error) {
+      throw new Error(`${operation} returned invalid JSON`);
+    }
+  }
+
+  private async sync() {
+    const latestId = this.getAnnotationChangeHistoryLatestId();
+    this.logger.debug(`Synchronizing after history id ${latestId ?? 'none'}`);
+    if (latestId === null) {
+      const data = await this.requestJson(
+        'annotation list request',
+        '/annotations/list',
       );
+      if (!data || !Array.isArray(data.list)) {
+        throw new Error('annotation list response must contain a list');
+      }
+      const historyId = assertSyncCursor(
+        data.annotationChangeHistoryLatestId,
+        'annotationChangeHistoryLatestId',
+      );
+      const annotations = await Promise.all(
+        data.list.map((annotation) => this.decryptAnnotation(annotation)),
+      );
+      await this.resetData();
+      this.logger.log(
+        `Persisting ${annotations.length} synchronized annotations`,
+      );
+      for (const annotation of annotations) {
+        await Annotation.agentSyncPersist(annotation);
+        await meilisearchClient.IndexAnnotation(annotation);
+      }
+      this.saveAnnotationChangeHistoryLatestId(historyId);
       return;
     }
-    const resp = await fetch(`${this.config.url}/annotations/listDiff`, {
-      headers: {
-        authorization: 'jwt ' + this.config.token,
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
-      body: JSON.stringify({
-        sinceId: latestId,
-      }),
-    });
-    if (!(resp.status >= 200 && resp.status <= 201)) {
-      throw new Error('listDiff failed ' + resp.status);
+
+    const data = await this.requestJson(
+      'annotation diff request',
+      '/annotations/listDiff',
+      { sinceId: latestId },
+    );
+    if (!data || typeof data.ok !== 'boolean') {
+      throw new Error('annotation diff response must contain an ok flag');
     }
-    const data = await resp.json();
     if (!data.ok) {
-      console.warn('listDiff failed - data is stale, doing a full re-list');
+      this.logger.warn('Sync history is stale; scheduling a full re-list');
       await this.resetData();
       return;
     }
+    if (!Array.isArray(data.diff)) {
+      throw new Error('annotation diff response must contain a diff list');
+    }
 
-    console.log('found ', data.diff.length, 'diff');
+    this.logger.debug(`Applying ${data.diff.length} annotation changes`);
+    let appliedId = latestId;
     for (const diff of data.diff) {
+      const diffId = assertSyncCursor(diff?.id, 'annotation diff id');
+      if (diffId <= appliedId) {
+        throw new Error('annotation diff ids must be strictly increasing');
+      }
       await this.applyDiff(diff);
-      this.saveAnnotationChangeHistoryLatestId(diff.id);
+      this.saveAnnotationChangeHistoryLatestId(diffId);
+      appliedId = diffId;
     }
   }
 
   private async resetData() {
-    console.log('resetData');
+    this.logger.log('Resetting synchronized annotation data');
+    this.clearAnnotationChangeHistoryLatestId();
     await AnnotationChangeHistory.getRepository().clear();
     await Annotation.getRepository().clear();
-    await this.clearAnnotationChangeHistoryLatestId();
     await meilisearchClient.UnIndexAllAnnotations();
   }
 
-  private saveAnnotationChangeHistoryLatestId(id) {
-    if (this.getAnnotationChangeHistoryLatestId() > id) {
+  private syncStateDirectory(statePath: string): void {
+    const directoryDescriptor = fs.openSync(path.dirname(statePath), 'r');
+    try {
+      fs.fsyncSync(directoryDescriptor);
+    } finally {
+      fs.closeSync(directoryDescriptor);
+    }
+  }
+
+  private saveAnnotationChangeHistoryLatestId(id: number): void {
+    const cursor = assertSyncCursor(id, 'annotation history id');
+    const existingCursor = this.getAnnotationChangeHistoryLatestId();
+    if (existingCursor !== null && existingCursor > cursor) {
       return;
     }
-    fs.writeFileSync(AnnotationChangeHistoryLatestIdSavePath, id.toString(), {
-      encoding: 'utf8',
-    });
-  }
 
-  private getAnnotationChangeHistoryLatestId(): number {
-    if (!fs.existsSync(AnnotationChangeHistoryLatestIdSavePath)) {
-      return 0;
+    const statePath = getSyncStatePath();
+    const temporaryPath = `${statePath}.${process.pid}.tmp`;
+    let fileDescriptor: number | undefined;
+    try {
+      fileDescriptor = fs.openSync(temporaryPath, 'w', 0o600);
+      fs.writeFileSync(fileDescriptor, `${cursor}\n`, { encoding: 'utf8' });
+      fs.fsyncSync(fileDescriptor);
+      fs.closeSync(fileDescriptor);
+      fileDescriptor = undefined;
+      fs.renameSync(temporaryPath, statePath);
+      this.syncStateDirectory(statePath);
+    } finally {
+      if (fileDescriptor !== undefined) {
+        fs.closeSync(fileDescriptor);
+      }
+      if (fs.existsSync(temporaryPath)) {
+        fs.unlinkSync(temporaryPath);
+      }
     }
-    return +fs.readFileSync(AnnotationChangeHistoryLatestIdSavePath, {
-      encoding: 'utf8',
-    });
   }
 
-  private clearAnnotationChangeHistoryLatestId() {
-    if (fs.existsSync(AnnotationChangeHistoryLatestIdSavePath)) {
-      fs.unlinkSync(AnnotationChangeHistoryLatestIdSavePath);
+  private getAnnotationChangeHistoryLatestId(): number | null {
+    const statePath = getSyncStatePath();
+    if (!fs.existsSync(statePath)) {
+      return null;
+    }
+    const cursor = parseSyncCursor(
+      fs.readFileSync(statePath, {
+        encoding: 'utf8',
+      }),
+    );
+    if (cursor === null) {
+      this.logger.warn(
+        'Agent sync cursor is invalid; scheduling a full re-list',
+      );
+    }
+    return cursor;
+  }
+
+  private clearAnnotationChangeHistoryLatestId(): void {
+    const statePath = getSyncStatePath();
+    if (fs.existsSync(statePath)) {
+      fs.unlinkSync(statePath);
+      this.syncStateDirectory(statePath);
     }
   }
 }
