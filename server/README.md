@@ -14,12 +14,6 @@ Use `.env.agent.example` and `.env.dev.example` the same way for the agent and
 development stacks. Do not reuse secrets between environments or commit the
 generated `.env.*` files.
 
-# docker
-
-```
-docker network create notelix
-```
-
 # published Docker images
 
 GitHub Actions publishes backend images to GHCR:
@@ -44,6 +38,23 @@ docker build . -f ./Dockerfile.prod -t notelix:prod
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod up -d
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod down
 ```
+
+The production API binds to `127.0.0.1:18555` by default so credentials and
+tokens are not exposed over an unprotected host-network path. Put a TLS reverse
+proxy on the same host in front of that address for remote access, and set
+`TRUST_PROXY_HOPS` to the exact number of trusted proxy hops. You can change the
+loopback address and port with `NOTELIX_BIND_ADDRESS` and `NOTELIX_PORT`; do not
+use a non-loopback address unless the network path is independently protected.
+
+Each Compose project has an isolated default network. This prevents production,
+development, and agent containers running on the same host from resolving one
+another's `postgres`, `meilisearch`, or `backend` service aliases.
+
+When upgrading an existing deployment, `docker compose up -d` recreates its
+containers on the new project-scoped network. It also changes a previously
+public production port to loopback unless `NOTELIX_BIND_ADDRESS` is set. After
+upgrading every local Notelix stack, inspect the old `notelix` network and
+remove it only when no containers remain attached.
 
 The persistent stacks are pinned to PostgreSQL 14.24 so an image update cannot
 silently perform a major-version upgrade against an existing volume.
@@ -106,10 +117,10 @@ docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev down
 
 # local integration tests
 
-The integration test starts isolated, temporary Postgres and Meilisearch
-containers, runs the backend on the host, and exercises the user, annotation,
-sync-history, and search APIs. Test containers and data are removed when the
-test finishes.
+The integration test validates the production, development, and agent Compose
+topology, starts isolated temporary Postgres and Meilisearch containers, runs
+the backend on the host, and exercises the user, annotation, sync-history, and
+search APIs. Test containers and data are removed when the test finishes.
 
 ```bash
 npm run test:integration

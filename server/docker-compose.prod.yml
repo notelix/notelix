@@ -3,7 +3,7 @@ services:
     image: ${NOTELIX_BACKEND_IMAGE:-notelix:prod}
     restart: unless-stopped
     ports:
-      - "18555:3000"
+      - "${NOTELIX_BIND_ADDRESS:-127.0.0.1}:${NOTELIX_PORT:-18555}:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,7 +49,3 @@ volumes:
   postgres-data:
   data:
   meili-v1:
-networks:
-  default:
-    name: notelix
-    external: true

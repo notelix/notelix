@@ -46,6 +46,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 cd "${integration_server_dir}"
+npm run test:compose
 "${integration_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 "${integration_compose[@]}" up --detach --wait
 

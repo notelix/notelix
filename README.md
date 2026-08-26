@@ -38,7 +38,6 @@ Then `Load unpacked` from `chrome://extensions/`
 cd ./server
 cp .env.dev.example .env.dev
 sed -i "s/replace-with-a-random-secret/$(openssl rand -hex 32)/" .env.dev
-docker network create notelix
 
 # start server in dev mode
 
@@ -57,7 +56,6 @@ cd server
 cp .env.agent.example .env.agent
 sed -i "s/replace-with-a-random-secret/$(openssl rand -hex 32)/" .env.agent
 sed -i "s/replace-with-another-random-secret/$(openssl rand -hex 32)/" .env.agent
-docker network create notelix
 docker build . -f ./Dockerfile.agent -t notelix:agent
 docker-compose -f docker-compose.agent.yml --env-file .env.agent -p notelix-agent up -d
 ```
