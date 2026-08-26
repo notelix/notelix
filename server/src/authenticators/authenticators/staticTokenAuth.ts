@@ -27,7 +27,7 @@ export class StaticTokenAuth implements Authenticator {
     }
 
     const existingToken = await StaticToken.findOne({
-      relations: ['user'],
+      relations: { user: true },
       where: { staticToken },
     });
     if (existingToken) {
@@ -42,7 +42,7 @@ export class StaticTokenAuth implements Authenticator {
 
       const staticTokenRepository = manager.getRepository(StaticToken);
       let staticTokenEntity = await staticTokenRepository.findOne({
-        relations: ['user'],
+        relations: { user: true },
         where: { staticToken },
       });
 
