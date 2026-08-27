@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { isAgentControlOriginAllowed, isRunModeAgent } from './agentControl';
 import { readBoundedIntegerEnvironment } from '../runtime-config';
 import { join } from 'node:path';
+import { ServerResponse } from 'node:http';
 
 export const requestBodyLimitBytes = readBoundedIntegerEnvironment(
   'REQUEST_BODY_LIMIT_BYTES',
@@ -46,6 +47,21 @@ function configureTrustedProxy(app: INestApplication): void {
   server.set('trust proxy', trustedProxyHops);
 }
 
+export function setStaticAssetHeaders(
+  response: ServerResponse,
+  filePath: string,
+): void {
+  const normalizedFilePath = filePath.replace(/\\/g, '/');
+  if (normalizedFilePath.endsWith('.html')) {
+    response.setHeader('Cache-Control', 'no-cache');
+  }
+  if (normalizedFilePath.endsWith('/embedded/content-script.dist.js')) {
+    response.removeHeader('Content-Security-Policy');
+    response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    response.setHeader('Access-Control-Allow-Origin', '*');
+  }
+}
+
 export function configureApplication(app: NestExpressApplication): void {
   configureTrustedProxy(app);
   app.useBodyParser('json', { limit: requestBodyLimitBytes });
@@ -60,11 +76,7 @@ export function configureApplication(app: NestExpressApplication): void {
       index: 'index.html',
       maxAge: '1h',
       redirect: true,
-      setHeaders: (response, filePath) => {
-        if (filePath.endsWith('.html')) {
-          response.setHeader('Cache-Control', 'no-cache');
-        }
-      },
+      setHeaders: setStaticAssetHeaders,
     });
   }
   app.useGlobalPipes(createValidationPipe());
