@@ -58,6 +58,13 @@ interactive highlighting playground. API endpoints remain available at their
 existing paths. Static HTML is revalidated on each request while versioned
 container assets receive a one-hour browser cache.
 
+The playground uses local, reload-only storage unless
+`EMBEDDED_DEMO_STATIC_TOKEN` is set to a dedicated value generated with
+`openssl rand -hex 32`. When configured, `/embedded/` intentionally exposes
+that token as one shared public guest identity and persists its highlights and
+notes through the normal PostgreSQL-backed annotation API. Never reuse a real
+user token or enter private information in the shared demo.
+
 The production API binds to `127.0.0.1:18555` by default so credentials and
 tokens are not exposed over an unprotected host-network path. Put a TLS reverse
 proxy on the same host in front of that address for remote access, and set

@@ -71,6 +71,16 @@ describe('Product website', () => {
       .expect('Content-Type', /javascript/);
   });
 
+  it('revalidates the embedded bootstrap so demo identity changes are immediate', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/assets/embedded.js')
+      .expect(200)
+      .expect('Content-Type', /javascript/);
+
+    expect(response.headers['cache-control']).toContain('no-cache');
+    expect(response.text).toContain('NotelixEmbeddedConfig');
+  });
+
   it('allows only the published embedded bundle to load cross-origin', () => {
     const headers = new Map<string, string | number | readonly string[]>();
     headers.set('content-security-policy', "script-src 'self'");

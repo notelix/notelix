@@ -8,6 +8,7 @@ import { digestStaticToken } from '../../security/staticToken';
 import { readStaticTokenProvisioningConfig } from '../../security/staticTokenProvisioning';
 import { verifyStaticTokenDigest } from '../../security/staticTokenVerifier';
 import { InvalidAuthenticationCredentialError } from '../invalidAuthenticationCredential.error';
+import { readEmbeddedDemoStaticToken } from '../../embeddedDemo';
 
 // This is a valid bcrypt hash of a discarded random value. Static-token-only
 // accounts must have no usable password, and provisioning should not spend a
@@ -18,6 +19,10 @@ const staticTokenOnlyPasswordHash =
 @Injectable()
 export class StaticTokenAuth implements Authenticator {
   private readonly provisioning = readStaticTokenProvisioningConfig();
+  private readonly embeddedDemoTokenDigest = (() => {
+    const token = readEmbeddedDemoStaticToken();
+    return token ? digestStaticToken(token) : null;
+  })();
 
   getAuthenticatorName() {
     return 'static-token';
@@ -37,6 +42,7 @@ export class StaticTokenAuth implements Authenticator {
       );
     }
     const tokenDigest = digestStaticToken(staticToken);
+    const isEmbeddedDemoToken = tokenDigest === this.embeddedDemoTokenDigest;
 
     const existingToken = await StaticToken.findOne({
       relations: { user: true },
@@ -46,19 +52,24 @@ export class StaticTokenAuth implements Authenticator {
       return existingToken.user;
     }
 
-    if (!this.provisioning.enabled) {
-      throw new InvalidAuthenticationCredentialError(
-        'static-token is not registered',
-      );
-    }
+    if (!isEmbeddedDemoToken) {
+      if (!this.provisioning.enabled) {
+        throw new InvalidAuthenticationCredentialError(
+          'static-token is not registered',
+        );
+      }
 
-    if (
-      this.provisioning.verifier &&
-      !(await verifyStaticTokenDigest(tokenDigest, this.provisioning.verifier))
-    ) {
-      throw new InvalidAuthenticationCredentialError(
-        'static-token is not registered',
-      );
+      if (
+        this.provisioning.verifier &&
+        !(await verifyStaticTokenDigest(
+          tokenDigest,
+          this.provisioning.verifier,
+        ))
+      ) {
+        throw new InvalidAuthenticationCredentialError(
+          'static-token is not registered',
+        );
+      }
     }
 
     return AppDataSource.transaction(async (manager) => {
@@ -74,23 +85,27 @@ export class StaticTokenAuth implements Authenticator {
       });
 
       if (!staticTokenEntity) {
-        const [provisioningLock] = await manager.query(
-          'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
-          ['notelix-static-token-provisioning'],
-        );
-        if (!provisioningLock?.acquired) {
-          throw new Error('static-token provisioning is busy');
-        }
-
-        const accountCount = await staticTokenRepository.count();
-        if (accountCount >= this.provisioning.accountLimit) {
-          throw new InvalidAuthenticationCredentialError(
-            'static-token provisioning limit reached',
+        if (!isEmbeddedDemoToken) {
+          const [provisioningLock] = await manager.query(
+            'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+            ['notelix-static-token-provisioning'],
           );
+          if (!provisioningLock?.acquired) {
+            throw new Error('static-token provisioning is busy');
+          }
+
+          const accountCount = await staticTokenRepository.count();
+          if (accountCount >= this.provisioning.accountLimit) {
+            throw new InvalidAuthenticationCredentialError(
+              'static-token provisioning limit reached',
+            );
+          }
         }
 
         let user = new User();
-        user.name = `guest_${randomBytes(16).toString('hex')}`;
+        user.name = `${
+          isEmbeddedDemoToken ? 'guest_demo' : 'guest'
+        }_${randomBytes(16).toString('hex')}`;
         user.password = staticTokenOnlyPasswordHash;
         user.client_side_encryption = '';
         user = await manager.save(user);

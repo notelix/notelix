@@ -55,6 +55,9 @@ export function setStaticAssetHeaders(
   if (normalizedFilePath.endsWith('.html')) {
     response.setHeader('Cache-Control', 'no-cache');
   }
+  if (normalizedFilePath.endsWith('/assets/embedded.js')) {
+    response.setHeader('Cache-Control', 'no-cache');
+  }
   if (normalizedFilePath.endsWith('/embedded/content-script.dist.js')) {
     // Integrators load this stable URL directly, so every page load must
     // revalidate it instead of keeping an obsolete embedded client for an hour.

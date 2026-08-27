@@ -12,6 +12,7 @@ describe('Static-token authentication', () => {
     process.env.STATIC_TOKEN_AUTO_PROVISION_LIMIT;
   const originalVerifierUrl = process.env.STATIC_TOKEN_VERIFIER_URL;
   const originalVerifierSecret = process.env.STATIC_TOKEN_VERIFIER_SECRET;
+  const originalEmbeddedDemoToken = process.env.EMBEDDED_DEMO_STATIC_TOKEN;
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -34,6 +35,11 @@ describe('Static-token authentication', () => {
       delete process.env.STATIC_TOKEN_VERIFIER_SECRET;
     } else {
       process.env.STATIC_TOKEN_VERIFIER_SECRET = originalVerifierSecret;
+    }
+    if (originalEmbeddedDemoToken === undefined) {
+      delete process.env.EMBEDDED_DEMO_STATIC_TOKEN;
+    } else {
+      process.env.EMBEDDED_DEMO_STATIC_TOKEN = originalEmbeddedDemoToken;
     }
   });
 
@@ -180,6 +186,42 @@ describe('Static-token authentication', () => {
       }),
     );
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('provisions only the configured shared demo token without the external verifier', async () => {
+    const rawToken = 'f'.repeat(64);
+    process.env.EMBEDDED_DEMO_STATIC_TOKEN = rawToken;
+    process.env.STATIC_TOKEN_AUTO_PROVISION = 'true';
+    process.env.STATIC_TOKEN_VERIFIER_URL =
+      'http://icdesign-backend/api/integrations/notelix/static-token/verify';
+    process.env.STATIC_TOKEN_VERIFIER_SECRET = 's'.repeat(32);
+    jest.spyOn(StaticToken, 'findOne').mockResolvedValue(null);
+    const verify = jest
+      .spyOn(staticTokenVerifier, 'verifyStaticTokenDigest')
+      .mockResolvedValue(false);
+    const repository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      count: jest.fn(),
+      save: jest.fn(async (entity) => entity),
+    };
+    const manager = {
+      query: jest.fn().mockResolvedValue([]),
+      getRepository: jest.fn().mockReturnValue(repository),
+      save: jest.fn(async (entity) => Object.assign(entity, { id: 501 })),
+    };
+    jest
+      .spyOn(AppDataSource, 'transaction')
+      .mockImplementation((operation: any) => operation(manager));
+
+    const user = await new StaticTokenAuth().authenticate(rawToken);
+
+    expect(user.name).toMatch(/^guest_demo_/);
+    expect(verify).not.toHaveBeenCalled();
+    expect(repository.count).not.toHaveBeenCalled();
+    expect(manager.query).toHaveBeenCalledTimes(1);
+    expect(repository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenDigest: digestStaticToken(rawToken) }),
+    );
   });
 
   it('serializes provisioning and enforces the configured account limit', async () => {

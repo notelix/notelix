@@ -4,6 +4,7 @@ import { UsersController } from './controllers/users.controller';
 import { AuthenticationService } from './authenticators/authentication.service';
 import { AnnotationsController } from './controllers/annotations.controller';
 import { MetaController } from './controllers/meta.controller';
+import { EmbeddedDemoController } from './controllers/embeddedDemo.controller';
 import JwtService from './services/jwt';
 import JwtAuth from './authenticators/authenticators/jwtAuth';
 import StaticTokenAuth from './authenticators/authenticators/staticTokenAuth';
@@ -64,6 +65,7 @@ let application: NestExpressApplication | undefined;
     UsersController,
     AnnotationsController,
     MetaController,
+    EmbeddedDemoController,
     AgentSyncController,
   ],
   providers: [

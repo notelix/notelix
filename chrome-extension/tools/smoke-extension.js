@@ -20,6 +20,8 @@ const headless = process.env.NOTELIX_HEADLESS === "true";
 const artifactDirectory = process.env.NOTELIX_UI_ARTIFACT_DIR;
 const privateNote = "private smoke note must not reach page scripts";
 const annotationRequests = [];
+const sharedDemoToken = "d".repeat(64);
+const demoAnnotations = new Map();
 
 if (!executablePath) {
   throw new Error(
@@ -89,6 +91,24 @@ const server = http.createServer(async (request, response) => {
         path.join(root, "..", "server", "public", "embedded", "index.html"),
         "utf8",
       ),
+    );
+    return;
+  }
+
+  if (request.url === "/embedded/demo-session.js") {
+    response.writeHead(200, {
+      "Cache-Control": "no-store",
+      "Content-Type": "text/javascript; charset=utf-8",
+    });
+    response.end(
+      `window.NotelixEmbeddedConfig = Object.freeze({
+        server: window.location.origin,
+        staticToken: ${JSON.stringify(sharedDemoToken)},
+        rootElementClassName: "notelix-enabled",
+        demoLocalOnly: false,
+        language: "en",
+        theme: "light"
+      });`,
     );
     return;
   }
@@ -184,15 +204,17 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.url === "/annotations/queryByUrl") {
+    const body = await readJsonBody(request);
     annotationRequests.push({
       method: request.method,
       url: request.url,
-      body: await readJsonBody(request),
+      body,
     });
-    response.writeHead(200, { "Content-Type": "application/json" });
-    response.end(
-      JSON.stringify({
-        list: [
+    const list = body?.url?.endsWith("/embedded")
+      ? [...demoAnnotations.values()].filter(
+          (annotation) => annotation.url === body.url,
+        )
+      : [
           {
             id: 7,
             uid: "smoke-annotation",
@@ -207,9 +229,9 @@ const server = http.createServer(async (request, response) => {
               textAfter: "",
             },
           },
-        ],
-      }),
-    );
+        ];
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ list }));
     return;
   }
 
@@ -280,11 +302,24 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (["/annotations/save", "/annotations/delete"].includes(request.url)) {
+    const body = await readJsonBody(request);
     annotationRequests.push({
       method: request.method,
       url: request.url,
-      body: await readJsonBody(request),
+      body,
     });
+    if (
+      request.url === "/annotations/save" &&
+      body?.url?.endsWith("/embedded")
+    ) {
+      demoAnnotations.set(body.uid, {
+        ...body,
+        id: body.id || demoAnnotations.size + 1,
+      });
+    }
+    if (request.url === "/annotations/delete") {
+      demoAnnotations.delete(body?.uid);
+    }
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(JSON.stringify({}));
     return;
@@ -702,6 +737,7 @@ async function main() {
           display: style.display,
           height: rect.height,
           padding: style.padding,
+          position: style.position,
           width: rect.width,
         };
       },
@@ -710,10 +746,11 @@ async function main() {
       backgroundColor: "rgba(0, 0, 0, 0)",
       borderWidth: "0px",
       boxShadow: "none",
-      display: "inline-block",
-      height: 26,
+      display: "block",
+      height: 24,
       padding: "0px",
-      width: 38,
+      position: "absolute",
+      width: 28,
     });
     const embeddedControlStyle = await contentPage.evaluate(() => {
       const annotate = document.getElementById("notelix-annotate-popover");
@@ -1028,37 +1065,144 @@ async function main() {
       }
     });
     const annotationRequestsBeforeEmbedded = annotationRequests.length;
+    const initialDemoQuery = embeddedPage.waitForResponse((response) =>
+      response.url().endsWith("/annotations/queryByUrl"),
+    );
     await embeddedPage.goto(`${baseUrl}/embedded`, {
       waitUntil: "domcontentloaded",
     });
     await embeddedPage.waitForSelector("body.notelix-initialized");
+    await initialDemoQuery;
     const firstDemoToken = await embeddedPage.evaluate(
       () => window.NotelixEmbeddedConfig.staticToken,
     );
-    assert.match(firstDemoToken, /^[0-9a-f]{64}$/);
+    assert.equal(firstDemoToken, sharedDemoToken);
     assert.equal(
       await embeddedPage.evaluate(
         () => window.NotelixEmbeddedConfig.demoLocalOnly,
       ),
+      false,
+    );
+    assert.equal(
+      await embeddedPage.$eval(".demo-privacy strong", (element) =>
+        element.textContent.trim(),
+      ),
+      "Shared public playground",
+    );
+    assert.ok(annotationRequests.length > annotationRequestsBeforeEmbedded);
+
+    await embeddedPage.evaluate(() => {
+      const paragraph = [...document.querySelectorAll(".demo-article p")].find(
+        (element) => element.textContent.includes("There is a particular kind"),
+      );
+      const range = document.createRange();
+      range.setStart(paragraph.firstChild, 0);
+      range.setEnd(paragraph.firstChild, 70);
+      const selection = document.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    });
+    await embeddedPage.waitForFunction(
+      () =>
+        getComputedStyle(document.getElementById("notelix-annotate-popover"))
+          .display === "flex" &&
+        !document.body.classList.contains("selection-changing"),
+    );
+    const colorPosition = await embeddedPage.$eval(
+      "#notelix-annotate-popover .color",
+      (element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          x: bounds.x + bounds.width / 2,
+          y: bounds.y + bounds.height / 2,
+        };
+      },
+    );
+    await embeddedPage.mouse.click(colorPosition.x, colorPosition.y);
+    await embeddedPage.waitForSelector("web-marker-highlight");
+    const highlightPosition = await embeddedPage.$eval(
+      "web-marker-highlight",
+      (element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          x: bounds.x + bounds.width / 2,
+          y: bounds.y + bounds.height / 2,
+        };
+      },
+    );
+    const layoutBeforeNote = await embeddedPage.$eval(
+      "web-marker-highlight",
+      (highlight) => {
+        const paragraph = highlight.closest("p");
+        const bounds = paragraph.getBoundingClientRect();
+        return { height: bounds.height, top: bounds.top };
+      },
+    );
+    await embeddedPage.mouse.click(highlightPosition.x, highlightPosition.y);
+    await embeddedPage.waitForFunction(
+      () =>
+        getComputedStyle(
+          document.getElementById("notelix-edit-annotation-popover"),
+        ).display === "flex",
+    );
+    await embeddedPage.click("#notelix-button-notes");
+    await embeddedPage.waitForFunction(() =>
+      document
+        .getElementById("notelix-notes-backdrop")
+        .classList.contains("notelix-dialog-visible"),
+    );
+    const sharedNote = "shared demo note survives every device";
+    await embeddedPage.keyboard.type(sharedNote);
+    await embeddedPage.keyboard.press("Tab");
+    await embeddedPage.keyboard.press("Tab");
+    await embeddedPage.keyboard.press("Enter");
+    await embeddedPage.waitForSelector(".notelix-notes-inline");
+    const savedNoteId = await embeddedPage.$eval(
+      ".notelix-notes-inline",
+      (element) => element.id,
+    );
+    const layoutAfterNote = await embeddedPage.$eval(
+      "web-marker-highlight",
+      (highlight) => {
+        const paragraph = highlight.closest("p");
+        const bounds = paragraph.getBoundingClientRect();
+        return { height: bounds.height, top: bounds.top };
+      },
+    );
+    assert.deepEqual(layoutAfterNote, layoutBeforeNote);
+    assert.equal(
+      [...demoAnnotations.values()].some(
+        (annotation) => annotation.data.notes === sharedNote,
+      ),
       true,
     );
-    assert.equal(annotationRequests.length, annotationRequestsBeforeEmbedded);
+    await capture(embeddedPage, "embedded-playground-with-note", {
+      fullPage: true,
+    });
+
     await embeddedPage.reload({ waitUntil: "domcontentloaded" });
+    await embeddedPage.waitForSelector(`#${savedNoteId}`);
     assert.equal(
       await embeddedPage.evaluate(
         () => window.NotelixEmbeddedConfig.staticToken,
       ),
       firstDemoToken,
     );
-    await embeddedPage.evaluate(() =>
-      localStorage.removeItem("notelix-embedded-demo-token"),
+
+    const secondDeviceContext = await browser.createBrowserContext();
+    const secondDevicePage = await secondDeviceContext.newPage();
+    await secondDevicePage.goto(`${baseUrl}/embedded`, {
+      waitUntil: "domcontentloaded",
+    });
+    await secondDevicePage.waitForSelector(`#${savedNoteId}`);
+    assert.equal(
+      await secondDevicePage.evaluate(
+        () => window.NotelixEmbeddedConfig.staticToken,
+      ),
+      firstDemoToken,
     );
-    await embeddedPage.reload({ waitUntil: "domcontentloaded" });
-    const replacementDemoToken = await embeddedPage.evaluate(
-      () => window.NotelixEmbeddedConfig.staticToken,
-    );
-    assert.match(replacementDemoToken, /^[0-9a-f]{64}$/);
-    assert.notEqual(replacementDemoToken, firstDemoToken);
+    await secondDeviceContext.close();
     await capture(embeddedPage, "embedded-playground", { fullPage: true });
 
     const productPage = await browser.newPage();

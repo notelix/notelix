@@ -7,20 +7,28 @@ import { registerHotkeys } from "./hotkeys";
 import { reactToSelection } from "./selection";
 import { doTrySetAgentSyncParamsLoop } from "./api/agent";
 import { registerChromeRuntimeMessageListeners } from "./chrome";
+import { shouldDeferToEmbeddedPage } from "./embeddedPage";
 
 setTimeout(() => {
+  if (
+    shouldDeferToEmbeddedPage({
+      embeddedConfig: window.NotelixEmbeddedConfig,
+      pathname: window.location.pathname,
+      scriptSources: [...document.scripts].map((script) => script.src),
+    })
+  ) {
+    return;
+  }
   if (document.body.className.indexOf("notelix-initialized") >= 0) {
     return;
   } else {
     document.body.className = document.body.className + " notelix-initialized";
   }
 
-  if (
-    !(
-      window.NotelixEmbeddedConfig &&
-      window.NotelixEmbeddedConfig.disableLoadAllAnnotationsDataWhenUrlChanges
-    )
-  ) {
+  if (!(
+    window.NotelixEmbeddedConfig &&
+    window.NotelixEmbeddedConfig.disableLoadAllAnnotationsDataWhenUrlChanges
+  )) {
     whenUrlChanges(() => {
       setTimeout(() => {
         loadAllAnnotationsData();
