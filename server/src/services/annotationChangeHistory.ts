@@ -34,11 +34,14 @@ export default class AnnotationChangeHistoryService {
       );
     }
 
-    const savedHistory = await manager.save(history);
     await manager.query(
       'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
       [`notelix-annotation-history:${history.user.id}`],
     );
+    // Allocate the global history ID only after same-user writers are
+    // serialized. Otherwise a lower uncommitted ID can be hidden behind a
+    // higher committed snapshot watermark and never reach the agent.
+    const savedHistory = await manager.save(history);
     await manager.query(
       `
         WITH "ranked_history" AS (

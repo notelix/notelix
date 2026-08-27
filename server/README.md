@@ -271,7 +271,9 @@ the newest entry is always kept so every accepted write remains sync-visible.
 was pruned receives a safe full-relist signal, and stale snapshot sessions are
 discarded first so the relist cannot reuse an obsolete watermark. Existing
 oversized histories are brought under the configured limits on that user's next
-annotation write.
+annotation write. Same-user history IDs are allocated only while holding the
+replica-safe history lock, preventing a snapshot watermark from jumping over an
+older uncommitted change.
 
 JWTs expire after 30 days by default; set `JWT_EXPIRES_IN` to a positive
 duration with an explicit unit, such as `15m` or `7d`, when a shorter policy is

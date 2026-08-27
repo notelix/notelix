@@ -69,6 +69,12 @@ describe('Annotation sync history', () => {
         'DELETE FROM "annotation_change_history"',
       );
       expect(manager.query.mock.calls[1][1]).toEqual([9, 10000, 67108864]);
+      expect(manager.query.mock.invocationCallOrder[0]).toBeLessThan(
+        manager.save.mock.invocationCallOrder[0],
+      );
+      expect(manager.save.mock.invocationCallOrder[0]).toBeLessThan(
+        manager.query.mock.invocationCallOrder[1],
+      );
     },
   );
 });

@@ -307,6 +307,98 @@ async function clearRequestRateLimits() {
   }
 }
 
+async function assertHistoryIdAllocationWaitsForUserLock(username, headers) {
+  const connection = {
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  };
+  const locker = new Client(connection);
+  const observer = new Client(connection);
+  await Promise.all([locker.connect(), observer.connect()]);
+
+  const uid = 'history-id-lock-probe';
+  let savePromise;
+  let observationError;
+  try {
+    const account = await observer.query(
+      'SELECT "id" FROM "user" WHERE "name" = $1',
+      [username],
+    );
+    assert.strictEqual(account.rowCount, 1);
+    const userId = account.rows[0].id;
+
+    await locker.query('BEGIN');
+    await locker.query(
+      'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+      [`notelix-annotation-history:${userId}`],
+    );
+    const sequenceBefore = await observer.query(`
+      SELECT "last_value"::text AS "lastValue", "is_called" AS "isCalled"
+      FROM "annotation_change_history_id_seq"
+    `);
+
+    savePromise = request(
+      '/annotations/save',
+      {
+        uid,
+        url: 'https://example.com/history-id-lock',
+        data: { text: 'watermark allocation probe' },
+      },
+      headers,
+    );
+
+    let writerIsWaiting = false;
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const waiting = await observer.query(`
+        SELECT COUNT(*)::int AS "count"
+        FROM "pg_stat_activity"
+        WHERE "datname" = current_database()
+          AND "pid" <> pg_backend_pid()
+          AND "wait_event_type" = 'Lock'
+          AND "wait_event" = 'advisory'
+          AND "query" LIKE
+            '%pg_advisory_xact_lock(hashtextextended($1, 0))%'
+      `);
+      if (waiting.rows[0].count > 0) {
+        writerIsWaiting = true;
+        break;
+      }
+      await sleep(25);
+    }
+    assert.strictEqual(
+      writerIsWaiting,
+      true,
+      'annotation writer did not wait for the per-user history lock',
+    );
+
+    const sequenceWhileWaiting = await observer.query(`
+      SELECT "last_value"::text AS "lastValue", "is_called" AS "isCalled"
+      FROM "annotation_change_history_id_seq"
+    `);
+    assert.deepStrictEqual(
+      sequenceWhileWaiting.rows[0],
+      sequenceBefore.rows[0],
+      'history ID was allocated before the per-user lock',
+    );
+  } catch (error) {
+    observationError = error;
+  } finally {
+    await locker.query('COMMIT').catch(() => undefined);
+    await Promise.all([locker.end(), observer.end()]);
+  }
+
+  const save = await savePromise;
+  if (observationError) {
+    throw observationError;
+  }
+  assert.strictEqual(save.status, 201, JSON.stringify(save.body));
+  const remove = await request('/annotations/delete', { uid }, headers);
+  assert.strictEqual(remove.status, 201, JSON.stringify(remove.body));
+}
+
 async function main() {
   await Promise.all(
     [serverUrl, secondaryServerUrl].filter(Boolean).map(waitForServer),
@@ -1105,6 +1197,7 @@ async function main() {
     headers,
   );
   assert.strictEqual(response.status, 201, JSON.stringify(response.body));
+  await assertHistoryIdAllocationWaitsForUserLock(username, headers);
 
   await clearRequestRateLimits();
   for (let attempt = 0; attempt < 10; attempt += 1) {
