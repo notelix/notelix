@@ -6,6 +6,7 @@ import { AppDataSource } from '../../database';
 import { randomBytes } from 'crypto';
 import { digestStaticToken } from '../../security/staticToken';
 import { readStaticTokenProvisioningConfig } from '../../security/staticTokenProvisioning';
+import { verifyStaticTokenDigest } from '../../security/staticTokenVerifier';
 import { InvalidAuthenticationCredentialError } from '../invalidAuthenticationCredential.error';
 
 // This is a valid bcrypt hash of a discarded random value. Static-token-only
@@ -46,6 +47,15 @@ export class StaticTokenAuth implements Authenticator {
     }
 
     if (!this.provisioning.enabled) {
+      throw new InvalidAuthenticationCredentialError(
+        'static-token is not registered',
+      );
+    }
+
+    if (
+      this.provisioning.verifier &&
+      !(await verifyStaticTokenDigest(tokenDigest, this.provisioning.verifier))
+    ) {
       throw new InvalidAuthenticationCredentialError(
         'static-token is not registered',
       );

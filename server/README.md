@@ -277,15 +277,22 @@ secure source such as `openssl rand -hex 32`, transmit them only over HTTPS, and
 never commit them or share one token between users.
 
 Unknown static tokens are rejected by default, while already-registered tokens
-continue to authenticate. Set `STATIC_TOKEN_AUTO_PROVISION=true` only when the
-server intentionally provides anonymous embedded accounts. Provisioning is
-coordinated across replicas and stops after `STATIC_TOKEN_AUTO_PROVISION_LIMIT`
-accounts (1000 by default), preventing concurrent requests from exceeding the
-account cap without allowing unrelated enrollments to build a lock queue. The
-limit accepts values from 1 through 1000000 and includes existing static-token
-accounts. Keep auto-provisioning disabled on an Internet-facing server unless
-anonymous account creation is an explicit feature; upgrading with it disabled
-does not invalidate any existing token.
+continue to authenticate. Production provisioning requires an external
+authorization service configured with `STATIC_TOKEN_VERIFIER_URL` and a shared
+`STATIC_TOKEN_VERIFIER_SECRET` of at least 32 characters. Notelix sends only the
+token's SHA-256 digest to that service and expects a JSON `{ "valid": boolean }`
+response. The verifier request fails closed, has a bounded timeout controlled by
+`STATIC_TOKEN_VERIFIER_TIMEOUT_MS` (2000 by default), and never follows
+redirects. Development environments may omit the verifier to intentionally
+provide anonymous embedded accounts.
+
+Enable approved provisioning with `STATIC_TOKEN_AUTO_PROVISION=true`.
+Provisioning is coordinated across replicas and stops after
+`STATIC_TOKEN_AUTO_PROVISION_LIMIT` accounts (1000 by default), preventing
+concurrent requests from exceeding the account cap without allowing unrelated
+enrollments to build a lock queue. The limit accepts values from 1 through
+1000000 and includes existing static-token accounts. Upgrading with provisioning
+disabled does not invalidate any existing token.
 
 Annotation synchronization history contains annotation-only snapshots. The
 history security migration removes legacy embedded user objects, including

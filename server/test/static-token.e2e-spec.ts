@@ -4,11 +4,14 @@ import { StaticToken } from '../src/models/staticToken.entity';
 import { digestStaticToken } from '../src/security/staticToken';
 import { AppDataSource } from '../src/database';
 import { readStaticTokenProvisioningConfig } from '../src/security/staticTokenProvisioning';
+import * as staticTokenVerifier from '../src/security/staticTokenVerifier';
 
 describe('Static-token authentication', () => {
   const originalAutoProvision = process.env.STATIC_TOKEN_AUTO_PROVISION;
   const originalProvisioningLimit =
     process.env.STATIC_TOKEN_AUTO_PROVISION_LIMIT;
+  const originalVerifierUrl = process.env.STATIC_TOKEN_VERIFIER_URL;
+  const originalVerifierSecret = process.env.STATIC_TOKEN_VERIFIER_SECRET;
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -22,12 +25,23 @@ describe('Static-token authentication', () => {
     } else {
       process.env.STATIC_TOKEN_AUTO_PROVISION_LIMIT = originalProvisioningLimit;
     }
+    if (originalVerifierUrl === undefined) {
+      delete process.env.STATIC_TOKEN_VERIFIER_URL;
+    } else {
+      process.env.STATIC_TOKEN_VERIFIER_URL = originalVerifierUrl;
+    }
+    if (originalVerifierSecret === undefined) {
+      delete process.env.STATIC_TOKEN_VERIFIER_SECRET;
+    } else {
+      process.env.STATIC_TOKEN_VERIFIER_SECRET = originalVerifierSecret;
+    }
   });
 
   it('defaults anonymous provisioning to disabled', () => {
     expect(readStaticTokenProvisioningConfig({})).toEqual({
       enabled: false,
       accountLimit: 1000,
+      verifier: null,
     });
   });
 
@@ -37,7 +51,7 @@ describe('Static-token authentication', () => {
         STATIC_TOKEN_AUTO_PROVISION: 'true',
         STATIC_TOKEN_AUTO_PROVISION_LIMIT: '2500',
       }),
-    ).toEqual({ enabled: true, accountLimit: 2500 });
+    ).toEqual({ enabled: true, accountLimit: 2500, verifier: null });
     expect(() =>
       readStaticTokenProvisioningConfig({
         STATIC_TOKEN_AUTO_PROVISION: 'sometimes',
@@ -50,6 +64,32 @@ describe('Static-token authentication', () => {
     ).toThrow(
       'STATIC_TOKEN_AUTO_PROVISION_LIMIT must be an integer between 1 and 1000000',
     );
+  });
+
+  it('requires a verifier for production provisioning', () => {
+    expect(() =>
+      readStaticTokenProvisioningConfig({
+        NODE_ENV: 'production',
+        STATIC_TOKEN_AUTO_PROVISION: 'true',
+      }),
+    ).toThrow('production static-token provisioning requires');
+
+    expect(
+      readStaticTokenProvisioningConfig({
+        NODE_ENV: 'production',
+        STATIC_TOKEN_AUTO_PROVISION: 'true',
+        STATIC_TOKEN_VERIFIER_URL: 'http://icdesign-backend/api/verify',
+        STATIC_TOKEN_VERIFIER_SECRET: 's'.repeat(32),
+      }),
+    ).toEqual({
+      enabled: true,
+      accountLimit: 1000,
+      verifier: {
+        url: 'http://icdesign-backend/api/verify',
+        secret: 's'.repeat(32),
+        timeoutMs: 2000,
+      },
+    });
   });
 
   it('looks up only a digest of the supplied token', async () => {
@@ -115,6 +155,30 @@ describe('Static-token authentication', () => {
     await expect(
       new StaticTokenAuth().authenticate('c'.repeat(64)),
     ).rejects.toThrow('static-token is not registered');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown token when the external verifier denies it', async () => {
+    process.env.STATIC_TOKEN_AUTO_PROVISION = 'true';
+    process.env.STATIC_TOKEN_VERIFIER_URL =
+      'http://icdesign-backend/api/integrations/notelix/static-token/verify';
+    process.env.STATIC_TOKEN_VERIFIER_SECRET = 's'.repeat(32);
+    jest.spyOn(StaticToken, 'findOne').mockResolvedValue(null);
+    const verify = jest
+      .spyOn(staticTokenVerifier, 'verifyStaticTokenDigest')
+      .mockResolvedValue(false);
+    const transaction = jest.spyOn(AppDataSource, 'transaction');
+    const rawToken = 'e'.repeat(64);
+
+    await expect(new StaticTokenAuth().authenticate(rawToken)).rejects.toThrow(
+      'static-token is not registered',
+    );
+    expect(verify).toHaveBeenCalledWith(
+      digestStaticToken(rawToken),
+      expect.objectContaining({
+        url: 'http://icdesign-backend/api/integrations/notelix/static-token/verify',
+      }),
+    );
     expect(transaction).not.toHaveBeenCalled();
   });
 
