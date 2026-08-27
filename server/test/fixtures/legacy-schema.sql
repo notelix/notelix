@@ -72,7 +72,12 @@ VALUES (
   ''
 );
 INSERT INTO "annotation" ("uid", "url", "data", "userId")
-VALUES ('legacy-uid', 'https://example.com/legacy', '{}', 1);
+VALUES (
+  'legacy-uid',
+  'https://example.com/legacy',
+  '{"textAfter":"\udc61","emoji":"\ud83d\ude00","literal":"\\udc61"}',
+  1
+);
 INSERT INTO "annotation_change_history"
   ("kind", "annotationId", "uid", "data", "userId")
 VALUES (

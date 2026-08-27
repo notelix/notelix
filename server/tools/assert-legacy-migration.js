@@ -101,6 +101,20 @@ async function main() {
       { name: 'CreateAnnotationSyncSnapshots1788012000000' },
       { name: 'CreateAnnotationSearchOutbox1788098400000' },
       { name: 'CreateRequestRateLimits1788184800000' },
+      { name: 'RepairLegacyAnnotationJson1788271200000' },
+    ]);
+
+    const annotationPayload = await client.query(
+      'SELECT "data" FROM "annotation"',
+    );
+    assert.deepStrictEqual(annotationPayload.rows, [
+      {
+        data: {
+          emoji: '😀',
+          literal: '\\udc61',
+          textAfter: '�',
+        },
+      },
     ]);
 
     const historyPayload = await client.query(

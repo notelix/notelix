@@ -13,6 +13,7 @@ import { ScrubAnnotationHistorySecrets1787925600000 } from './migrations/1787925
 import { CreateAnnotationSyncSnapshots1788012000000 } from './migrations/1788012000000-CreateAnnotationSyncSnapshots';
 import { CreateAnnotationSearchOutbox1788098400000 } from './migrations/1788098400000-CreateAnnotationSearchOutbox';
 import { CreateRequestRateLimits1788184800000 } from './migrations/1788184800000-CreateRequestRateLimits';
+import { RepairLegacyAnnotationJson1788271200000 } from './migrations/1788271200000-RepairLegacyAnnotationJson';
 
 export const AppDataSource = new DataSource({
   ...ormConfig,
@@ -32,6 +33,7 @@ export const AppDataSource = new DataSource({
     CreateAnnotationSyncSnapshots1788012000000,
     CreateAnnotationSearchOutbox1788098400000,
     CreateRequestRateLimits1788184800000,
+    RepairLegacyAnnotationJson1788271200000,
   ],
   synchronize: false,
 });
