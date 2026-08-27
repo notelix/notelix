@@ -116,13 +116,39 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.url === "/embedded/content-script.dist.js") {
-    response.writeHead(200, { "Content-Type": "text/javascript" });
+    response.writeHead(200, {
+      "Content-Type": "text/javascript; charset=utf-8",
+    });
     response.end(
       fs.readFileSync(
         path.join(extensionPath, "dist", "content-script.dist.js"),
         "utf8",
       ),
     );
+    return;
+  }
+
+  if (
+    ["/customized-embedded-light", "/customized-embedded-dark"].includes(
+      request.url,
+    )
+  ) {
+    const dark = request.url.endsWith("-dark");
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end(`<!doctype html><html lang="en"><head>
+      ${dark ? "" : '<style id="dark-reader-style"></style>'}
+      <script>
+        window.NotelixEmbeddedConfig = {
+          server: window.location.origin,
+          staticToken: "${"a".repeat(64)}",
+          rootElementClassName: "notelix-enabled",
+          demoLocalOnly: true,
+          language: "${dark ? "en" : "zh-CN"}",
+          theme: "${dark ? "dark" : "light"}"
+        };
+      </script>
+      <script defer src="/embedded/content-script.dist.js"></script>
+    </head><body><p class="notelix-enabled">customized embed</p></body></html>`);
     return;
   }
 
@@ -707,9 +733,9 @@ async function main() {
     });
     assert.deepEqual(embeddedControlStyle, {
       annotateBackground: "rgba(255, 255, 255, 0.96)",
-      annotateLabel: "选择高亮颜色",
+      annotateLabel: "Highlight colors",
       annotateText: "",
-      buttonLabels: ["删除高亮", "编辑笔记"],
+      buttonLabels: ["Delete highlight", "Edit note"],
       buttonOrder: ["notelix-button-trash", "notelix-button-notes"],
       editBackground: "rgba(255, 255, 255, 0.96)",
       editText: "",
@@ -833,8 +859,7 @@ async function main() {
     const editorAccessibility = JSON.stringify(
       await contentPage.accessibility.snapshot({ interestingOnly: false }),
     );
-    assert.equal(editorAccessibility.includes("编辑笔记"), true);
-    assert.equal(editorAccessibility.includes("笔记内容"), true);
+    assert.equal(editorAccessibility.includes("Edit note"), true);
     assert.equal(
       editorAccessibility.includes("Add context to this highlight"),
       false,
@@ -928,6 +953,69 @@ async function main() {
     contentPage.off("dialog", trustedDialogHandler);
     assert.deepEqual(trustedDialogs, []);
     assert.deepEqual(contentErrors, []);
+
+    const customizedLightPage = await browser.newPage();
+    await customizedLightPage.goto(`${baseUrl}/customized-embedded-light`, {
+      waitUntil: "domcontentloaded",
+    });
+    await customizedLightPage.waitForSelector("body.notelix-initialized");
+    const customizedLightState = await customizedLightPage.evaluate(() => {
+      const annotate = document.getElementById("notelix-annotate-popover");
+      const edit = document.getElementById("notelix-edit-annotation-popover");
+      const notes = document.getElementById("notelix-notes-backdrop");
+      notes.classList.add("notelix-dialog-visible");
+      notes.setAttribute("aria-hidden", "false");
+      return {
+        annotateBackground: getComputedStyle(annotate).backgroundColor,
+        annotateLabel: annotate.getAttribute("aria-label"),
+        buttonLabels: [...edit.querySelectorAll("button")].map((button) =>
+          button.getAttribute("aria-label"),
+        ),
+        darkClasses: [annotate, edit, notes].map((element) =>
+          element.classList.contains("dark-reader-enabled"),
+        ),
+      };
+    });
+    assert.deepEqual(customizedLightState, {
+      annotateBackground: "rgba(255, 255, 255, 0.96)",
+      annotateLabel: "选择高亮颜色",
+      buttonLabels: ["删除高亮", "编辑笔记"],
+      darkClasses: [false, false, false],
+    });
+    const customizedLightAccessibility = JSON.stringify(
+      await customizedLightPage.accessibility.snapshot({
+        interestingOnly: false,
+      }),
+    );
+    assert.equal(customizedLightAccessibility.includes("编辑笔记"), true);
+    assert.equal(customizedLightAccessibility.includes("笔记内容"), true);
+
+    const customizedDarkPage = await browser.newPage();
+    await customizedDarkPage.goto(`${baseUrl}/customized-embedded-dark`, {
+      waitUntil: "domcontentloaded",
+    });
+    await customizedDarkPage.waitForSelector("body.notelix-initialized");
+    const customizedDarkState = await customizedDarkPage.evaluate(() => {
+      const annotate = document.getElementById("notelix-annotate-popover");
+      const edit = document.getElementById("notelix-edit-annotation-popover");
+      const notes = document.getElementById("notelix-notes-backdrop");
+      return {
+        annotateBackground: getComputedStyle(annotate).backgroundColor,
+        annotateLabel: annotate.getAttribute("aria-label"),
+        buttonLabels: [...edit.querySelectorAll("button")].map((button) =>
+          button.getAttribute("aria-label"),
+        ),
+        darkClasses: [annotate, edit, notes].map((element) =>
+          element.classList.contains("dark-reader-enabled"),
+        ),
+      };
+    });
+    assert.deepEqual(customizedDarkState, {
+      annotateBackground: "rgba(36, 36, 36, 0.96)",
+      annotateLabel: "Highlight colors",
+      buttonLabels: ["Delete highlight", "Edit note"],
+      darkClasses: [true, true, true],
+    });
 
     const embeddedPage = await browser.newPage();
     await embeddedPage.setViewport({ width: 1280, height: 900 });

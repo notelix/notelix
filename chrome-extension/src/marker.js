@@ -9,6 +9,7 @@ import { pickBlackOrWhiteForeground } from "./utils/colors";
 import commentsSvg from "./icons/comments.svg";
 import { isTrustedUserInteraction } from "./trustedUserInteraction";
 import { embeddedCopy } from "./embeddedLocale";
+import { isEmbeddedDarkTheme } from "./integration/dark-reader";
 
 const inlineNoteHostStyles = `
   :host {
@@ -100,6 +101,9 @@ function paintNotes(context) {
         overflow-wrap: anywhere; padding: 8px 10px; text-align: left;
         white-space: pre-wrap;
       }
+      :host(.dark-reader-enabled) .expanded > div {
+        background: rgba(37, 37, 37, .98); border-color: #555; color: #f5f5f5;
+      }
     `;
     const commentsElement = document.createElement("span");
     commentsElement.className = "comments-svg";
@@ -183,6 +187,9 @@ function paintNotes(context) {
       expandedNotesElement.remove();
     });
     inlineNotesRootElement.style.backgroundColor = "transparent";
+    if (isEmbeddedDarkTheme()) {
+      inlineNotesRootElement.classList.add("dark-reader-enabled");
+    }
     firstHighlightElement.prepend(inlineNotesRootElement);
 
     // Prevent text from growing out of the screen bounds.

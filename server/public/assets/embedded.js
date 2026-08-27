@@ -18,6 +18,8 @@
     staticToken,
     rootElementClassName: 'notelix-enabled',
     demoLocalOnly: true,
+    language: 'en',
+    theme: 'light',
   };
 
   const script = document.createElement('script');

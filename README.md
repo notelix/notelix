@@ -112,6 +112,23 @@ Try [here](https://public-dev.notelix.com/embedded/). See
 [server/public/embedded/index.html](./server/public/embedded/index.html) and
 [server/public/assets/embedded.js](./server/public/assets/embedded.js) for the integration code.
 
+The embedding page can choose the language and theme before loading the
+content script:
+
+```js
+window.NotelixEmbeddedConfig = {
+  server: "https://public-dev.notelix.com",
+  staticToken: "<user token>",
+  rootElementClassName: "notelix-enabled",
+  language: "zh-CN", // `en` (default) or `zh-CN`
+  theme: "light", // `auto` (default), `light`, or `dark`
+};
+```
+
+Invalid or missing language values fall back to English. `auto` preserves the
+existing behavior: Notelix uses a dark embedded surface when Dark Reader is
+active and a light surface otherwise.
+
 A note about LICENSE: If you want to integrate Notelix into your project using the above method, it's okay not to
 disclose source code of your project. You only need to disclose source code for any changes made directly to Notelix.
 

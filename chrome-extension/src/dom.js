@@ -69,6 +69,7 @@ function prepareAnnotatePopoverDom() {
   state.annotatePopoverDom = document.getElementById(
     "notelix-annotate-popover",
   );
+  addOrRemoveDarkReaderClass(state.annotatePopoverDom);
   state.annotatePopoverDom.querySelectorAll(".color").forEach((node) => {
     node.onpointerdown = (event) =>
       consumeTrustedPointer(event, () =>
@@ -88,6 +89,7 @@ function prepareEditAnnotationPopoverDom() {
   state.editAnnotationPopoverDom = document.getElementById(
     "notelix-edit-annotation-popover",
   );
+  addOrRemoveDarkReaderClass(state.editAnnotationPopoverDom);
   document.getElementById("notelix-button-trash").onpointerdown = (event) =>
     consumeTrustedPointer(event, onDeleteAnnotationElementClick);
   document.getElementById("notelix-button-notes").onpointerdown = (event) =>
@@ -116,6 +118,7 @@ function prepareNotesEditorDom() {
       </section>
     </div>`;
   document.body.appendChild(host);
+  addOrRemoveDarkReaderClass(host);
   state.notesEditorDom = host;
   state.notesEditorRoot = root;
   const form = root.querySelector("form");
@@ -152,6 +155,7 @@ function prepareDeleteDialogDom() {
       </section>
     </div>`;
   document.body.appendChild(host);
+  addOrRemoveDarkReaderClass(host);
   state.deleteDialogDom = host;
   state.deleteDialogRoot = root;
   root.getElementById("notelix-delete-cancel").onclick = hideDeleteDialog;
