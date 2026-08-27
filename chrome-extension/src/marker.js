@@ -19,25 +19,25 @@ const inlineNoteHostStyles = `
     box-shadow: none !important;
     box-sizing: border-box !important;
     cursor: pointer !important;
-    display: block !important;
+    display: inline-block !important;
     filter: brightness(1) !important;
-    font-size: medium !important;
-    height: 24px !important;
-    left: 0 !important;
-    line-height: normal !important;
-    margin: 0 !important;
-    max-height: 24px !important;
-    max-width: 28px !important;
+    font-size: 0 !important;
+    height: 16px !important;
+    left: auto !important;
+    line-height: 0 !important;
+    margin: 0 0 0 3px !important;
+    max-height: 16px !important;
+    max-width: 16px !important;
     min-height: 0 !important;
     min-width: 0 !important;
     overflow: visible !important;
     padding: 0 !important;
-    position: absolute !important;
-    top: -28px !important;
+    position: relative !important;
+    top: auto !important;
     transform: none !important;
     transition: filter 0.15s ease-in-out !important;
-    vertical-align: baseline !important;
-    width: 28px !important;
+    vertical-align: -2px !important;
+    width: 16px !important;
     z-index: 2 !important;
   }
   :host(:hover) { filter: brightness(1.05) !important; z-index: 100 !important; }
@@ -56,11 +56,12 @@ function paintNotes(context) {
   clearInlineNotes(context.serializedRange.uid);
   const annotation = state.annotations[context.serializedRange.uid];
   if (annotation.data.notes) {
-    const firstHighlightElement = Array.from(
+    const highlightElements = Array.from(
       document.getElementsByTagName("web-marker-highlight"),
     ).filter(
       (x) => x.getAttribute("highlight-id") === context.serializedRange.uid,
-    )[0];
+    );
+    const lastHighlightElement = highlightElements[highlightElements.length - 1];
 
     const inlineNotesRootElement = document.createElement("span");
     inlineNotesRootElement.id = "notes-" + context.serializedRange.uid;
@@ -75,13 +76,13 @@ function paintNotes(context) {
       ${inlineNoteHostStyles}
       .comments-svg {
         align-items: center; background: rgba(255, 255, 255, .98);
-        border: 1px solid rgba(0, 0, 0, .14); border-radius: 6px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, .14); box-sizing: border-box;
-        display: flex; height: 24px; justify-content: center; width: 24px;
+        border: 1px solid rgba(0, 0, 0, .14); border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .14); box-sizing: border-box;
+        display: inline-flex; height: 16px; justify-content: center; width: 16px;
       }
       .comments-svg svg {
-        box-sizing: content-box; height: 14px; padding: 0;
-        transition: transform 0.2s ease-in-out; width: 14px;
+        box-sizing: content-box; height: 10px; padding: 0;
+        transition: transform 0.2s ease-in-out; width: 10px;
       }
       .comments-svg:hover svg { transform: scale(1.15); }
       .expanded {
@@ -120,10 +121,10 @@ function paintNotes(context) {
       const clientRect = inlineNotesRootElement.getBoundingClientRect();
       if (clientRect.top >= document.documentElement.clientHeight / 2) {
         expandedNotesElement.style.removeProperty("top");
-        expandedNotesElement.style.bottom = "30px";
+        expandedNotesElement.style.bottom = "22px";
       } else {
         expandedNotesElement.style.removeProperty("bottom");
-        expandedNotesElement.style.top = "30px";
+        expandedNotesElement.style.top = "22px";
       }
       const hostRect = inlineNotesRootElement.getBoundingClientRect();
       const tooltipWidth = Math.min(
@@ -170,10 +171,7 @@ function paintNotes(context) {
     if (isEmbeddedDarkTheme()) {
       inlineNotesRootElement.classList.add("dark-reader-enabled");
     }
-    if (getComputedStyle(firstHighlightElement).position === "static") {
-      firstHighlightElement.style.position = "relative";
-    }
-    firstHighlightElement.prepend(inlineNotesRootElement);
+    lastHighlightElement.append(inlineNotesRootElement);
   }
 }
 

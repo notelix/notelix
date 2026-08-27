@@ -749,14 +749,24 @@ async function main() {
       (host) => {
         const style = getComputedStyle(host);
         const rect = host.getBoundingClientRect();
+        const highlights = [
+          ...document.querySelectorAll(
+            'web-marker-highlight[highlight-id="smoke-annotation"]',
+          ),
+        ];
         return {
           backgroundColor: style.backgroundColor,
           borderWidth: style.borderWidth,
           boxShadow: style.boxShadow,
           display: style.display,
           height: rect.height,
+          isAtHighlightEnd:
+            host.parentElement === highlights[highlights.length - 1] &&
+            host.parentElement.lastChild === host,
+          marginLeft: style.marginLeft,
           padding: style.padding,
           position: style.position,
+          verticalAlign: style.verticalAlign,
           width: rect.width,
         };
       },
@@ -765,11 +775,14 @@ async function main() {
       backgroundColor: "rgba(0, 0, 0, 0)",
       borderWidth: "0px",
       boxShadow: "none",
-      display: "block",
-      height: 24,
+      display: "inline-block",
+      height: 16,
+      isAtHighlightEnd: true,
+      marginLeft: "3px",
       padding: "0px",
-      position: "absolute",
-      width: 28,
+      position: "relative",
+      verticalAlign: "-2px",
+      width: 16,
     });
     const embeddedControlStyle = await contentPage.evaluate(() => {
       const annotate = document.getElementById("notelix-annotate-popover");
