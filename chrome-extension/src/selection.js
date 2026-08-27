@@ -2,14 +2,13 @@ import {
   hideAnnotatePopover,
   hideEditAnnotationPopover,
   showAnnotatePopover,
-  updatePopoverPosOnSelectionChange,
+  updatePopoverPlacementOnSelectionChange,
 } from "./dom";
 import {
   isSelectionBackwards,
   selectionFocusRect,
   SelectionObserver,
 } from "./selection-observer";
-import { state } from "./state";
 
 function isRangeInContentEditable(range) {
   let ptr = range.commonAncestorContainer;
@@ -31,7 +30,7 @@ const outOfAllowedRootElement =
           if (
             ptr.className &&
             ptr.className.indexOf(
-              window.NotelixEmbeddedConfig.rootElementClassName
+              window.NotelixEmbeddedConfig.rootElementClassName,
             ) >= 0
           ) {
             return false;
@@ -83,7 +82,7 @@ function setSelectionChanging(changing) {
   } else {
     document.body.className = document.body.className.replace(
       /\s*selection-changing\s*/g,
-      ""
+      "",
     );
   }
 }
@@ -109,9 +108,10 @@ const onSelectionChange = () => {
 
   const rect = selectionFocusRect(selection);
   if (rect) {
-    updatePopoverPosOnSelectionChange(rect, isSelectionBackwards(selection));
-    state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
-    state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
+    updatePopoverPlacementOnSelectionChange(
+      rect,
+      isSelectionBackwards(selection),
+    );
   }
 };
 

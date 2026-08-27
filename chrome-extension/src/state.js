@@ -7,6 +7,6 @@ export const state = {
   deleteDialogRoot: null,
 
   selectedAnnotationId: null,
-  popoverPos: { x: 0, y: 0 },
+  popoverPlacement: null,
   annotations: {},
 };

@@ -20,6 +20,7 @@ import { deleteAnnotation } from "./api/annotations";
 import { isMobileOrTablet } from "./mobile";
 import { isTrustedUserInteraction } from "./trustedUserInteraction";
 import { embeddedCopy } from "./embeddedLocale";
+import { placePopover } from "./utils/popoverPlacement";
 
 const dialogShadowStyles = `
   *, *::before, *::after { box-sizing: border-box; }
@@ -197,8 +198,7 @@ function hideDeleteDialog() {
 }
 
 export function showAnnotatePopover() {
-  state.annotatePopoverDom.style.top = state.popoverPos.y + "px";
-  state.annotatePopoverDom.style.left = state.popoverPos.x + "px";
+  placeCurrentPopover(state.annotatePopoverDom, "flex");
   addOrRemoveDarkReaderClass(state.annotatePopoverDom);
   setTimeout(() => {
     state.annotatePopoverDom.style.display = "flex";
@@ -216,8 +216,7 @@ let lastShowEditAnnotationPopoverTimestamp = 0;
 
 export function showEditAnnotationPopover() {
   lastShowEditAnnotationPopoverTimestamp = Date.now();
-  state.editAnnotationPopoverDom.style.top = state.popoverPos.y + "px";
-  state.editAnnotationPopoverDom.style.left = state.popoverPos.x + "px";
+  placeCurrentPopover(state.editAnnotationPopoverDom, "flex");
   addOrRemoveDarkReaderClass(state.editAnnotationPopoverDom);
   setTimeout(() => {
     state.editAnnotationPopoverDom.style.display = "flex";
@@ -370,34 +369,53 @@ export function onHighlightElementClick(color) {
   });
 }
 
-export function updatePopoverPosOnSelectionChange(rect, selectionIsBackwards) {
-  if (selectionIsBackwards) {
-    state.popoverPos.y =
-      rect.top + window.scrollY + (isMobileOrTablet ? 80 : -20);
-  } else {
-    state.popoverPos.y =
-      rect.top + rect.height + window.scrollY + (isMobileOrTablet ? 50 : 30);
-  }
-  state.popoverPos.x = selectionIsBackwards
-    ? rect.left + window.scrollX + 70
-    : rect.right + window.scrollX - 70;
-  constrainPopoverX();
+export function updatePopoverPlacementOnSelectionChange(
+  rect,
+  selectionIsBackwards,
+) {
+  const mobileAnchor = selectionIsBackwards
+    ? {
+        bottom: rect.top,
+        height: 0,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width,
+      }
+    : rect;
+  state.popoverPlacement = {
+    alignment: isMobileOrTablet
+      ? "viewport-center"
+      : selectionIsBackwards
+        ? "start"
+        : "end",
+    anchorRect: isMobileOrTablet ? mobileAnchor : rect,
+    gap: isMobileOrTablet ? (selectionIsBackwards ? 60 : 30) : 10,
+    preferredSide: isMobileOrTablet
+      ? "below"
+      : selectionIsBackwards
+        ? "above"
+        : "below",
+  };
+  placeCurrentPopover(state.annotatePopoverDom, "flex");
 }
 
-export function updatePopoverPosOnHighlightSelect(rect) {
-  state.popoverPos.y =
-    rect.top + rect.height + window.scrollY + (isMobileOrTablet ? 50 : 40);
-  state.popoverPos.x = rect.left + rect.width / 2;
-  constrainPopoverX();
+export function updatePopoverPlacementOnHighlightSelect(rect) {
+  state.popoverPlacement = {
+    alignment: isMobileOrTablet ? "viewport-center" : "end",
+    anchorRect: rect,
+    gap: isMobileOrTablet ? 30 : 10,
+    preferredSide: "below",
+  };
+  placeCurrentPopover(state.editAnnotationPopoverDom, "flex");
 }
 
-function constrainPopoverX() {
-  if (isMobileOrTablet)
-    state.popoverPos.x = document.documentElement.clientWidth / 2;
-  state.popoverPos.x = Math.max(
-    76,
-    Math.min(document.documentElement.clientWidth - 76, state.popoverPos.x),
-  );
+function placeCurrentPopover(element, measurementDisplay) {
+  if (!state.popoverPlacement) return;
+  placePopover(element, {
+    ...state.popoverPlacement,
+    measurementDisplay,
+  });
 }
 
 function registerDialogKeyboardHandling() {

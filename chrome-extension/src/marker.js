@@ -3,12 +3,13 @@ import { state } from "./state";
 import {
   onEditNotesElementClick,
   showEditAnnotationPopover,
-  updatePopoverPosOnHighlightSelect,
+  updatePopoverPlacementOnHighlightSelect,
 } from "./dom";
 import commentsSvg from "./icons/comments.svg";
 import { isTrustedUserInteraction } from "./trustedUserInteraction";
 import { embeddedCopy } from "./embeddedLocale";
 import { isEmbeddedDarkTheme } from "./integration/dark-reader";
+import { placePopover, pointerAnchorRect } from "./utils/popoverPlacement";
 
 const inlineNoteHostStyles = `
   :host {
@@ -133,33 +134,23 @@ function paintNotes(context) {
     expandedNotesElement.appendChild(expandedNotesTextElement);
     shadowRoot.append(shadowStyle, commentsElement);
 
-    inlineNotesRootElement.addEventListener("mouseover", () => {
-      const clientRect = inlineNotesRootElement.getBoundingClientRect();
-      if (clientRect.top >= document.documentElement.clientHeight / 2) {
-        expandedNotesElement.style.removeProperty("top");
-        expandedNotesElement.style.bottom = "22px";
-      } else {
-        expandedNotesElement.style.removeProperty("bottom");
-        expandedNotesElement.style.top = "22px";
-      }
+    inlineNotesRootElement.addEventListener("mouseenter", () => {
       const hostRect = inlineNotesRootElement.getBoundingClientRect();
       const tooltipWidth = Math.min(
         320,
         document.documentElement.clientWidth - 24,
       );
-      const left = Math.max(
-        12 - hostRect.left,
-        Math.min(
-          0,
-          document.documentElement.clientWidth -
-            12 -
-            hostRect.left -
-            tooltipWidth,
-        ),
-      );
-      expandedNotesElement.style.left = `${left}px`;
       expandedNotesElement.style.width = `${tooltipWidth}px`;
+      expandedNotesElement.style.visibility = "hidden";
       shadowRoot.appendChild(expandedNotesElement);
+      placePopover(expandedNotesElement, {
+        alignment: "end",
+        anchorRect: hostRect,
+        coordinateOrigin: hostRect,
+        gap: 8,
+        preferredSide: "above",
+      });
+      expandedNotesElement.style.removeProperty("visibility");
     });
     inlineNotesRootElement.addEventListener("mouseleave", () => {
       expandedNotesElement.remove();
@@ -198,14 +189,13 @@ export const marker = new Marker({
       if (!isTrustedUserInteraction(event)) {
         return;
       }
+      const clickedAnchor = pointerAnchorRect(
+        event,
+        element.getBoundingClientRect(),
+      );
       setTimeout(() => {
         state.selectedAnnotationId = context.serializedRange.uid;
-        const range = marker.deserializeRange(
-          convertAnnotationToSerializedRange(
-            state.annotations[state.selectedAnnotationId],
-          ),
-        );
-        updatePopoverPosOnHighlightSelect(range.getBoundingClientRect());
+        updatePopoverPlacementOnHighlightSelect(clickedAnchor);
         showEditAnnotationPopover();
       });
     },

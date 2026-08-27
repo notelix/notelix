@@ -1196,6 +1196,27 @@ async function main() {
           document.getElementById("notelix-edit-annotation-popover"),
         ).display === "flex",
     );
+    const actionPopoverPlacement = await embeddedPage.$eval(
+      "#notelix-edit-annotation-popover",
+      (element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          placement: element.dataset.notelixPlacement,
+          right: bounds.right,
+          top: bounds.top,
+        };
+      },
+    );
+    assert.equal(actionPopoverPlacement.placement, "below");
+    assert.ok(
+      Math.abs(actionPopoverPlacement.right - highlightPosition.x) <= 1,
+      "the highlight action popover should align with the click position",
+    );
+    assert.ok(
+      actionPopoverPlacement.top - highlightPosition.y >= 8 &&
+        actionPopoverPlacement.top - highlightPosition.y <= 11,
+      "the highlight action popover should remain close to the click position",
+    );
     await embeddedPage.click("#notelix-button-notes");
     await embeddedPage.waitForFunction(() =>
       document
