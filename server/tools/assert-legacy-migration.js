@@ -20,7 +20,8 @@ async function main() {
         (SELECT COUNT(*)::int FROM "annotation") AS annotations,
         (SELECT COUNT(*)::int FROM "annotation_change_history") AS history,
         (SELECT COUNT(*)::int FROM "static_token") AS tokens,
-        (SELECT COUNT(*)::int FROM "annotation_search_outbox") AS search_outbox
+        (SELECT COUNT(*)::int FROM "annotation_search_outbox") AS search_outbox,
+        (SELECT COUNT(*)::int FROM "request_rate_limit") AS rate_limits
     `);
     assert.deepStrictEqual(dataCounts.rows[0], {
       users: 1,
@@ -28,6 +29,7 @@ async function main() {
       history: 1,
       tokens: 1,
       search_outbox: 1,
+      rate_limits: 0,
     });
 
     const indexes = await client.query(`
@@ -43,6 +45,7 @@ async function main() {
           'IDX_sync_snapshot_expires',
           'IDX_sync_snapshot_user_expires',
           'IDX_search_outbox_available',
+          'IDX_request_rate_limit_expires',
           'UQ_static_token_token'
         )
       ORDER BY indexname
@@ -52,6 +55,7 @@ async function main() {
       [
         'IDX_annotation_user_url_host',
         'IDX_history_user_id',
+        'IDX_request_rate_limit_expires',
         'IDX_search_outbox_available',
         'IDX_sync_snapshot_expires',
         'IDX_sync_snapshot_user_expires',
@@ -96,6 +100,7 @@ async function main() {
       { name: 'ScrubAnnotationHistorySecrets1787925600000' },
       { name: 'CreateAnnotationSyncSnapshots1788012000000' },
       { name: 'CreateAnnotationSearchOutbox1788098400000' },
+      { name: 'CreateRequestRateLimits1788184800000' },
     ]);
 
     const historyPayload = await client.query(

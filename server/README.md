@@ -190,9 +190,15 @@ operators receive a clear failure instead of an indefinitely hung startup.
 
 Requests are rate limited per client IP. `RATE_LIMIT_MAX` and
 `RATE_LIMIT_TTL_MS` configure the general request budget. Login, signup, and
-password changes have tighter fixed limits. When the backend is behind a
-trusted reverse proxy, set `TRUST_PROXY_HOPS` to the exact number of proxy hops
-so clients are tracked separately; do not enable it for untrusted proxies.
+password changes have tighter fixed limits. Budgets are stored atomically in
+PostgreSQL, so clients cannot multiply their allowance by switching between
+backend replicas. Expired counters are removed in bounded batches. During a
+PostgreSQL outage each process retains a bounded in-memory fallback; dependent
+authenticated operations still report the underlying outage. The liveness
+endpoint deliberately bypasses database-backed throttling. When the backend is
+behind a trusted reverse proxy, set `TRUST_PROXY_HOPS` to the exact number of
+proxy hops so clients are tracked separately; do not enable it for untrusted
+proxies.
 JSON and URL-encoded request bodies are limited to 1 MiB by default.
 `REQUEST_BODY_LIMIT_BYTES` accepts values from 1024 through 16777216; larger
 requests receive `413 Payload Too Large` before authentication or persistence.

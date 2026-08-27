@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ReadinessService } from '../services/readiness';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @Controller('meta')
 export class MetaController {
@@ -11,6 +12,7 @@ export class MetaController {
   }
 
   @Get('/health')
+  @SkipThrottle()
   Health(): { status: 'ok' } {
     return { status: 'ok' };
   }

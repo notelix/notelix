@@ -26,6 +26,7 @@ import {
   readPortEnvironment,
 } from '../runtime-config';
 import { validateAgentControlOrigins } from './agentControl';
+import { PostgresThrottlerStorage } from './services/postgresThrottlerStorage';
 
 const httpPort = readPortEnvironment('PORT', 3000);
 const runMode = readEnvironmentChoice('RUN_MODE', 'SERVER', [
@@ -34,20 +35,29 @@ const runMode = readEnvironmentChoice('RUN_MODE', 'SERVER', [
 ] as const);
 validateAgentControlOrigins(runMode);
 const bootstrapLogger = new Logger('Bootstrap');
+const rateLimitStorage = new PostgresThrottlerStorage();
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([
-      {
-        ttl: readBoundedIntegerEnvironment(
-          'RATE_LIMIT_TTL_MS',
-          60000,
-          1,
-          2147483647,
-        ),
-        limit: readBoundedIntegerEnvironment('RATE_LIMIT_MAX', 300, 1, 1000000),
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      storage: rateLimitStorage,
+      throttlers: [
+        {
+          ttl: readBoundedIntegerEnvironment(
+            'RATE_LIMIT_TTL_MS',
+            60000,
+            1,
+            2147483647,
+          ),
+          limit: readBoundedIntegerEnvironment(
+            'RATE_LIMIT_MAX',
+            300,
+            1,
+            1000000,
+          ),
+        },
+      ],
+    }),
   ],
   controllers: [
     UsersController,

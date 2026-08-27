@@ -291,10 +291,29 @@ async function getLatestAnnotationHistoryId(username, uid) {
   }
 }
 
+async function clearRequestRateLimits() {
+  const client = new Client({
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  });
+  await client.connect();
+  try {
+    await client.query('DELETE FROM "request_rate_limit"');
+  } finally {
+    await client.end();
+  }
+}
+
 async function main() {
   await Promise.all(
     [serverUrl, secondaryServerUrl].filter(Boolean).map(waitForServer),
   );
+  // The outage scenario runs against the same database immediately before
+  // this suite. Give this scenario its own deterministic request budgets.
+  await clearRequestRateLimits();
 
   const metadata = await request('/meta/version');
   assert.strictEqual(metadata.headers['x-content-type-options'], 'nosniff');
@@ -1087,19 +1106,27 @@ async function main() {
   );
   assert.strictEqual(response.status, 201, JSON.stringify(response.body));
 
-  let rateLimited = false;
-  for (let attempt = 0; attempt < 15; attempt += 1) {
-    const response = await request('/users/login', {
+  await clearRequestRateLimits();
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const target =
+      secondaryServerUrl && attempt % 2 === 1 ? secondaryServerUrl : serverUrl;
+    const response = await requestAt(target, '/users/login', {
       username: `rate-limit-${attempt}`,
       password: 'incorrect-password',
     });
-    if (response.status === 429) {
-      rateLimited = true;
-      break;
-    }
     assert.strictEqual(response.status, 403, JSON.stringify(response.body));
   }
-  assert.strictEqual(rateLimited, true, 'login endpoint was not rate limited');
+  const rateLimited = await request('/users/login', {
+    username: 'rate-limit-blocked',
+    password: 'incorrect-password',
+  });
+  assert.strictEqual(
+    rateLimited.status,
+    429,
+    `login budget was not shared across replicas: ${JSON.stringify(
+      rateLimited.body,
+    )}`,
+  );
 
   console.log('Live API integration test passed.');
 }
