@@ -18,6 +18,7 @@ const candidates = [
 const executablePath = candidates.find((candidate) => fs.existsSync(candidate));
 const headless = process.env.NOTELIX_HEADLESS === "true";
 const artifactDirectory = process.env.NOTELIX_UI_ARTIFACT_DIR;
+const smokeTimeoutMs = 60000;
 const privateNote = "private smoke note must not reach page scripts";
 const annotationRequests = [];
 const sharedDemoToken = "d".repeat(64);
@@ -365,6 +366,24 @@ async function capture(page, name, options = {}) {
   });
 }
 
+async function newSmokePage(browserOrContext) {
+  const page = await browserOrContext.newPage();
+  page.setDefaultTimeout(smokeTimeoutMs);
+  page.setDefaultNavigationTimeout(smokeTimeoutMs);
+  return page;
+}
+
+async function waitForValue(readValue, isReady, description) {
+  const deadline = Date.now() + smokeTimeoutMs;
+  let value;
+  while (Date.now() < deadline) {
+    value = await readValue();
+    if (isReady(value)) return value;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`timed out waiting for ${description}`);
+}
+
 async function assertAccessibleControls(page) {
   const missingNames = await page.$$eval(
     'button, input:not([type="hidden"]), textarea, select, a[href]',
@@ -451,7 +470,7 @@ async function main() {
       (target) =>
         target.type() === "service_worker" &&
         target.url().startsWith("chrome-extension://"),
-      { timeout: 15000 },
+      { timeout: smokeTimeoutMs },
     );
     const extensionId = new URL(workerTarget.url()).host;
     const worker = await workerTarget.worker();
@@ -470,7 +489,7 @@ async function main() {
       baseUrl,
     );
 
-    const popup = await browser.newPage();
+    const popup = await newSmokePage(browser);
     await popup.setViewport({ width: 420, height: 640 });
     const popupErrors = [];
     popup.on("pageerror", (error) => popupErrors.push(error.message));
@@ -626,7 +645,7 @@ async function main() {
     ]);
     assert.deepEqual(popupErrors, []);
 
-    const appPage = await browser.newPage();
+    const appPage = await newSmokePage(browser);
     const appErrors = [];
     appPage.on("pageerror", (error) => appErrors.push(error.message));
     await appPage.setViewport({ width: 1365, height: 900 });
@@ -684,7 +703,7 @@ async function main() {
     await capture(appPage, "extension-library-mobile");
     assert.deepEqual(appErrors, []);
 
-    const contentPage = await browser.newPage();
+    const contentPage = await newSmokePage(browser);
     const contentErrors = [];
     contentPage.on("pageerror", (error) => contentErrors.push(error.message));
     await contentPage.goto(`http://127.0.0.1:${port}/`, {
@@ -778,12 +797,11 @@ async function main() {
       editText: "",
     });
     await contentPage.hover("#notes-smoke-annotation");
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    const inlineNoteTextBounds = await accessibilityBoundsByName(
-      contentPage,
-      privateNote,
+    const inlineNoteTextBounds = await waitForValue(
+      () => accessibilityBoundsByName(contentPage, privateNote),
+      (bounds) => bounds.length >= 1,
+      "the inline note preview to reach the accessibility tree",
     );
-    assert.ok(inlineNoteTextBounds.length >= 1);
     assert.ok(
       inlineNoteTextBounds.every(({ width }) => width <= 322),
       `inline note preview is too wide: ${JSON.stringify(inlineNoteTextBounds)}`,
@@ -991,7 +1009,7 @@ async function main() {
     assert.deepEqual(trustedDialogs, []);
     assert.deepEqual(contentErrors, []);
 
-    const customizedLightPage = await browser.newPage();
+    const customizedLightPage = await newSmokePage(browser);
     await customizedLightPage.goto(`${baseUrl}/customized-embedded-light`, {
       waitUntil: "domcontentloaded",
     });
@@ -1027,7 +1045,7 @@ async function main() {
     assert.equal(customizedLightAccessibility.includes("编辑笔记"), true);
     assert.equal(customizedLightAccessibility.includes("笔记内容"), true);
 
-    const customizedDarkPage = await browser.newPage();
+    const customizedDarkPage = await newSmokePage(browser);
     await customizedDarkPage.goto(`${baseUrl}/customized-embedded-dark`, {
       waitUntil: "domcontentloaded",
     });
@@ -1054,7 +1072,7 @@ async function main() {
       darkClasses: [true, true, true],
     });
 
-    const embeddedPage = await browser.newPage();
+    const embeddedPage = await newSmokePage(browser);
     await embeddedPage.setViewport({ width: 1280, height: 900 });
     await embeddedPage.setRequestInterception(true);
     embeddedPage.on("request", (request) => {
@@ -1154,9 +1172,15 @@ async function main() {
     );
     const sharedNote = "shared demo note survives every device";
     await embeddedPage.keyboard.type(sharedNote);
+    const sharedNoteSave = embeddedPage.waitForResponse(
+      (response) =>
+        response.url().endsWith("/annotations/save") &&
+        response.request().method() === "POST",
+    );
     await embeddedPage.keyboard.press("Tab");
     await embeddedPage.keyboard.press("Tab");
     await embeddedPage.keyboard.press("Enter");
+    await sharedNoteSave;
     await embeddedPage.waitForSelector(".notelix-notes-inline");
     const savedNoteId = await embeddedPage.$eval(
       ".notelix-notes-inline",
@@ -1191,7 +1215,7 @@ async function main() {
     );
 
     const secondDeviceContext = await browser.createBrowserContext();
-    const secondDevicePage = await secondDeviceContext.newPage();
+    const secondDevicePage = await newSmokePage(secondDeviceContext);
     await secondDevicePage.goto(`${baseUrl}/embedded`, {
       waitUntil: "domcontentloaded",
     });
@@ -1205,7 +1229,7 @@ async function main() {
     await secondDeviceContext.close();
     await capture(embeddedPage, "embedded-playground", { fullPage: true });
 
-    const productPage = await browser.newPage();
+    const productPage = await newSmokePage(browser);
     await productPage.setViewport({ width: 1440, height: 1000 });
     const productErrors = [];
     productPage.on("pageerror", (error) => productErrors.push(error.message));
