@@ -5,12 +5,16 @@ import { createValidationPipe } from '../src/application';
 import {
   AgentSyncController,
   createAgentSyncSourceIdentity,
+  normalizeAgentSyncAnnotation,
   parseAgentSyncState,
   parseSyncCursor,
 } from '../src/controllers/agentSyncController';
 import { meilisearchClient } from '../src/meilisearch';
 import { Annotation } from '../src/models/annotation.entity';
-import { AnnotationChangeHistoryKindSave } from '../src/models/annotationChangeHistory.entity';
+import {
+  AnnotationChangeHistoryKindDelete,
+  AnnotationChangeHistoryKindSave,
+} from '../src/models/annotationChangeHistory.entity';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -36,6 +40,24 @@ describe('Agent control API', () => {
     token: 'signed-jwt',
     clientSideEncryptionKey: null,
   };
+
+  function makeSyncAnnotation(
+    id: number,
+    uid: string,
+    overrides: Record<string, unknown> = {},
+  ) {
+    return {
+      id,
+      uid,
+      url: `https://example.com/${uid}`,
+      title: uid,
+      host: 'example.com',
+      data: {},
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-02T00:00:00.000Z',
+      ...overrides,
+    };
+  }
 
   function configureController(
     controller: AgentSyncController,
@@ -218,16 +240,11 @@ describe('Agent control API', () => {
   });
 
   it('applies annotation-only history snapshots without a user object', async () => {
-    const snapshot = {
-      id: 12,
-      uid: 'annotation-uid',
+    const snapshot = makeSyncAnnotation(12, 'annotation-uid', {
       url: 'https://example.com/article',
       title: 'Article',
-      host: 'example.com',
       data: { text: 'highlighted text' },
-      created_at: '2026-01-01T00:00:00.000Z',
-      updated_at: '2026-01-02T00:00:00.000Z',
-    };
+    });
     const persist = jest
       .spyOn(Annotation, 'agentSyncPersist')
       .mockResolvedValue(undefined);
@@ -242,6 +259,96 @@ describe('Agent control API', () => {
 
     expect(persist).toHaveBeenCalledWith(snapshot);
     expect(index).toHaveBeenCalledWith(snapshot);
+  });
+
+  it('rejects malformed remote annotations before local mutations', async () => {
+    const persist = jest.spyOn(Annotation, 'agentSyncPersist');
+    const index = jest.spyOn(meilisearchClient, 'IndexAnnotation');
+
+    for (const malformed of [
+      makeSyncAnnotation(0, 'zero-id'),
+      makeSyncAnnotation(1, ''),
+      makeSyncAnnotation(1, 'array-data', { data: [] }),
+      makeSyncAnnotation(1, 'bad-date', { updated_at: 'not-a-date' }),
+    ]) {
+      await expect(
+        new AgentSyncController().applyDiff({
+          kind: AnnotationChangeHistoryKindSave,
+          data: malformed,
+        }),
+      ).rejects.toThrow('agent annotation');
+    }
+
+    expect(persist).not.toHaveBeenCalled();
+    expect(index).not.toHaveBeenCalled();
+  });
+
+  it('keeps only protocol fields from remote annotations', () => {
+    const expected = makeSyncAnnotation(12, 'annotation-uid');
+    const normalized = normalizeAgentSyncAnnotation({
+      ...expected,
+      user: { id: 999 },
+      password: 'remote-secret',
+    });
+
+    expect(normalized).toEqual(expected);
+    expect(normalized).not.toHaveProperty('user');
+    expect(normalized).not.toHaveProperty('password');
+  });
+
+  it('replays deletes idempotently and ignores remote entity fields', async () => {
+    const remove = jest.spyOn(Annotation, 'delete').mockResolvedValue({
+      raw: [],
+      affected: 0,
+    });
+    const unindex = jest
+      .spyOn(meilisearchClient, 'UnIndexAnnotation')
+      .mockResolvedValue(undefined);
+    const controller = new AgentSyncController();
+
+    await controller.applyDiff({
+      kind: AnnotationChangeHistoryKindDelete,
+      data: { id: 12, user: { id: 999 }, password: 'remote-secret' },
+    });
+
+    expect(remove).toHaveBeenCalledWith({ id: 12 });
+    expect(unindex).toHaveBeenCalledWith({ id: 12 });
+  });
+
+  it('fences a superseded delete before its database mutation', async () => {
+    const remove = jest.spyOn(Annotation, 'delete');
+
+    await expect(
+      new AgentSyncController().applyDiff(
+        { kind: AnnotationChangeHistoryKindDelete, data: { id: 12 } },
+        () => {
+          throw new Error('sync superseded');
+        },
+      ),
+    ).rejects.toThrow('sync superseded');
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('does not assign remote relations while updating an existing row', async () => {
+    const originalUser = { id: 0 } as any;
+    const existing = Object.assign(
+      new Annotation(),
+      makeSyncAnnotation(12, 'old-uid'),
+      { user: originalUser },
+    );
+    jest.spyOn(Annotation, 'findOne').mockResolvedValue(existing);
+    const save = jest.spyOn(existing, 'save').mockResolvedValue(existing);
+
+    await Annotation.agentSyncPersist({
+      ...makeSyncAnnotation(12, 'new-uid'),
+      user: { id: 999 },
+      password: 'remote-secret',
+    });
+
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(existing.uid).toBe('new-uid');
+    expect(existing.user).toBe(originalUser);
+    expect(existing).not.toHaveProperty('password');
   });
 
   it('rejects unsupported history kinds instead of advancing past them', async () => {
@@ -612,8 +719,8 @@ describe('Agent control API', () => {
       .spyOn(meilisearchClient, 'IndexAnnotation')
       .mockResolvedValue(undefined);
     const snapshotId = '123e4567-e89b-42d3-a456-426614174000';
-    const annotationOne = { id: 1, uid: 'one', data: {} };
-    const annotationTwo = { id: 2, uid: 'two', data: {} };
+    const annotationOne = makeSyncAnnotation(1, 'one');
+    const annotationTwo = makeSyncAnnotation(2, 'two');
     const fetchRequest = jest
       .spyOn(global, 'fetch')
       .mockResolvedValueOnce(
@@ -671,7 +778,7 @@ describe('Agent control API', () => {
     const fetchRequest = jest.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          list: [{ id: 1, uid: 'one', data: {} }],
+          list: [makeSyncAnnotation(1, 'one')],
           annotationChangeHistoryLatestId: 7,
           snapshotId,
           nextAfterId: 1,
@@ -704,7 +811,7 @@ describe('Agent control API', () => {
     fetchRequest.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          list: [{ id: 2, uid: 'two', data: {} }],
+          list: [makeSyncAnnotation(2, 'two')],
           annotationChangeHistoryLatestId: 7,
           snapshotId,
           nextAfterId: 2,
@@ -745,10 +852,7 @@ describe('Agent control API', () => {
     );
     const page = new Response(
       JSON.stringify({
-        list: [
-          { id: 2, uid: 'two', data: {} },
-          { id: 3, uid: 'three', data: {} },
-        ],
+        list: [makeSyncAnnotation(2, 'two'), makeSyncAnnotation(3, 'three')],
         annotationChangeHistoryLatestId: 7,
         snapshotId,
         nextAfterId: 3,

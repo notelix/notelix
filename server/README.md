@@ -321,6 +321,10 @@ sync cursor. The state is bound to a one-way identity of the server, user,
 token version, and client-side encryption key; no credential is persisted.
 Missing, legacy, invalid, or mismatched state causes a safe full re-list, and a
 source change aborts and fences any in-flight work before the new source syncs.
+Remote annotation payloads are validated against the database field limits and
+canonical timestamp format before mutation. Unknown entity fields are discarded,
+deletes are idempotent, and a malformed or superseded change cannot advance the
+cursor.
 
 ```
 curl 'http://127.0.0.1:18565/agentsync/set' \

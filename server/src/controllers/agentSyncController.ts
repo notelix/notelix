@@ -38,6 +38,9 @@ const syncCursorStateVersion = 1;
 const syncSnapshotStateVersion = 2;
 const snapshotIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const maximumAnnotationId = 2147483647;
+const maximumAnnotationUidLength = 64;
+const maximumAnnotationTextFieldLength = 32768;
 
 interface AgentSyncCursorState {
   version: typeof syncCursorStateVersion;
@@ -51,6 +54,17 @@ interface AgentSyncSnapshotState {
   snapshotId: string;
   afterId: number;
   watermark: number;
+}
+
+interface AgentSyncAnnotationSnapshot {
+  id: number;
+  uid: string;
+  url: string;
+  title: string;
+  host: string;
+  data: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }
 
 type AgentSyncState = AgentSyncCursorState | AgentSyncSnapshotState;
@@ -180,6 +194,100 @@ function assertSyncCursor(value: unknown, field: string): number {
   return value as number;
 }
 
+function assertAgentAnnotationId(value: unknown): number {
+  if (
+    !Number.isSafeInteger(value) ||
+    (value as number) <= 0 ||
+    (value as number) > maximumAnnotationId
+  ) {
+    throw new Error(
+      `agent annotation id must be an integer between 1 and ${maximumAnnotationId}`,
+    );
+  }
+  return value as number;
+}
+
+function assertAgentAnnotationString(
+  value: unknown,
+  field: string,
+  maximumLength: number,
+  allowEmpty = true,
+): string {
+  if (
+    typeof value !== 'string' ||
+    (!allowEmpty && value.length === 0) ||
+    value.length > maximumLength
+  ) {
+    throw new Error(
+      `agent annotation ${field} must be ${
+        allowEmpty ? 'a string' : 'a non-empty string'
+      } of at most ${maximumLength} characters`,
+    );
+  }
+  return value;
+}
+
+function assertAgentAnnotationTimestamp(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.length > 64) {
+    throw new Error(`agent annotation ${field} must be an ISO timestamp`);
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString() !== value) {
+    throw new Error(`agent annotation ${field} must be an ISO timestamp`);
+  }
+  return value;
+}
+
+export function normalizeAgentSyncAnnotation(
+  value: unknown,
+): AgentSyncAnnotationSnapshot {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('agent annotation must be an object');
+  }
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.data !== 'object' ||
+    candidate.data === null ||
+    Array.isArray(candidate.data)
+  ) {
+    throw new Error('agent annotation data must be an object');
+  }
+
+  return {
+    id: assertAgentAnnotationId(candidate.id),
+    uid: assertAgentAnnotationString(
+      candidate.uid,
+      'uid',
+      maximumAnnotationUidLength,
+      false,
+    ),
+    url: assertAgentAnnotationString(
+      candidate.url,
+      'url',
+      maximumAnnotationTextFieldLength,
+    ),
+    title: assertAgentAnnotationString(
+      candidate.title,
+      'title',
+      maximumAnnotationTextFieldLength,
+    ),
+    host: assertAgentAnnotationString(
+      candidate.host,
+      'host',
+      maximumAnnotationTextFieldLength,
+    ),
+    data: candidate.data as Record<string, unknown>,
+    created_at: assertAgentAnnotationTimestamp(
+      candidate.created_at,
+      'created_at',
+    ),
+    updated_at: assertAgentAnnotationTimestamp(
+      candidate.updated_at,
+      'updated_at',
+    ),
+  };
+}
+
 function assertRunModeAgent() {
   if (!isRunModeAgent()) {
     throw new ForbiddenException('RUN_MODE=AGENT required');
@@ -243,6 +351,7 @@ export class AgentSyncController
   private controlOperationTail: Promise<void> = Promise.resolve();
 
   decryptAnnotation = async (annotation) => {
+    annotation = normalizeAgentSyncAnnotation(annotation);
     if (!this.config.clientSideEncryptionKey) {
       return annotation;
     }
@@ -257,7 +366,7 @@ export class AgentSyncController
       object: annotation,
       fields: ['url', 'title', 'host'],
     })) as any;
-    return annotation;
+    return normalizeAgentSyncAnnotation(annotation);
   };
 
   applyDiff = async (
@@ -273,10 +382,11 @@ export class AgentSyncController
         await meilisearchClient.IndexAnnotation(annotation);
         break;
       case AnnotationChangeHistoryKindDelete:
-        const id = diff.data.id;
-        await Annotation.remove(diff.data);
+        const id = assertAgentAnnotationId(diff?.data?.id);
         assertCurrent();
-        await meilisearchClient.UnIndexAnnotation({ ...diff.data, id });
+        await Annotation.delete({ id });
+        assertCurrent();
+        await meilisearchClient.UnIndexAnnotation({ id });
         break;
       default:
         throw new Error(`unsupported annotation diff kind ${diff.kind}`);
