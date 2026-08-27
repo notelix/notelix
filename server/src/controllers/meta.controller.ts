@@ -19,6 +19,12 @@ export class MetaController {
 
   @Get('/ready')
   async Ready() {
+    if (!this.readinessService.isAcceptingTraffic()) {
+      throw new ServiceUnavailableException({
+        status: 'unavailable',
+        reason: 'shutting_down',
+      });
+    }
     const checks = await this.readinessService.check();
     const response = {
       status:

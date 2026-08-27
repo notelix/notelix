@@ -214,6 +214,9 @@ agent's `AGENT_SYNC_MAX_RESPONSE_BYTES` setting.
 
 `GET /meta/health` is a process liveness check. `GET /meta/ready` checks both
 PostgreSQL and Meilisearch and returns `503` when either dependency is down.
+As soon as shutdown begins, readiness returns `503` with
+`reason: "shutting_down"` before waiting for active workers and requests to
+drain, so load balancers can stop routing new work to the instance.
 Container health checks use the readiness endpoint. Dependency checks are
 bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
 100 to 30000 milliseconds.

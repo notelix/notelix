@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { AppDataSource } from '../database';
 import {
   isAnnotationIndexSchemaReady,
@@ -14,13 +14,22 @@ export interface ReadinessStatus {
 }
 
 @Injectable()
-export class ReadinessService {
+export class ReadinessService implements OnModuleDestroy {
+  private acceptingTraffic = true;
   private readonly timeoutMs = readBoundedIntegerEnvironment(
     'READINESS_TIMEOUT_MS',
     2000,
     100,
     30000,
   );
+
+  onModuleDestroy(): void {
+    this.acceptingTraffic = false;
+  }
+
+  isAcceptingTraffic(): boolean {
+    return this.acceptingTraffic;
+  }
 
   async check(): Promise<ReadinessStatus> {
     const [postgres, meilisearch] = await Promise.allSettled([
