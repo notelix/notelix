@@ -3,7 +3,10 @@ import trashSvg from "./icons/trash.svg";
 import commentsSvg from "./icons/comments.svg";
 import { state } from "./state";
 import { addOrRemoveDarkReaderClass } from "./integration/dark-reader";
-import { highlighterColors } from "./utils/colors";
+import {
+  highlighterColors,
+  pickBlackOrWhiteForeground,
+} from "./utils/colors";
 import { doSaveAnnotation } from "./service";
 import makeid from "./utils/makeid";
 import { getNormalizedUrl } from "./utils/getNormalizedUrl";
@@ -26,15 +29,15 @@ const dialogShadowStyles = `
   h2 { color: #222; font-size: 16px; font-weight: 600; line-height: 1.4; margin: 0; }
   label { color: #444; display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
   textarea { all: initial; background: #fff; border: 1px solid #d5d5d5; border-radius: 5px; box-sizing: border-box; color: #222; display: block; font-family: inherit; font-size: 14px; height: 104px; line-height: 1.55; padding: 9px 10px; resize: vertical; width: 100%; }
-  textarea:focus { border-color: #ff6797; box-shadow: 0 0 0 2px rgba(255,103,151,.14); outline: 0; }
+  textarea:focus { border-color: var(--notelix-dialog-accent, #ff6797); box-shadow: 0 0 0 2px var(--notelix-dialog-accent-soft, rgba(255,103,151,.14)); outline: 0; }
   textarea::placeholder { color: #999; }
   p { color: #555; font-size: 13px; line-height: 1.65; margin: 0; }
   footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
   button { all: initial; align-items: center; border: 1px solid transparent; border-radius: 5px; box-sizing: border-box; cursor: pointer; display: inline-flex; font-family: inherit; font-size: 13px; font-weight: 500; height: 34px; justify-content: center; padding: 0 14px; }
   button:disabled { cursor: wait; opacity: .6; }
-  button:focus-visible { box-shadow: 0 0 0 2px rgba(255,103,151,.2); outline: 0; }
+  button:focus-visible { box-shadow: 0 0 0 2px var(--notelix-dialog-accent-soft, rgba(255,103,151,.2)); outline: 0; }
   .secondary { background: #fff; border-color: #d5d5d5; color: #333; }
-  .primary { background: #ff6797; color: #fff; }
+  .primary { background: var(--notelix-dialog-accent, #ff6797); color: var(--notelix-dialog-accent-foreground, #fff); }
   .danger-button { background: #c63f4d; color: #fff; }
   .error { color: #b53242; display: block; font-size: 12px; line-height: 1.45; margin-top: 8px; }
   .error:empty { display: none; }
@@ -231,6 +234,18 @@ export function hideEditAnnotationPopover() {
 export function onEditNotesElementClick() {
   const annotation = state.annotations[state.selectedAnnotationId];
   if (!annotation) return;
+  const accent = /^#[0-9a-f]{6}$/i.test(annotation.data.color)
+    ? annotation.data.color
+    : highlighterColors[0];
+  state.notesEditorDom.style.setProperty("--notelix-dialog-accent", accent);
+  state.notesEditorDom.style.setProperty(
+    "--notelix-dialog-accent-soft",
+    `${accent}33`,
+  );
+  state.notesEditorDom.style.setProperty(
+    "--notelix-dialog-accent-foreground",
+    pickBlackOrWhiteForeground(accent),
+  );
   hideAnnotatePopover();
   state.editAnnotationPopoverDom.style.display = "none";
   const textarea = state.notesEditorRoot.getElementById("notelix-notes-text");

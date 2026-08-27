@@ -926,6 +926,23 @@ async function main() {
       shadowRoot: null,
       ariaHidden: "false",
     });
+    assert.deepEqual(
+      await contentPage.$eval("#notelix-notes-backdrop", (host) => ({
+        accent: host.style.getPropertyValue("--notelix-dialog-accent"),
+        accentForeground: host.style.getPropertyValue(
+          "--notelix-dialog-accent-foreground",
+        ),
+        accentSoft: host.style.getPropertyValue(
+          "--notelix-dialog-accent-soft",
+        ),
+      })),
+      {
+        accent: "#fff59d",
+        accentForeground: "#000000",
+        accentSoft: "#fff59d33",
+      },
+    );
+    await capture(contentPage, "embedded-content-note-editor");
     const editorAccessibility = JSON.stringify(
       await contentPage.accessibility.snapshot({ interestingOnly: false }),
     );
