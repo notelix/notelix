@@ -122,6 +122,16 @@ for (const stack of stacks) {
   );
   assert.equal(
     configs[stack].services.backend.environment
+      .ANNOTATION_HISTORY_MAX_ENTRIES_PER_USER,
+    '10000',
+  );
+  assert.equal(
+    configs[stack].services.backend.environment
+      .ANNOTATION_HISTORY_MAX_PAYLOAD_BYTES_PER_USER,
+    '67108864',
+  );
+  assert.equal(
+    configs[stack].services.backend.environment
       .STATIC_TOKEN_AUTO_PROVISION_LIMIT,
     '1000',
   );

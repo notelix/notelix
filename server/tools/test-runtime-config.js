@@ -13,6 +13,8 @@ const validEnvironment = {
   RATE_LIMIT_TTL_MS: '60000',
   REQUEST_BODY_LIMIT_BYTES: '1048576',
   ANNOTATION_RESPONSE_LIMIT_BYTES: '33554432',
+  ANNOTATION_HISTORY_MAX_ENTRIES_PER_USER: '10000',
+  ANNOTATION_HISTORY_MAX_PAYLOAD_BYTES_PER_USER: '67108864',
   TRUST_PROXY_HOPS: '',
   RUN_MODE: 'SERVER',
   JWT_EXPIRES_IN: '30d',
@@ -80,6 +82,18 @@ const cases = [
     environment: { ANNOTATION_RESPONSE_LIMIT_BYTES: '1114112' },
     message:
       'ANNOTATION_RESPONSE_LIMIT_BYTES must exceed REQUEST_BODY_LIMIT_BYTES by at least 65536 bytes',
+  },
+  {
+    name: 'annotation history entry limit',
+    environment: { ANNOTATION_HISTORY_MAX_ENTRIES_PER_USER: '0' },
+    message:
+      'ANNOTATION_HISTORY_MAX_ENTRIES_PER_USER must be an integer between 1 and 1000000',
+  },
+  {
+    name: 'annotation history payload limit',
+    environment: { ANNOTATION_HISTORY_MAX_PAYLOAD_BYTES_PER_USER: '1048575' },
+    message:
+      'ANNOTATION_HISTORY_MAX_PAYLOAD_BYTES_PER_USER must be an integer between 1048576 and 17179869184',
   },
   {
     name: 'trusted proxy hops',

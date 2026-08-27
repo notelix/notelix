@@ -379,6 +379,22 @@ describe('Annotations API durability', () => {
     );
   });
 
+  it('invalidates stale snapshots when a requested history cursor was pruned', async () => {
+    historyRepository.findOne.mockResolvedValue(null);
+
+    const response = await request(app.getHttpServer())
+      .post('/annotations/listDiff')
+      .send({ sinceId: 41 })
+      .expect(201);
+
+    expect(response.body).toEqual({ ok: false });
+    expect(manager.query).toHaveBeenCalledWith(
+      'DELETE FROM "annotation_sync_snapshot" WHERE "user_id" = $1',
+      [9],
+    );
+    expect(historyRepository.find).not.toHaveBeenCalled();
+  });
+
   it('returns bounded history pages and advertises remaining changes', async () => {
     historyRepository.find.mockResolvedValue([
       { id: 1, kind: 1 },

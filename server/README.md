@@ -256,6 +256,16 @@ does not invalidate any existing token.
 Annotation synchronization history contains annotation-only snapshots. The
 history security migration removes legacy embedded user objects, including
 password hashes and client-side encryption metadata, from existing rows.
+History retention is bounded per user after every save or deletion. By default,
+the newest 10000 entries are retained within a 64 MiB serialized-payload budget;
+the newest entry is always kept so every accepted write remains sync-visible.
+`ANNOTATION_HISTORY_MAX_ENTRIES_PER_USER` accepts 1 through 1000000, and
+`ANNOTATION_HISTORY_MAX_PAYLOAD_BYTES_PER_USER` accepts 1048576 through
+17179869184 bytes. Pruning is serialized across replicas. An agent whose cursor
+was pruned receives a safe full-relist signal, and stale snapshot sessions are
+discarded first so the relist cannot reuse an obsolete watermark. Existing
+oversized histories are brought under the configured limits on that user's next
+annotation write.
 
 JWTs expire after 30 days by default; set `JWT_EXPIRES_IN` to a positive
 duration with an explicit unit, such as `15m` or `7d`, when a shorter policy is

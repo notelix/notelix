@@ -36,6 +36,7 @@ describe('Annotation sync history', () => {
       const annotation = makeAnnotation();
       const manager = {
         save: jest.fn(async (history) => history),
+        query: jest.fn().mockResolvedValue([]),
       };
       const service = new AnnotationChangeHistoryService();
 
@@ -59,6 +60,15 @@ describe('Annotation sync history', () => {
       expect(JSON.stringify(history.data)).not.toContain(
         'private-encryption-metadata',
       );
+      expect(manager.query).toHaveBeenNthCalledWith(
+        1,
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        ['notelix-annotation-history:9'],
+      );
+      expect(manager.query.mock.calls[1][0]).toContain(
+        'DELETE FROM "annotation_change_history"',
+      );
+      expect(manager.query.mock.calls[1][1]).toEqual([9, 10000, 67108864]);
     },
   );
 });

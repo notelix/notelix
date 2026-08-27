@@ -228,6 +228,69 @@ async function assertAnnotationHistoryIsProtected(username) {
   }
 }
 
+async function getAnnotationHistoryStats(username) {
+  const client = new Client({
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  });
+  await client.connect();
+  try {
+    const result = await client.query(
+      `
+        SELECT COUNT(*)::int AS "entries",
+          COALESCE(
+            SUM(
+              octet_length(history."data"::text) +
+              octet_length(history."uid") + 128
+            ),
+            0
+          )::text AS "payload_bytes"
+        FROM "annotation_change_history" AS history
+        JOIN "user" AS account ON account."id" = history."userId"
+        WHERE account."name" = $1
+      `,
+      [username],
+    );
+    return {
+      entries: result.rows[0].entries,
+      payloadBytes: Number(result.rows[0].payload_bytes),
+    };
+  } finally {
+    await client.end();
+  }
+}
+
+async function getLatestAnnotationHistoryId(username, uid) {
+  const client = new Client({
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  });
+  await client.connect();
+  try {
+    const result = await client.query(
+      `
+        SELECT history."id"
+        FROM "annotation_change_history" AS history
+        JOIN "user" AS account ON account."id" = history."userId"
+        WHERE account."name" = $1 AND history."uid" = $2
+        ORDER BY history."id" DESC
+        LIMIT 1
+      `,
+      [username, uid],
+    );
+    assert.strictEqual(result.rowCount, 1);
+    return result.rows[0].id;
+  } finally {
+    await client.end();
+  }
+}
+
 async function main() {
   await Promise.all(
     [serverUrl, secondaryServerUrl].filter(Boolean).map(waitForServer),
@@ -906,6 +969,7 @@ async function main() {
     );
   }
   assert.deepStrictEqual(snapshotUids.sort(), boundedResponseUids);
+  const staleSnapshotId = boundedSnapshot.body.snapshotId;
 
   const boundedDiffUids = new Set();
   let boundedDiffCursor = 0;
@@ -941,6 +1005,87 @@ async function main() {
     );
     assert.strictEqual(response.status, 201, JSON.stringify(response.body));
   }
+
+  const historyEntryLimit = Number(
+    process.env.ANNOTATION_HISTORY_MAX_ENTRIES_PER_USER || 10000,
+  );
+  const historyPayloadLimit = Number(
+    process.env.ANNOTATION_HISTORY_MAX_PAYLOAD_BYTES_PER_USER ||
+      64 * 1024 * 1024,
+  );
+  let historyStats = await getAnnotationHistoryStats(username);
+  assert.ok(
+    historyStats.entries <= historyEntryLimit,
+    JSON.stringify(historyStats),
+  );
+  assert.ok(
+    historyStats.payloadBytes <= historyPayloadLimit,
+    JSON.stringify(historyStats),
+  );
+
+  const retentionUid = 'history-retention-probe';
+  let response = await request(
+    '/annotations/save',
+    {
+      uid: retentionUid,
+      url: 'https://example.com/history-retention',
+      data: { text: 'retention version 0' },
+    },
+    headers,
+  );
+  assert.strictEqual(response.status, 201, JSON.stringify(response.body));
+  const prunedCursor = await getLatestAnnotationHistoryId(
+    username,
+    retentionUid,
+  );
+  for (let version = 1; version < 12; version += 1) {
+    response = await request(
+      '/annotations/save',
+      {
+        uid: retentionUid,
+        url: 'https://example.com/history-retention',
+        data: { text: `retention version ${version}` },
+      },
+      headers,
+    );
+    assert.strictEqual(response.status, 201, JSON.stringify(response.body));
+  }
+
+  historyStats = await getAnnotationHistoryStats(username);
+  assert.strictEqual(historyStats.entries, historyEntryLimit);
+  assert.ok(
+    historyStats.payloadBytes <= historyPayloadLimit,
+    JSON.stringify(historyStats),
+  );
+  const staleDiff = await request(
+    '/annotations/listDiff',
+    { sinceId: prunedCursor },
+    headers,
+  );
+  assert.strictEqual(staleDiff.status, 201, JSON.stringify(staleDiff.body));
+  assert.deepStrictEqual(staleDiff.body, { ok: false });
+
+  const refreshedSnapshot = await request(
+    '/annotations/listPage',
+    { limit: 250 },
+    headers,
+  );
+  assert.strictEqual(
+    refreshedSnapshot.status,
+    201,
+    JSON.stringify(refreshedSnapshot.body),
+  );
+  assert.notStrictEqual(refreshedSnapshot.body.snapshotId, staleSnapshotId);
+  assert.deepStrictEqual(
+    refreshedSnapshot.body.list.map((annotation) => annotation.uid),
+    [retentionUid],
+  );
+  response = await request(
+    '/annotations/delete',
+    { uid: retentionUid },
+    headers,
+  );
+  assert.strictEqual(response.status, 201, JSON.stringify(response.body));
 
   let rateLimited = false;
   for (let attempt = 0; attempt < 15; attempt += 1) {

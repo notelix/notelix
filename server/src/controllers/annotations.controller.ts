@@ -407,6 +407,10 @@ export class AnnotationsController {
         });
         if (!history) {
           // The requested history may have been pruned; the agent must re-list.
+          await manager.query(
+            'DELETE FROM "annotation_sync_snapshot" WHERE "user_id" = $1',
+            [user.id],
+          );
           return { ok: false };
         }
       }
