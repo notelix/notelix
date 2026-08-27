@@ -221,7 +221,11 @@ bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
 The production entrypoint performs database bootstrap and migrations, then
 replaces itself with the Node process. This lets `SIGTERM` reach Nest directly
 so rolling deployments run request-abort, search-worker, and database shutdown
-hooks before the container exits.
+hooks before the container exits. The supported production and agent Compose
+stacks allow two minutes before escalating to `SIGKILL`, which accommodates the
+default bounded dependency operations. If you increase database, Meilisearch,
+or agent request timeouts, keep the deployment platform's termination grace
+period comfortably above the longest shutdown-critical operation.
 
 PostgreSQL is the source of truth and remains a hard startup dependency.
 Meilisearch is recoverable: the backend starts in degraded mode if search is

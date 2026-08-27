@@ -2,6 +2,7 @@ services:
   backend:
     image: ${NOTELIX_BACKEND_IMAGE:-notelix:prod}
     restart: unless-stopped
+    stop_grace_period: 2m
     ports:
       - "${NOTELIX_BIND_ADDRESS:-127.0.0.1}:${NOTELIX_PORT:-18555}:3000"
     depends_on:

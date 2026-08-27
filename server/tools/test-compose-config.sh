@@ -122,6 +122,14 @@ for (const stack of stacks) {
   );
 }
 
+for (const stack of ['prod', 'agent']) {
+  assert.equal(
+    configs[stack].services.backend.stop_grace_period,
+    '2m0s',
+    `${stack} must give bounded dependency work time to drain after SIGTERM`,
+  );
+}
+
 assert.equal(
   configs.prod.services.backend.environment.STATIC_TOKEN_AUTO_PROVISION,
   'false',
