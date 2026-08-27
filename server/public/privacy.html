@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="How Notelix handles authentication, highlight data, optional encryption, and self-hosted infrastructure."
+    />
+    <meta name="theme-color" content="#f8f7f3" />
+    <title>Privacy · Notelix</title>
+    <link rel="stylesheet" href="/assets/site.css" />
+    <script defer src="/assets/site.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header" data-site-header>
+      <a class="brand" href="/" aria-label="Notelix home"
+        ><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span
+        ><span>notelix</span></a
+      >
+      <nav class="site-nav site-nav-simple" aria-label="Primary navigation">
+        <a href="/">Product</a
+        ><a href="https://github.com/notelix/notelix">GitHub</a>
+      </nav>
+      <div class="header-actions">
+        <button
+          class="theme-button"
+          data-theme-toggle
+          aria-label="Use dark theme"
+          type="button"
+        >
+          <svg data-theme-icon="moon" aria-hidden="true" viewBox="0 0 24 24">
+            <path
+              d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 9 9 0 1 0 20.5 15.5Z"
+            /></svg
+          ><svg data-theme-icon="sun" aria-hidden="true" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4" />
+            <path
+              d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+            />
+          </svg>
+        </button>
+      </div>
+    </header>
+    <main class="legal-page" id="main">
+      <div class="legal-hero">
+        <span class="eyebrow"><span></span> Plain-language privacy</span>
+        <h1>Your data follows<br />your choices.</h1>
+        <p>
+          Notelix is open-source, self-hostable software. The operator of the
+          server you select determines that deployment’s policies; the
+          application itself is designed to minimize exposure.
+        </p>
+        <small>Product privacy overview · Updated August 2026</small>
+      </div>
+      <div class="legal-layout">
+        <aside>
+          <strong>On this page</strong><a href="#storage">Where data lives</a
+          ><a href="#browser">Browser storage</a
+          ><a href="#encryption">Encryption</a
+          ><a href="#services">External services</a
+          ><a href="#control">Your control</a>
+        </aside>
+        <article>
+          <section id="storage">
+            <span>01</span>
+            <h2>Where highlight data lives</h2>
+            <p>
+              Highlights, notes, source URLs, and account records are stored by
+              the Notelix server configured in your extension. The public
+              development server is an evaluation environment and may be reset.
+              For durable or sensitive use, deploy your own server and apply
+              your organization’s retention and backup policies.
+            </p>
+          </section>
+          <section id="browser">
+            <span>02</span>
+            <h2>What stays in the browser</h2>
+            <p>
+              The selected server address may sync as a preference.
+              Authentication credentials and client-side encryption material are
+              stored only in the local Chrome profile. Signing out removes those
+              local credentials. Notelix does not add product analytics or
+              advertising trackers.
+            </p>
+          </section>
+          <section id="encryption">
+            <span>03</span>
+            <h2>Optional client-side encryption</h2>
+            <p>
+              When enabled during account creation, supported highlight fields
+              are encrypted before transmission. The server cannot recover the
+              plaintext. Your password protects the local encryption key, so a
+              forgotten password cannot be recovered by a server administrator.
+              Search for encrypted accounts requires the local Notelix agent.
+            </p>
+          </section>
+          <section id="services">
+            <span>04</span>
+            <h2>External services</h2>
+            <p>
+              The product website links to GitHub for source code and release
+              downloads. The extension dashboard does not contact third-party
+              favicon or analytics services. A server operator may place Notelix
+              behind infrastructure of their choice; consult that operator for
+              deployment-specific processing.
+            </p>
+          </section>
+          <section id="control">
+            <span>05</span>
+            <h2>Your control</h2>
+            <p>
+              You can delete individual highlights from the library, sign out to
+              clear local credentials, switch servers, export or back up the
+              database you operate, and inspect or modify the complete source
+              code. Account-wide deletion is not yet exposed as a self-service
+              UI and should be handled by the server operator.
+            </p>
+          </section>
+        </article>
+      </div>
+    </main>
+    <footer class="site-footer">
+      <a class="brand" href="/"
+        ><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span
+        ><span>notelix</span></a
+      >
+      <p>Open-source tools for thoughtful reading.</p>
+      <nav>
+        <a href="https://github.com/notelix/notelix">GitHub</a
+        ><a href="/">Home</a>
+      </nav>
+      <small>© <span data-current-year></span> Notelix.</small>
+    </footer>
+  </body>
+</html>

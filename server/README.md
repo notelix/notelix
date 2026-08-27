@@ -40,11 +40,23 @@ NOTELIX_AGENT_IMAGE=ghcr.io/notelix/notelix:agent docker-compose -f docker-compo
 
 # start prod
 
+Build the production image from the repository root. The root build context is
+required because the image compiles the extension content script used by the
+embedded playground as well as the server:
+
 ```
-docker build . -f ./Dockerfile.prod -t notelix:prod
+cd ..
+docker build . -f server/Dockerfile.prod -t notelix:prod
+cd server
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod up -d
 docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod down
 ```
+
+Once running, `/` serves the responsive Notelix product site, `/privacy`
+serves the plain-language privacy overview, and `/embedded/` serves the
+interactive highlighting playground. API endpoints remain available at their
+existing paths. Static HTML is revalidated on each request while versioned
+container assets receive a one-hour browser cache.
 
 The production API binds to `127.0.0.1:18555` by default so credentials and
 tokens are not exposed over an unprotected host-network path. Put a TLS reverse

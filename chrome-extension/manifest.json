@@ -1,17 +1,20 @@
 {
   "name": "notelix",
   "version": "0.2.0",
-  "description": "",
+  "description": "Highlight the web, add private notes, and search your reading memory on a server you control.",
   "manifest_version": 3,
-  "permissions": [
-    "activeTab",
-    "storage"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "homepage_url": "https://github.com/notelix/notelix",
+  "icons": {
+    "16": "public/logo.png",
+    "32": "public/logo.png",
+    "48": "public/logo.png",
+    "128": "public/logo.png"
+  },
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["<all_urls>"],
   "action": {
-    "default_title": "Options",
+    "default_title": "Open Notelix",
+    "default_icon": "public/logo.png",
     "default_popup": "extension-options.html"
   },
   "background": {
@@ -19,14 +22,8 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "http://*/*",
-        "https://*/*",
-        "file:///*/*.txt"
-      ],
-      "js": [
-        "dist/content-script.dist.js"
-      ],
+      "matches": ["http://*/*", "https://*/*", "file:///*/*.txt"],
+      "js": ["dist/content-script.dist.js"],
       "run_at": "document_end"
     }
   ]

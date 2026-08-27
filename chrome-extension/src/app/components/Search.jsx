@@ -1,131 +1,195 @@
-import React from "react";
-import debounce from "lodash/debounce";
+import React, { useEffect, useRef, useState } from "react";
 import {
   deleteAnnotation,
   findAnnotations,
   search,
 } from "../../api/annotations";
+import { ConfirmDialog } from "../../ui/ConfirmDialog";
+import { Icon } from "../../ui/Icon";
+import { StatusMessage, formatUiError } from "../../ui/StatusMessage";
+import { AnnotationCard } from "./AnnotationCard";
+import { EmptyState, LoadingRows } from "./EmptyState";
 import "./Search.less";
-import { SafeHighlight } from "./SafeHighlight";
 
-export default class Search extends React.Component {
-  state = { q: "", data: null };
+export default function Search({ onDeleted }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const inputRef = useRef(null);
+  const trimmedQuery = query.trim();
+  const open = !!trimmedQuery;
 
-  debouncedSearch = debounce((query) => {
-    search(query).then((resp) => {
-      if (this.state.q === query) {
-        this.setState({ data: resp.data });
+  useEffect(() => {
+    const focusSearch = (event) => {
+      if (
+        event.key === "/" &&
+        !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)
+      ) {
+        event.preventDefault();
+        inputRef.current?.focus();
       }
-    });
-  }, 500);
+      if (event.key === "Escape" && open) {
+        setQuery("");
+        inputRef.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", focusSearch);
+    return () => document.removeEventListener("keydown", focusSearch);
+  }, [open]);
 
-  componentWillUnmount() {
-    this.debouncedSearch.cancel();
-  }
+  useEffect(() => {
+    if (trimmedQuery.length < 2) {
+      setResults([]);
+      setLoading(false);
+      setError("");
+      return undefined;
+    }
 
-  onSearchResultClick = (hit) => {
-    window.open(`${hit.url}#notelix:scroll:annotation_id:${hit.id}`);
+    let active = true;
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const response = await search(trimmedQuery);
+        if (active) setResults(response.data?.results?.hits || []);
+      } catch (searchError) {
+        if (active) {
+          setResults([]);
+          setError(
+            formatUiError(searchError, "Search is temporarily unavailable."),
+          );
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 350);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [trimmedQuery]);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      const result = await findAnnotations({
+        groupBy: "",
+        selectors: { id: deleteTarget.id },
+      });
+      const annotation = result.data.list[0];
+      if (!annotation) throw new Error("Highlight no longer exists.");
+      await deleteAnnotation(annotation);
+      setResults((current) =>
+        current.filter((item) => item.id !== deleteTarget.id),
+      );
+      setDeleteTarget(null);
+      onDeleted?.();
+    } catch (deleteError) {
+      setError(
+        formatUiError(deleteError, "We couldn't delete this highlight."),
+      );
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  render() {
-    return (
-      <div className="search-root">
-        <span className="logo">
-          <img src="./public/logo.png" alt="" />
-        </span>
-
+  return (
+    <div className="app-search">
+      <div className="app-search__control">
+        <Icon name="search" size={18} />
         <input
-          placeholder="Search..."
-          type="text"
-          value={this.state.q}
-          onChange={(e) => {
-            const q = e.target.value;
-            this.setState({ q });
-            this.debouncedSearch(q);
-          }}
+          aria-controls="notelix-search-results"
+          aria-expanded={open}
+          aria-label="Search highlights and notes"
+          autoComplete="off"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search highlights and notes"
+          ref={inputRef}
+          role="combobox"
+          type="search"
+          value={query}
         />
-
-        {!!(this.state.data && this.state.q) && (
-          <div className="search-result-root">
-            <div className="content">
-              {!this.state.data.results.hits.length && (
-                <div>No results found.</div>
-              )}
-              {this.state.data.results.hits.map((hit) => {
-                return (
-                  <div
-                    key={hit.id}
-                    className="hit"
-                    onClick={() => this.onSearchResultClick(hit)}
-                  >
-                    {hit.textBefore}
-                    <div
-                      className="text"
-                      style={{ textDecorationColor: hit.color }}
-                    >
-                      <SafeHighlight value={hit._formatted.text} />
-                    </div>
-                    {hit.textAfter}
-                    {!!hit.notes && (
-                      <div className="notes-wrapper">
-                        <div>
-                          <SafeHighlight value={hit._formatted.notes} />
-                        </div>
-                      </div>
-                    )}
-                    <div className="url">
-                      <span
-                        className="color-dot"
-                        style={{ background: hit.color }}
-                      />
-                      <span className="title">
-                        <SafeHighlight value={hit._formatted.title} />
-                      </span>
-                      {hit.url}
-                    </div>
-                    <a
-                      className={"delete-button"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        if (
-                          !confirm(
-                            "Are you sure you want to delete this annotation?"
-                          )
-                        ) {
-                          return;
-                        }
-
-                        findAnnotations({
-                          groupBy: "",
-                          selectors: { id: hit.id },
-                        }).then((result) => {
-                          const annotationToDelete = result.data.list[0];
-                          deleteAnnotation(annotationToDelete).then(() => {
-                            this.setState({
-                              data: {
-                                ...this.state.data,
-                                results: {
-                                  ...this.state.data.results,
-                                  hits: this.state.data.results.hits.filter(
-                                    (x) => x.id !== hit.id
-                                  ),
-                                },
-                              },
-                            });
-                          });
-                        });
-                      }}
-                    >
-                      Delete
-                    </a>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {query ? (
+          <button
+            aria-label="Clear search"
+            onClick={() => setQuery("")}
+            type="button"
+          >
+            <Icon name="x" size={16} />
+          </button>
+        ) : (
+          <kbd>/</kbd>
         )}
       </div>
-    );
-  }
+      {open && (
+        <div
+          className="app-search-overlay"
+          id="notelix-search-results"
+          role="dialog"
+          aria-label="Search results"
+        >
+          <div
+            className="app-search-overlay__backdrop"
+            onClick={() => setQuery("")}
+          />
+          <section className="app-search-results">
+            <header>
+              <div>
+                <span>Search results</span>
+                <h2>
+                  {trimmedQuery.length < 2
+                    ? "Keep typing…"
+                    : `“${trimmedQuery}”`}
+                </h2>
+              </div>
+              {!loading && trimmedQuery.length >= 2 && (
+                <strong>{results.length} found</strong>
+              )}
+            </header>
+            {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+            {trimmedQuery.length < 2 ? (
+              <EmptyState
+                description="Enter at least two characters to search passages, notes, and page titles."
+                icon="search"
+                title="Search your reading memory"
+              />
+            ) : loading ? (
+              <LoadingRows count={4} />
+            ) : !results.length ? (
+              <EmptyState
+                description="Try another phrase or a word from the note you wrote."
+                icon="search"
+                title="No matching highlights"
+              />
+            ) : (
+              <div className="app-search-results__grid">
+                {results.map((hit) => (
+                  <AnnotationCard
+                    annotation={hit}
+                    key={hit.id}
+                    onDelete={setDeleteTarget}
+                    searchResult
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+      <ConfirmDialog
+        confirmLabel="Delete highlight"
+        description="This removes the highlight and its note from every synced browser. This action cannot be undone."
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        open={!!deleteTarget}
+        pending={deleting}
+        title="Delete this highlight?"
+      />
+    </div>
+  );
 }

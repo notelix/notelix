@@ -1,143 +1,468 @@
-.notelix-popup-base-style {
+.notelix-popup-base-style() {
+  all: initial;
+  background: rgba(30, 31, 46, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow:
+    0 16px 42px rgba(16, 17, 28, 0.24),
+    0 3px 10px rgba(16, 17, 28, 0.18);
+  box-sizing: border-box;
+  color: #f7f7fa;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   line-height: 1;
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.88);
-  border-radius: 6px;
-  z-index: 100000;
-  transform: translateX(-50%) translateY(-20px);
-  transition: all 0.05s ease-out;
-
-  &:hover {
-    box-shadow: 0 0 4px rgba(200, 200, 200, 1);
-    background: rgba(255, 255, 255, 1);
-    opacity: 1;
-  }
-
-  &.dark-reader-enabled {
-    svg {
-      fill: white;
-    }
-  }
+  transform: translateX(-50%) translateY(-16px);
+  transition:
+    box-shadow 0.14s ease,
+    opacity 0.14s ease,
+    transform 0.14s ease;
+  z-index: 2147483646;
 }
 
 #notelix-annotate-popover {
   .notelix-popup-base-style();
+  align-items: center;
   display: none;
+  gap: 10px;
+  padding: 9px 10px;
   position: absolute;
-  font-size: 0;
-  padding: 6px 4px;
   user-select: none;
 
-  .color {
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-    display: inline-block;
-    margin: 0 3px;
-    cursor: pointer;
-    box-shadow: 0 0 1px #888;
-    transform: scale(1.0);
-    transform-origin: center center;
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 
-    &:hover {
-      filter: brightness(1.05);
-      transform: scale(1.1);
+  .notelix-toolbar-label {
+    all: initial;
+    color: #aaadbb;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .notelix-toolbar-colors {
+    all: initial;
+    align-items: center;
+    display: flex;
+    gap: 7px;
+  }
+
+  .color {
+    all: initial;
+    background: var(--notelix-color);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    box-sizing: border-box;
+    cursor: pointer;
+    display: block;
+    height: 17px;
+    transition:
+      box-shadow 0.12s ease,
+      transform 0.12s ease;
+    width: 17px;
+
+    &:hover,
+    &:focus-visible {
+      box-shadow:
+        0 0 0 2px #20212f,
+        0 0 0 3px rgba(255, 255, 255, 0.8);
+      outline: none;
+      transform: scale(1.12);
     }
   }
 
   &.mobile-or-tablet {
+    gap: 9px;
+    padding: 12px;
+
+    .notelix-toolbar-label {
+      display: none;
+    }
+    .notelix-toolbar-colors {
+      gap: 10px;
+    }
     .color {
-      width: 22px;
-      height: 22px;
-      margin: 0 6px;
+      height: 24px;
+      width: 24px;
     }
   }
 }
 
 #notelix-edit-annotation-popover {
+  .notelix-popup-base-style();
   display: none;
+  overflow: hidden;
   position: absolute;
-  margin-top: -10px;
+  user-select: none;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  button {
+    all: initial;
+    align-items: center;
+    color: #f4f4f8;
+    cursor: pointer;
+    display: flex;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    gap: 6px;
+    height: 38px;
+    padding: 0 11px;
+    transition: background 0.12s ease;
+
+    &:hover,
+    &:focus-visible {
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    & + button {
+      border-left: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    svg {
+      fill: currentColor;
+      height: 15px;
+      width: 15px;
+    }
+  }
+
+  #notelix-button-trash {
+    color: #ff9aa3;
+  }
+
+  &.mobile-or-tablet button {
+    font-size: 11px;
+    height: 48px;
+    padding: 0 15px;
+    svg {
+      height: 18px;
+      width: 18px;
+    }
+  }
 }
 
-.notelix-button {
-  .notelix-popup-base-style();
-  z-index: 1000000;
-  font-size: 0;
+.notelix-dialog-backdrop {
+  all: initial;
+  align-items: center;
+  background: rgba(16, 17, 26, 0.5);
+  box-sizing: border-box;
+  display: none;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 2147483647;
 
-  span {
-    display: inline-block;
-    position: relative;
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  &.notelix-dialog-visible {
+    display: flex;
+  }
+}
+
+.notelix-dialog-card {
+  all: initial;
+  background: #fff;
+  border: 1px solid #e0e2e9;
+  border-radius: 17px;
+  box-shadow:
+    0 30px 80px rgba(18, 20, 34, 0.22),
+    0 8px 22px rgba(18, 20, 34, 0.12);
+  box-sizing: border-box;
+  color: #1d2130;
+  display: block;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  max-width: 430px;
+  padding: 21px;
+  width: 100%;
+
+  header {
+    all: initial;
+    align-items: center;
+    display: flex;
+    font-family: inherit;
+    gap: 11px;
+    margin-bottom: 17px;
+
+    > div {
+      all: initial;
+      display: grid;
+      font-family: inherit;
+      gap: 3px;
+    }
+    span:not(.notelix-dialog-symbol) {
+      all: initial;
+      color: #6558d7;
+      font-family: inherit;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+    h2 {
+      all: initial;
+      color: #1d2130;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 750;
+      letter-spacing: -0.01em;
+    }
+  }
+
+  .notelix-dialog-symbol {
+    all: initial;
+    align-items: center;
+    background: #eeecff;
+    border-radius: 9px;
+    color: #5648d7;
+    display: flex;
+    flex: 0 0 auto;
+    font-family: inherit;
+    font-size: 16px;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+  }
+
+  .notelix-dialog-symbol-danger {
+    background: #fff0f2;
+    color: #c63f4d;
+    font-weight: 800;
+  }
+
+  form {
+    all: initial;
+    display: block;
+    font-family: inherit;
+  }
+  label {
+    all: initial;
+    color: #303545;
+    display: block;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 750;
+    margin-bottom: 6px;
+  }
+  textarea {
+    all: initial;
+    background: #f8f8fb;
+    border: 1px solid #d9dce6;
+    border-radius: 10px;
+    box-sizing: border-box;
+    color: #202433;
+    display: block;
+    font-family: inherit;
+    font-size: 12px;
+    height: 126px;
+    line-height: 1.55;
+    padding: 11px 12px;
+    resize: vertical;
+    width: 100%;
+
+    &:focus {
+      border-color: #6558d7;
+      box-shadow: 0 0 0 3px rgba(101, 88, 215, 0.13);
+      outline: 0;
+    }
+    &::placeholder {
+      color: #959aaa;
+    }
+  }
+
+  > p {
+    all: initial;
+    color: #5f6678;
+    display: block;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.55;
+    margin: 4px 0 0;
+  }
+
+  footer {
+    all: initial;
+    display: flex;
+    font-family: inherit;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 17px;
+  }
+
+  footer button {
+    all: initial;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    box-sizing: border-box;
     cursor: pointer;
-    width: 38px;
-    height: 26px;
+    display: inline-flex;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 750;
+    height: 37px;
+    justify-content: center;
+    padding: 0 14px;
 
-    &:hover {
-      background: rgba(255, 255, 255, 0.8);
+    &:disabled {
+      cursor: wait;
+      opacity: 0.6;
     }
-
-    svg {
-      width: 18px;
-      padding: 0 2px;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(1.0);
-      transform-origin: center center;
-      transition: 0.1s all;
-
-      &:hover {
-        transform: translate(-50%, -50%) scale(1.1);
-      }
+    &:focus-visible {
+      box-shadow: 0 0 0 3px rgba(101, 88, 215, 0.18);
+      outline: 0;
     }
   }
 
-  &.dark-reader-enabled {
-    span:hover * {
-      background-color: initial !important;
-    }
-
-    span:hover {
-      background: rgba(255, 255, 255, 0.2) !important;
-    }
+  .notelix-dialog-secondary {
+    background: #fff;
+    border-color: #dadee7;
+    color: #303545;
   }
+  .notelix-dialog-primary {
+    background: #5648d7;
+    color: #fff;
+  }
+  .notelix-dialog-danger {
+    background: #c63f4d;
+    color: #fff;
+  }
+}
 
-  &.mobile-or-tablet {
-    span {
-      width: 56px;
-      height: 36px;
+.notelix-dialog-error {
+  all: initial;
+  color: #b53242;
+  display: block;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 10px;
+  line-height: 1.45;
+  min-height: 0;
+  margin-top: 8px;
 
-      svg {
-        width: 22px;
-        height: 22px;
-      }
+  &:empty {
+    display: none;
+  }
+}
+
+.dark-reader-enabled {
+  &.notelix-dialog-backdrop .notelix-dialog-card {
+    background: #1e202a !important;
+    border-color: #343744 !important;
+    color: #f1f2f7 !important;
+
+    h2,
+    label {
+      color: #f1f2f7 !important;
+    }
+    > p {
+      color: #b6bac8 !important;
+    }
+    textarea {
+      background: #282b37 !important;
+      border-color: #3a3e4c !important;
+      color: #f1f2f7 !important;
+    }
+    .notelix-dialog-secondary {
+      background: #282b37 !important;
+      border-color: #3a3e4c !important;
+      color: #f1f2f7 !important;
     }
   }
 }
 
 .notelix-notes-inline {
-  display: inline-block;
-  position: relative;
-  margin-top: calc(1em + 10px);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(31, 33, 48, 0.13);
+  border-radius: 9px;
+  box-shadow: 0 8px 22px rgba(20, 22, 35, 0.1);
+  color: #2c3040;
   cursor: pointer;
-  filter: brightness(1);
-  transition: all 0.15s ease-in-out;
+  display: inline-block;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+  margin-top: calc(1em + 10px);
+  padding: 7px 9px;
+  position: relative;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 
   &:hover {
-    filter: brightness(1.05);
+    box-shadow: 0 12px 28px rgba(20, 22, 35, 0.15);
+    transform: translateY(-1px);
     z-index: 100;
   }
 }
 
-body.selection-changing {
-  //background: #AEA;
+body.selection-changing #notelix-annotate-popover,
+body.selection-changing #notelix-annotate-popover * {
+  pointer-events: none !important;
+}
 
-  #notelix-annotate-popover {
-    //background: #9b4dca;
-    pointer-events: none !important;
+@media (max-width: 520px) {
+  .notelix-dialog-backdrop {
+    align-items: flex-end;
+    padding: 10px;
+  }
+  .notelix-dialog-card {
+    border-radius: 17px 17px 12px 12px;
+    max-width: none;
+  }
+}
 
-    * {
-      pointer-events: none !important;
-    }
+@media (prefers-reduced-motion: reduce) {
+  #notelix-annotate-popover *,
+  #notelix-edit-annotation-popover *,
+  .notelix-dialog-backdrop * {
+    transition-duration: 0.01ms !important;
   }
 }

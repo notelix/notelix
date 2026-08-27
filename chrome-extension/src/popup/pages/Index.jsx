@@ -8,6 +8,7 @@ import {
   getKey,
 } from "../../encryption";
 import { resetAgentData } from "../../api/agentControl";
+import { PopupLoading } from "../components/PopupLayout";
 
 export const Index = () => {
   const navigate = useNavigate();
@@ -38,5 +39,5 @@ export const Index = () => {
     resolveRoute();
   }, [navigate]);
 
-  return null;
+  return <PopupLoading />;
 };

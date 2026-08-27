@@ -11,6 +11,12 @@ function copy(source, target) {
   });
 }
 
+function copyRepositoryFile(source, target) {
+  const targetPath = path.join(destination, target);
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.copyFileSync(path.join(root, "..", source), targetPath);
+}
+
 if (appOnly) {
   fs.rmSync(path.join(destination, "dist"), { recursive: true, force: true });
   copy("dist", "dist");
@@ -23,11 +29,13 @@ fs.mkdirSync(destination, { recursive: true });
 copy("dist", "dist");
 copy("public", "public");
 copy("extension-options.html", "extension-options.html");
-copy("embedded.html", "embedded.html");
 copy("app.html", "app.html");
 copy("manifest.json", "manifest.json");
 copy("LICENSES", "LICENSES");
+copyRepositoryFile("server/public/embedded/index.html", "embedded.html");
+copyRepositoryFile("server/public/assets/embedded.css", "assets/embedded.css");
+copyRepositoryFile("server/public/assets/embedded.js", "assets/embedded.js");
 fs.copyFileSync(
   path.join(root, "..", "LICENSE"),
-  path.join(destination, "LICENSES", "notelix.LICENSE")
+  path.join(destination, "LICENSES", "notelix.LICENSE"),
 );

@@ -81,6 +81,19 @@ for (const dockerfileName of ['Dockerfile.prod', 'Dockerfile.agent']) {
     `${dockerfileName} must launch the signal-forwarding production entrypoint directly`,
   );
 }
+const productionDockerfile = fs.readFileSync(
+  path.join(process.cwd(), 'Dockerfile.prod'),
+  'utf8',
+);
+for (const requiredArtifact of [
+  'COPY --chown=node:node server/public ./public',
+  '/extension/dist/content-script.dist.js ./public/embedded/content-script.dist.js',
+]) {
+  assert.ok(
+    productionDockerfile.includes(requiredArtifact),
+    `Dockerfile.prod must include the product UI artifact: ${requiredArtifact}`,
+  );
+}
 const configs = Object.fromEntries(
   stacks.map((stack) => [
     stack,

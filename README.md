@@ -9,19 +9,35 @@ An open source web note taking / highlighter software (with backend).
 
 Notelix features:
 
-* Powerful and reliable web highlighting (powered by
+- Powerful and reliable web highlighting (powered by
   MIT-licensed [@notelix/web-marker](https://github.com/notelix/web-marker))
-* Adding notes to highlights
-* A search engine for your highlights and notes (powered by [MeiliSearch](https://github.com/meilisearch/meilisearch))
-* An app to manage your highlights and notes in one place
-* Optional client-side encryption (and an optional agent that runs on user's machine if they have client-side encryption
+- Adding notes to highlights
+- A search engine for your highlights and notes (powered by [MeiliSearch](https://github.com/meilisearch/meilisearch))
+- An app to manage your highlights and notes in one place
+- Optional client-side encryption (and an optional agent that runs on user's machine if they have client-side encryption
   enabled and want features such as the search engine)
-* Use as a chrome plugin ([download a zip](https://github.com/notelix/notelix/releases)
+- Use as a chrome plugin ([download a zip](https://github.com/notelix/notelix/releases)
   and [install it](https://dev.to/ben/how-to-install-chrome-extensions-manually-from-github-1612) to try), or use it as
   a service and integrate it into your website / project without requiring users to install a
   plugin ([try it](https://public-dev.notelix.com/embedded/))
-* Works well with [darkreader](https://github.com/darkreader/darkreader)
-* More features coming soon...
+- Works well with [darkreader](https://github.com/darkreader/darkreader)
+- More features coming soon...
+
+## Product surfaces
+
+Notelix uses one responsive visual system across the public website, Chrome
+extension popup, full-page reading library, embedded highlighting playground,
+and in-page highlight/note controls. These surfaces include light and dark
+themes, keyboard-visible focus states, and explicit loading, empty, error, and
+confirmation states.
+
+The packaged extension is written to `chrome-extension/extension-build`. Run
+the rendered browser smoke test with a local Chrome/Chromium binary:
+
+```sh
+cd chrome-extension
+CHROME_PATH=/path/to/chrome xvfb-run -a npx --yes yarn@1.22.22 smoke:browser
+```
 
 # building and running chrome extension
 
@@ -42,7 +58,15 @@ sed -i "s/replace-with-a-random-secret/$(openssl rand -hex 32)/" .env.dev
 # start server in dev mode
 
 docker build . -f ./Dockerfile.dev -t notelix:dev
-docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev up -d 
+docker-compose -f docker-compose.dev.yml --env-file .env.dev -p notelix-dev up -d
+```
+
+The production image includes the public product website and the embedded
+highlighting playground. Build it from the repository root so the image can
+compile both the server and the browser content script:
+
+```
+docker build . -f server/Dockerfile.prod -t notelix:prod
 ```
 
 # Architecture
@@ -84,8 +108,9 @@ or https://github.com/wal-g/wal-g to backup your database.
 
 # Using Notelix Embedded to add it to your website without requiring users to install a browser extension
 
-Try [here](https://public-dev.notelix.com/embedded/). See [chrome-extension/embedded.html](./chrome-extension/embedded.html) for the
-code.
+Try [here](https://public-dev.notelix.com/embedded/). See
+[server/public/embedded/index.html](./server/public/embedded/index.html) and
+[server/public/assets/embedded.js](./server/public/assets/embedded.js) for the integration code.
 
 A note about LICENSE: If you want to integrate Notelix into your project using the above method, it's okay not to
 disclose source code of your project. You only need to disclose source code for any changes made directly to Notelix.

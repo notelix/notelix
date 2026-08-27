@@ -3,6 +3,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { isAgentControlOriginAllowed, isRunModeAgent } from './agentControl';
 import { readBoundedIntegerEnvironment } from '../runtime-config';
+import { join } from 'node:path';
 
 export const requestBodyLimitBytes = readBoundedIntegerEnvironment(
   'REQUEST_BODY_LIMIT_BYTES',
@@ -53,6 +54,19 @@ export function configureApplication(app: NestExpressApplication): void {
     limit: requestBodyLimitBytes,
   });
   app.use(helmet());
+  if (!isRunModeAgent()) {
+    app.useStaticAssets(join(process.cwd(), 'public'), {
+      extensions: ['html'],
+      index: 'index.html',
+      maxAge: '1h',
+      redirect: true,
+      setHeaders: (response, filePath) => {
+        if (filePath.endsWith('.html')) {
+          response.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    });
+  }
   app.useGlobalPipes(createValidationPipe());
   if (isRunModeAgent()) {
     app.enableCors({

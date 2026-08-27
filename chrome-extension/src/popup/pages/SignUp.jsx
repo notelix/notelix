@@ -1,9 +1,14 @@
-import React, { useState } from "react";
-import { signUp } from "../../api/user";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { signUp } from "../../api/user";
 import { makeClientSideEncryptionParams } from "../../encryption/utils";
 import { NotelixDefaultServer } from "../consts";
 import { getServer } from "../../api/common";
+import { Icon } from "../../ui/Icon";
+import { StatusMessage, formatUiError } from "../../ui/StatusMessage";
+import { PopupLayout } from "../components/PopupLayout";
+import { PasswordField } from "../components/PasswordField";
+import { passwordScore } from "../validation";
 
 export const SignUp = () => {
   const navigate = useNavigate();
@@ -12,120 +17,183 @@ export const SignUp = () => {
   const [enableClientSideEncryption, setEnableClientSideEncryption] =
     useState(false);
   const [repeatPassword, setRepeatPassword] = useState("");
+  const [understandsEncryption, setUnderstandsEncryption] = useState(false);
+  const [server, setServer] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const score = useMemo(() => passwordScore(password), [password]);
 
-  let submit = async () => {
+  useEffect(() => {
+    getServer().then(setServer);
+  }, []);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (pending) return;
+    if (password.length < 8) {
+      setError("Use at least 8 characters for your password.");
+      return;
+    }
     if (password !== repeatPassword) {
-      alert("passwords don't match");
+      setError("The passwords do not match.");
+      return;
+    }
+    if (enableClientSideEncryption && !understandsEncryption) {
+      setError(
+        "Confirm that you understand the encryption recovery requirement.",
+      );
       return;
     }
 
-    const server = await getServer();
-    if (server === NotelixDefaultServer) {
-      if (
-        !confirm(
-          "You are using Notelix's public development server. While this server is free-to-use, it ** doesn't provide any guarantee regarding availability or data safety **. In fact, this database will be reset when there is major Notelix API change. (expected every year)."
-        )
-      ) {
-        return;
-      }
-      if (
-        !confirm(
-          "Only use this dev server when you are trying out Notelix. For production use, please refer to https://github.com/notelix/notelix and host your own server."
-        )
-      ) {
-        return;
-      }
+    setPending(true);
+    setError("");
+    try {
+      const client_side_encryption = enableClientSideEncryption
+        ? makeClientSideEncryptionParams(password)
+        : null;
+      await signUp({
+        username: username.trim(),
+        password,
+        enableClientSideEncryption,
+        client_side_encryption,
+      });
+      navigate("/login", {
+        replace: true,
+        state: { message: "Account created. Sign in to start highlighting." },
+      });
+    } catch (submitError) {
+      setError(
+        formatUiError(
+          submitError,
+          "We couldn't create your account. Please try again.",
+        ),
+      );
+    } finally {
+      setPending(false);
     }
-
-    let client_side_encryption = null;
-    if (enableClientSideEncryption) {
-      if (
-        !confirm(
-          "client-side encryption is enabled, you must remember your password, or else nobody will be able to access your data!"
-        )
-      ) {
-        return;
-      }
-
-      if (
-        !confirm(
-          "With client-side encryption enabled, if you wish to use advanced features such as searching, you will need to run a local agent! (using docker-compose)"
-        )
-      ) {
-        return;
-      }
-
-      client_side_encryption = makeClientSideEncryptionParams(password);
-    }
-
-    signUp({
-      username,
-      password,
-      enableClientSideEncryption,
-      client_side_encryption,
-    }).then(() => {
-      navigate("/login");
-      alert("Sign up successful");
-    });
   };
 
   return (
-    <div>
-      <h1>Sign Up</h1>
-      <input
-        type="text"
-        placeholder={"username"}
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
-      <input
-        type="password"
-        placeholder={"password"}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <input
-        type="password"
-        placeholder={"repeat password"}
-        value={repeatPassword}
-        onChange={(e) => setRepeatPassword(e.target.value)}
-      />
-
-      <div className="float-right">
-        <input
-          type="checkbox"
-          id="enableClientSideEncryption"
-          checked={enableClientSideEncryption}
-          onChange={(e) => setEnableClientSideEncryption(e.target.checked)}
-        />
-        <label className="label-inline" htmlFor="enableClientSideEncryption">
-          Enable client-side encryption
-          <span
-            style={{
-              cursor: "pointer",
-              textDecoration: "underline",
-              textDecorationStyle: "dotted",
-              marginLeft: 6,
-            }}
-            onClick={(e) => {
-              alert(
-                "Enable client-side encryption\n\nWhen enabled, your data will be encrypted before it is transmitted to the server. Nobody (even the server admin) will be able to access your data without your password, you must remember your password."
-              );
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          >
-            (help)
+    <PopupLayout
+      backTo="/login"
+      eyebrow="Create account"
+      footer={
+        <>
+          <Icon name="shield" size={12} /> You choose where your highlight data
+          is stored
+        </>
+      }
+      title="Build a private reading memory."
+    >
+      {server === NotelixDefaultServer && (
+        <StatusMessage tone="warning" title="Evaluation server">
+          The public server is for trying Notelix and may be reset. Self-host
+          before storing important highlights.
+        </StatusMessage>
+      )}
+      {error && <StatusMessage tone="danger">{error}</StatusMessage>}
+      <form className="popup-form" onSubmit={submit}>
+        <label className="nl-field" htmlFor="signup-username">
+          <span className="nl-field__label">Username</span>
+          <span className="nl-field__control nl-field__control--icon">
+            <Icon name="user" size={17} />
+            <input
+              autoComplete="username"
+              autoFocus
+              id="signup-username"
+              maxLength={255}
+              placeholder="Choose a username"
+              required
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+            />
           </span>
         </label>
-      </div>
-
-      <button
-        disabled={!username || !password || !repeatPassword}
-        onClick={submit}
-      >
-        Submit
-      </button>
-    </div>
+        <PasswordField
+          autoComplete="new-password"
+          hint="At least 8 characters. A longer, unique passphrase is best."
+          id="signup-password"
+          label="Password"
+          maxLength={1024}
+          minLength={8}
+          placeholder="Create a password"
+          required
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+        <div
+          aria-label={`Password strength ${score} of 4`}
+          className="popup-password-meter"
+          data-score={score}
+        >
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+        <PasswordField
+          autoComplete="new-password"
+          id="signup-repeat-password"
+          label="Repeat password"
+          maxLength={1024}
+          placeholder="Repeat your password"
+          required
+          value={repeatPassword}
+          onChange={(event) => setRepeatPassword(event.target.value)}
+        />
+        <div className="popup-switch-card">
+          <label className="popup-switch-row">
+            <input
+              checked={enableClientSideEncryption}
+              onChange={(event) => {
+                setEnableClientSideEncryption(event.target.checked);
+                if (!event.target.checked) setUnderstandsEncryption(false);
+              }}
+              type="checkbox"
+            />
+            <span className="popup-switch" />
+            <span className="popup-switch-copy">
+              <strong>Client-side encryption</strong>
+              <span>
+                Encrypt content before it leaves this browser. Search requires
+                the optional local agent.
+              </span>
+            </span>
+          </label>
+          {enableClientSideEncryption && (
+            <>
+              <StatusMessage tone="warning" title="No password recovery">
+                Nobody—including your server administrator—can restore encrypted
+                data if you forget this password.
+              </StatusMessage>
+              <label className="popup-acknowledgement">
+                <input
+                  checked={understandsEncryption}
+                  onChange={(event) =>
+                    setUnderstandsEncryption(event.target.checked)
+                  }
+                  type="checkbox"
+                />
+                <span>I understand and will store this password safely.</span>
+              </label>
+            </>
+          )}
+        </div>
+        <button
+          className="nl-button nl-button--wide"
+          disabled={
+            !username.trim() ||
+            password.length < 8 ||
+            !repeatPassword ||
+            pending ||
+            (enableClientSideEncryption && !understandsEncryption)
+          }
+          type="submit"
+        >
+          {pending && <span className="nl-spinner nl-spinner--small" />}
+          {pending ? "Creating account…" : "Create account"}
+        </button>
+      </form>
+    </PopupLayout>
   );
 };
