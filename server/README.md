@@ -218,6 +218,11 @@ Container health checks use the readiness endpoint. Dependency checks are
 bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
 100 to 30000 milliseconds.
 
+The production entrypoint performs database bootstrap and migrations, then
+replaces itself with the Node process. This lets `SIGTERM` reach Nest directly
+so rolling deployments run request-abort, search-worker, and database shutdown
+hooks before the container exits.
+
 PostgreSQL is the source of truth and remains a hard startup dependency.
 Meilisearch is recoverable: the backend starts in degraded mode if search is
 unavailable, keeps readiness at `503`, accepts durable annotation writes into

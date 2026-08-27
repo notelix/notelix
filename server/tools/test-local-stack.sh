@@ -217,12 +217,26 @@ node ./tools/meili-reindex.js
 
 stop_meilisearch
 PORT="${integration_degraded_server_port}" \
-  node ./dist/main.js >"${integration_degraded_server_log}" 2>&1 &
+  sh ./tools/start-production.sh >"${integration_degraded_server_log}" 2>&1 &
 integration_degraded_server_pid=$!
 TEST_DEGRADED_SERVER_URL="http://127.0.0.1:${integration_degraded_server_port}" \
   node ./tools/test-degraded-startup.js
+integration_degraded_server_command="$(
+  tr '\0' ' ' <"/proc/${integration_degraded_server_pid}/cmdline"
+)"
+if [[ "${integration_degraded_server_command}" != "node ./dist/main.js " ]]; then
+  echo "Production entrypoint did not exec the Node process" >&2
+  exit 1
+fi
 kill "${integration_degraded_server_pid}" >/dev/null 2>&1 || true
-wait "${integration_degraded_server_pid}" >/dev/null 2>&1 || true
+set +e
+wait "${integration_degraded_server_pid}" >/dev/null 2>&1
+integration_degraded_exit_code=$?
+set -e
+if [[ ${integration_degraded_exit_code} -ne 143 ]]; then
+  echo "Production server did not complete its SIGTERM shutdown path" >&2
+  exit 1
+fi
 integration_degraded_server_pid=""
 node <<'NODE'
 const assert = require('assert');

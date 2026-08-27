@@ -61,6 +61,26 @@ const path = require('node:path');
 
 const configDirectory = process.argv[2];
 const stacks = ['prod', 'agent', 'dev'];
+const expectedRuntimeCommand = 'CMD ["sh", "./tools/start-production.sh"]';
+const productionEntrypoint = fs.readFileSync(
+  path.join(process.cwd(), 'tools/start-production.sh'),
+  'utf8',
+);
+assert.match(
+  productionEntrypoint,
+  /(?:^|\n)exec node \.\/dist\/main\.js\s*$/,
+  'production entrypoint must replace its shell with the Nest process',
+);
+for (const dockerfileName of ['Dockerfile.prod', 'Dockerfile.agent']) {
+  const dockerfile = fs.readFileSync(
+    path.join(process.cwd(), dockerfileName),
+    'utf8',
+  );
+  assert.ok(
+    dockerfile.includes(expectedRuntimeCommand),
+    `${dockerfileName} must launch the signal-forwarding production entrypoint directly`,
+  );
+}
 const configs = Object.fromEntries(
   stacks.map((stack) => [
     stack,

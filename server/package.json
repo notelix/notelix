@@ -15,7 +15,7 @@
     "start:dev": "node ./tools/ensure-pg-db.js && npm run schema:sync && nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
-    "prod": "node ./tools/ensure-pg-db.js && npm run migration:run:compiled && npm run start:prod",
+    "prod": "sh ./tools/start-production.sh",
     "meili:reindex": "node ./tools/meili-reindex.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --max-warnings 0",
     "lint:fix": "npm run lint -- --fix",
