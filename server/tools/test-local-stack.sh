@@ -221,10 +221,10 @@ PORT="${integration_degraded_server_port}" \
 integration_degraded_server_pid=$!
 TEST_DEGRADED_SERVER_URL="http://127.0.0.1:${integration_degraded_server_port}" \
   node ./tools/test-degraded-startup.js
-integration_degraded_server_command="$(
-  tr '\0' ' ' <"/proc/${integration_degraded_server_pid}/cmdline"
-)"
-if [[ "${integration_degraded_server_command}" != "node ./dist/main.js " ]]; then
+mapfile -d '' -t integration_degraded_server_argv \
+  <"/proc/${integration_degraded_server_pid}/cmdline"
+if [[ "$(basename -- "${integration_degraded_server_argv[0]:-}")" != "node" ]] ||
+  [[ "${integration_degraded_server_argv[1]:-}" != "./dist/main.js" ]]; then
   echo "Production entrypoint did not exec the Node process" >&2
   exit 1
 fi
