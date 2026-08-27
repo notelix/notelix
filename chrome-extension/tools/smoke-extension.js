@@ -1168,7 +1168,7 @@ async function main() {
     await embeddedPage.waitForFunction(() =>
       document
         .getElementById("notelix-notes-backdrop")
-        .classList.contains("notelix-dialog-visible"),
+        .matches(".notelix-dialog-visible:focus-within"),
     );
     const sharedNote = "shared demo note survives every device";
     await embeddedPage.keyboard.type(sharedNote);
