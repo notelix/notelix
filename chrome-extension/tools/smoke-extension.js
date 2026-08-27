@@ -1206,6 +1206,16 @@ async function main() {
     await embeddedPage.keyboard.press("Enter");
     await sharedNoteSave;
     await embeddedPage.waitForSelector(".notelix-notes-inline");
+    assert.equal(
+      await embeddedPage.$eval(".notelix-notes-inline", async (host) => {
+        await new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        );
+        return host.isConnected && document.getElementById(host.id) === host;
+      }),
+      true,
+      "the inline note badge should remain connected after painting settles",
+    );
     const savedNoteId = await embeddedPage.$eval(
       ".notelix-notes-inline",
       (element) => element.id,

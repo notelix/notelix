@@ -53,8 +53,13 @@ function convertAnnotationToSerializedRange(annotation) {
 }
 
 function paintNotes(context) {
-  clearInlineNotes(context.serializedRange.uid);
-  const annotation = state.annotations[context.serializedRange.uid];
+  const uid = context.serializedRange.uid;
+  const annotation = state.annotations[uid];
+  const existingNotesElement = document.getElementById("notes-" + uid);
+  if (!annotation.data.notes) {
+    clearInlineNotes(uid);
+    return;
+  }
   if (annotation.data.notes) {
     const highlightElements = Array.from(
       document.getElementsByTagName("web-marker-highlight"),
@@ -62,6 +67,16 @@ function paintNotes(context) {
       (x) => x.getAttribute("highlight-id") === context.serializedRange.uid,
     );
     const lastHighlightElement = highlightElements[highlightElements.length - 1];
+    if (!lastHighlightElement) return;
+    if (existingNotesElement) {
+      if (
+        existingNotesElement.parentElement !== lastHighlightElement ||
+        lastHighlightElement.lastChild !== existingNotesElement
+      ) {
+        lastHighlightElement.append(existingNotesElement);
+      }
+      return;
+    }
 
     const inlineNotesRootElement = document.createElement("span");
     inlineNotesRootElement.id = "notes-" + context.serializedRange.uid;

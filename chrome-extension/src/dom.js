@@ -277,6 +277,7 @@ async function saveNotesFromEditor() {
 
 function repaintAnnotation(annotation) {
   const serializedRange = convertAnnotationToSerializedRange(annotation);
+  clearInlineNotes(annotation.uid);
   marker.unpaint(serializedRange);
   marker.paint(serializedRange);
   paintNotes({ serializedRange });
