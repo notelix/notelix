@@ -11,6 +11,7 @@ import {
   clearInlineNotes,
   convertAnnotationToSerializedRange,
   marker,
+  paintNotes,
 } from "./marker";
 import { deleteAnnotation } from "./api/annotations";
 import { isMobileOrTablet } from "./mobile";
@@ -275,8 +276,10 @@ async function saveNotesFromEditor() {
 }
 
 function repaintAnnotation(annotation) {
-  marker.unpaint(convertAnnotationToSerializedRange(annotation));
-  marker.paint(convertAnnotationToSerializedRange(annotation));
+  const serializedRange = convertAnnotationToSerializedRange(annotation);
+  marker.unpaint(serializedRange);
+  marker.paint(serializedRange);
+  paintNotes({ serializedRange });
 }
 
 export function onDeleteAnnotationElementClick() {

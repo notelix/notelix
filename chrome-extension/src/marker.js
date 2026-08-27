@@ -235,4 +235,4 @@ function clearInlineNotes(uid) {
   }
 }
 
-export { clearInlineNotes, convertAnnotationToSerializedRange };
+export { clearInlineNotes, convertAnnotationToSerializedRange, paintNotes };
