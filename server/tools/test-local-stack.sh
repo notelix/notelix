@@ -11,12 +11,14 @@ integration_server_log="$(mktemp)"
 integration_secondary_server_log="$(mktemp)"
 integration_agent_server_log="$(mktemp)"
 integration_degraded_server_log="$(mktemp)"
+integration_startup_failure_log="$(mktemp)"
 integration_agent_state_path="$(mktemp)"
 integration_auth_state_path="$(mktemp)"
 integration_server_pid=""
 integration_secondary_server_pid=""
 integration_agent_server_pid=""
 integration_degraded_server_pid=""
+integration_startup_failure_pid=""
 integration_server_port="${NOTELIX_TEST_SERVER_PORT:-18575}"
 integration_secondary_server_port="${NOTELIX_TEST_SECONDARY_SERVER_PORT:-18578}"
 integration_agent_server_port="${NOTELIX_TEST_AGENT_SERVER_PORT:-18579}"
@@ -83,6 +85,38 @@ resume_postgres() {
   return 1
 }
 
+assert_listen_failure_exits() {
+  PORT="${integration_server_port}" \
+    node ./dist/main.js >"${integration_startup_failure_log}" 2>&1 &
+  integration_startup_failure_pid=$!
+
+  local attempt startup_failure_exit_code
+  for ((attempt = 1; attempt <= 200; attempt += 1)); do
+    if ! kill -0 "${integration_startup_failure_pid}" >/dev/null 2>&1; then
+      set +e
+      wait "${integration_startup_failure_pid}" >/dev/null 2>&1
+      startup_failure_exit_code=$?
+      set -e
+      integration_startup_failure_pid=""
+      if [[ ${startup_failure_exit_code} -ne 1 ]]; then
+        echo "Port-collision startup exited with ${startup_failure_exit_code}, expected 1" >&2
+        return 1
+      fi
+      if ! rg --quiet 'Application startup failed' \
+        "${integration_startup_failure_log}"; then
+        echo "Port-collision startup did not log its fatal error" >&2
+        return 1
+      fi
+      echo "Port-collision startup cleanup test passed."
+      return
+    fi
+    sleep 0.1
+  done
+
+  echo "Port-collision startup did not exit after cleanup" >&2
+  return 1
+}
+
 cleanup() {
   integration_exit_code=$?
   trap - EXIT INT TERM
@@ -103,6 +137,10 @@ cleanup() {
     kill "${integration_degraded_server_pid}" >/dev/null 2>&1 || true
     wait "${integration_degraded_server_pid}" >/dev/null 2>&1 || true
   fi
+  if [[ -n "${integration_startup_failure_pid}" ]]; then
+    kill "${integration_startup_failure_pid}" >/dev/null 2>&1 || true
+    wait "${integration_startup_failure_pid}" >/dev/null 2>&1 || true
+  fi
 
   "${integration_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 
@@ -115,10 +153,13 @@ cleanup() {
     sed -n '1,240p' "${integration_agent_server_log}" >&2
     echo "Notelix degraded-startup server log:" >&2
     sed -n '1,240p' "${integration_degraded_server_log}" >&2
+    echo "Notelix startup-failure server log:" >&2
+    sed -n '1,240p' "${integration_startup_failure_log}" >&2
   fi
   rm -f "${integration_server_log}" "${integration_secondary_server_log}" \
     "${integration_agent_server_log}" "${integration_degraded_server_log}" \
-    "${integration_agent_state_path}" "${integration_auth_state_path}"
+    "${integration_startup_failure_log}" "${integration_agent_state_path}" \
+    "${integration_auth_state_path}"
   exit "${integration_exit_code}"
 }
 trap cleanup EXIT
@@ -207,6 +248,7 @@ integration_secondary_server_pid=$!
 
 export TEST_AUTH_STATE_PATH="${integration_auth_state_path}"
 node ./tools/test-auth-database-outage.js prepare
+assert_listen_failure_exits
 pause_postgres
 node ./tools/test-auth-database-outage.js outage
 resume_postgres

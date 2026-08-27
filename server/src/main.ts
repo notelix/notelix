@@ -36,6 +36,7 @@ const runMode = readEnvironmentChoice('RUN_MODE', 'SERVER', [
 validateAgentControlOrigins(runMode);
 const bootstrapLogger = new Logger('Bootstrap');
 const rateLimitStorage = new PostgresThrottlerStorage();
+let application: NestExpressApplication | undefined;
 
 @Module({
   imports: [
@@ -101,18 +102,43 @@ async function bootstrap() {
       'Meilisearch bootstrap failed; starting with search unavailable while background recovery retries',
     );
   }
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+  application = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
   });
-  configureApplication(app);
-  await app.listen(httpPort);
+  configureApplication(application);
+  await application.listen(httpPort);
 }
 
 bootstrap().catch(async (error) => {
   const trace = error instanceof Error ? error.stack : String(error);
   bootstrapLogger.error('Application startup failed', trace);
+  if (application) {
+    try {
+      await application.close();
+    } catch (cleanupError) {
+      const cleanupTrace =
+        cleanupError instanceof Error
+          ? cleanupError.stack
+          : String(cleanupError);
+      bootstrapLogger.error(
+        'Application cleanup after startup failure failed',
+        cleanupTrace,
+      );
+    }
+  }
   if (AppDataSource.isInitialized) {
-    await AppDataSource.destroy().catch(() => undefined);
+    try {
+      await AppDataSource.destroy();
+    } catch (cleanupError) {
+      const cleanupTrace =
+        cleanupError instanceof Error
+          ? cleanupError.stack
+          : String(cleanupError);
+      bootstrapLogger.error(
+        'Database cleanup after startup failure failed',
+        cleanupTrace,
+      );
+    }
   }
   process.exitCode = 1;
 });

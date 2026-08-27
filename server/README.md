@@ -229,6 +229,10 @@ stacks allow two minutes before escalating to `SIGKILL`, which accommodates the
 default bounded dependency operations. If you increase database, Meilisearch,
 or agent request timeouts, keep the deployment platform's termination grace
 period comfortably above the longest shutdown-critical operation.
+If startup fails after Nest initializes—for example, because the listen port is
+already occupied—the process closes initialized workers and database pools
+before exiting with a failure status, allowing the container restart policy to
+retry without leaving a live but unserviceable process.
 
 PostgreSQL is the source of truth and remains a hard startup dependency.
 Meilisearch is recoverable: the backend starts in degraded mode if search is
