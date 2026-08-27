@@ -15,38 +15,34 @@ import {
 import { deleteAnnotation } from "./api/annotations";
 import { isMobileOrTablet } from "./mobile";
 import { isTrustedUserInteraction } from "./trustedUserInteraction";
+import { embeddedCopy } from "./embeddedLocale";
 
-const colorNames = ["Rose", "Amber", "Yellow", "Green", "Blue", "Violet"];
 const dialogShadowStyles = `
   *, *::before, *::after { box-sizing: border-box; }
   .surface { align-items: center; display: flex; height: 100%; justify-content: center; width: 100%; }
-  .card { all: initial; background: #fff; border: 1px solid #e0e2e9; border-radius: 17px; box-shadow: 0 30px 80px rgba(18,20,34,.22),0 8px 22px rgba(18,20,34,.12); box-sizing: border-box; color: #1d2130; display: block; font-family: Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; max-width: 430px; padding: 21px; width: calc(100% - 40px); }
-  header { align-items: center; display: flex; gap: 11px; margin-bottom: 17px; }
-  header > div { display: grid; gap: 3px; }
-  header span:not(.symbol) { color: #6558d7; font-size: 8px; font-weight: 800; letter-spacing: .12em; }
-  h2 { color: #1d2130; font-size: 15px; font-weight: 750; letter-spacing: -.01em; margin: 0; }
-  .symbol { align-items: center; background: #eeecff; border-radius: 9px; color: #5648d7; display: flex; flex: 0 0 auto; font-size: 16px; height: 36px; justify-content: center; width: 36px; }
-  .symbol.danger { background: #fff0f2; color: #c63f4d; font-weight: 800; }
-  label { color: #303545; display: block; font-size: 10px; font-weight: 750; margin-bottom: 6px; }
-  textarea { all: initial; background: #f8f8fb; border: 1px solid #d9dce6; border-radius: 10px; box-sizing: border-box; color: #202433; display: block; font-family: inherit; font-size: 12px; height: 126px; line-height: 1.55; padding: 11px 12px; resize: vertical; width: 100%; }
-  textarea:focus { border-color: #6558d7; box-shadow: 0 0 0 3px rgba(101,88,215,.13); outline: 0; }
-  textarea::placeholder { color: #959aaa; }
-  p { color: #5f6678; font-size: 12px; line-height: 1.55; margin: 4px 0 0; }
-  footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 17px; }
-  button { all: initial; align-items: center; border: 1px solid transparent; border-radius: 9px; box-sizing: border-box; cursor: pointer; display: inline-flex; font-family: inherit; font-size: 10px; font-weight: 750; height: 37px; justify-content: center; padding: 0 14px; }
+  .card { all: initial; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.16); box-sizing: border-box; color: #222; display: block; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; max-width: 360px; padding: 18px; width: calc(100% - 32px); }
+  header { display: block; margin-bottom: 14px; }
+  h2 { color: #222; font-size: 16px; font-weight: 600; line-height: 1.4; margin: 0; }
+  label { color: #444; display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  textarea { all: initial; background: #fff; border: 1px solid #d5d5d5; border-radius: 5px; box-sizing: border-box; color: #222; display: block; font-family: inherit; font-size: 14px; height: 104px; line-height: 1.55; padding: 9px 10px; resize: vertical; width: 100%; }
+  textarea:focus { border-color: #ff6797; box-shadow: 0 0 0 2px rgba(255,103,151,.14); outline: 0; }
+  textarea::placeholder { color: #999; }
+  p { color: #555; font-size: 13px; line-height: 1.65; margin: 0; }
+  footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  button { all: initial; align-items: center; border: 1px solid transparent; border-radius: 5px; box-sizing: border-box; cursor: pointer; display: inline-flex; font-family: inherit; font-size: 13px; font-weight: 500; height: 34px; justify-content: center; padding: 0 14px; }
   button:disabled { cursor: wait; opacity: .6; }
-  button:focus-visible { box-shadow: 0 0 0 3px rgba(101,88,215,.18); outline: 0; }
-  .secondary { background: #fff; border-color: #dadee7; color: #303545; }
-  .primary { background: #5648d7; color: #fff; }
+  button:focus-visible { box-shadow: 0 0 0 2px rgba(255,103,151,.2); outline: 0; }
+  .secondary { background: #fff; border-color: #d5d5d5; color: #333; }
+  .primary { background: #ff6797; color: #fff; }
   .danger-button { background: #c63f4d; color: #fff; }
-  .error { color: #b53242; display: block; font-size: 10px; line-height: 1.45; margin-top: 8px; }
+  .error { color: #b53242; display: block; font-size: 12px; line-height: 1.45; margin-top: 8px; }
   .error:empty { display: none; }
-  :host(.dark-reader-enabled) .card { background: #1e202a; border-color: #343744; color: #f1f2f7; }
-  :host(.dark-reader-enabled) h2, :host(.dark-reader-enabled) label { color: #f1f2f7; }
-  :host(.dark-reader-enabled) p { color: #b6bac8; }
-  :host(.dark-reader-enabled) textarea { background: #282b37; border-color: #3a3e4c; color: #f1f2f7; }
-  :host(.dark-reader-enabled) .secondary { background: #282b37; border-color: #3a3e4c; color: #f1f2f7; }
-  @media (max-width: 520px) { .surface { align-items: flex-end; } .card { border-radius: 17px 17px 12px 12px; margin-bottom: 10px; max-width: none; width: calc(100% - 20px); } }
+  :host(.dark-reader-enabled) .card { background: #252525; border-color: #494949; color: #f5f5f5; }
+  :host(.dark-reader-enabled) h2, :host(.dark-reader-enabled) label { color: #f5f5f5; }
+  :host(.dark-reader-enabled) p { color: #d0d0d0; }
+  :host(.dark-reader-enabled) textarea { background: #303030; border-color: #555; color: #f5f5f5; }
+  :host(.dark-reader-enabled) .secondary { background: #303030; border-color: #555; color: #f5f5f5; }
+  @media (max-width: 520px) { .surface { align-items: flex-end; } .card { margin-bottom: 8px; max-width: none; width: calc(100% - 16px); } }
 `;
 
 function consumeTrustedPointer(event, callback) {
@@ -59,13 +55,12 @@ function consumeTrustedPointer(event, callback) {
 function prepareAnnotatePopoverDom() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="${isMobileOrTablet ? "mobile-or-tablet" : ""}" id="notelix-annotate-popover" role="toolbar" aria-label="Highlight colors">
-      <span class="notelix-toolbar-label">Highlight</span>
+    `<div class="${isMobileOrTablet ? "mobile-or-tablet" : ""}" id="notelix-annotate-popover" role="toolbar" aria-label="${embeddedCopy.highlightColors}">
       <span class="notelix-toolbar-colors">
         ${highlighterColors
           .map(
             (color, index) =>
-              `<button class="color" type="button" aria-label="Highlight in ${colorNames[index]}" title="${colorNames[index]}" style="--notelix-color: ${color}" data-color="${color}"></button>`,
+              `<button class="color" type="button" aria-label="${embeddedCopy.highlightColor(embeddedCopy.colorNames[index])}" title="${embeddedCopy.colorNames[index]}" style="--notelix-color: ${color}" data-color="${color}"></button>`,
           )
           .join("")}
       </span>
@@ -85,9 +80,9 @@ function prepareAnnotatePopoverDom() {
 function prepareEditAnnotationPopoverDom() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div id="notelix-edit-annotation-popover" class="notelix-button ${isMobileOrTablet ? "mobile-or-tablet" : ""}" role="toolbar" aria-label="Highlight actions">
-      <button id="notelix-button-notes" type="button" aria-label="Edit private note" title="Edit note">${commentsSvg}<span>Note</span></button>
-      <button id="notelix-button-trash" type="button" aria-label="Delete highlight" title="Delete highlight">${trashSvg}<span>Delete</span></button>
+    `<div id="notelix-edit-annotation-popover" class="notelix-button ${isMobileOrTablet ? "mobile-or-tablet" : ""}" role="toolbar" aria-label="${embeddedCopy.highlightActions}">
+      <button id="notelix-button-trash" type="button" aria-label="${embeddedCopy.deleteHighlight}" title="${embeddedCopy.deleteHighlight}">${trashSvg}</button>
+      <button id="notelix-button-notes" type="button" aria-label="${embeddedCopy.editNote}" title="${embeddedCopy.editNote}">${commentsSvg}</button>
     </div>`,
   );
   state.editAnnotationPopoverDom = document.getElementById(
@@ -108,14 +103,14 @@ function prepareNotesEditorDom() {
   root.innerHTML = `<style>${dialogShadowStyles}</style>
     <div class="surface">
       <section class="card" role="dialog" aria-modal="true" aria-labelledby="notelix-notes-title">
-        <header><span class="symbol">✦</span><div><span>PRIVATE NOTE</span><h2 id="notelix-notes-title">Add context to this highlight</h2></div></header>
+        <header><h2 id="notelix-notes-title">${embeddedCopy.editNote}</h2></header>
         <form>
-          <label for="notelix-notes-text">Your note</label>
-          <textarea id="notelix-notes-text" maxlength="32768" placeholder="Why did this passage matter?"></textarea>
+          <label for="notelix-notes-text">${embeddedCopy.noteLabel}</label>
+          <textarea id="notelix-notes-text" maxlength="32768" placeholder="${embeddedCopy.notePlaceholder}"></textarea>
           <div id="notelix-notes-error" class="error" role="alert"></div>
           <footer>
-            <button id="notelix-notes-cancel" class="secondary" type="button">Cancel</button>
-            <button id="notelix-notes-save" class="primary" type="submit">Save note</button>
+            <button id="notelix-notes-cancel" class="secondary" type="button">${embeddedCopy.cancel}</button>
+            <button id="notelix-notes-save" class="primary" type="submit">${embeddedCopy.save}</button>
           </footer>
         </form>
       </section>
@@ -147,12 +142,12 @@ function prepareDeleteDialogDom() {
   root.innerHTML = `<style>${dialogShadowStyles}</style>
     <div class="surface">
       <section class="card" role="alertdialog" aria-modal="true" aria-labelledby="notelix-delete-title" aria-describedby="notelix-delete-description">
-        <header><span class="symbol danger">!</span><div><span>REMOVE HIGHLIGHT</span><h2 id="notelix-delete-title">Delete this highlight?</h2></div></header>
-        <p id="notelix-delete-description">This removes the highlight from every synced browser. This action cannot be undone.</p>
+        <header><h2 id="notelix-delete-title">${embeddedCopy.deleteTitle}</h2></header>
+        <p id="notelix-delete-description">${embeddedCopy.deleteDescription}</p>
         <div id="notelix-delete-error" class="error" role="alert"></div>
         <footer>
-          <button id="notelix-delete-cancel" class="secondary" type="button">Cancel</button>
-          <button id="notelix-delete-confirm" class="danger-button" type="button">Delete highlight</button>
+          <button id="notelix-delete-cancel" class="secondary" type="button">${embeddedCopy.cancel}</button>
+          <button id="notelix-delete-confirm" class="danger-button" type="button">${embeddedCopy.delete}</button>
         </footer>
       </section>
     </div>`;
@@ -258,7 +253,7 @@ async function saveNotesFromEditor() {
   const backup = annotation;
   annotation = { ...annotation, data: { ...annotation.data, notes: value } };
   saveButton.disabled = true;
-  saveButton.textContent = "Saving…";
+  saveButton.textContent = embeddedCopy.saving;
   errorElement.textContent = "";
   state.annotations[annotation.uid] = annotation;
   repaintAnnotation(annotation);
@@ -268,11 +263,10 @@ async function saveNotesFromEditor() {
   } catch {
     state.annotations[annotation.uid] = backup;
     repaintAnnotation(backup);
-    errorElement.textContent =
-      "The note could not be saved. Check your connection and try again.";
+    errorElement.textContent = embeddedCopy.saveError;
   } finally {
     saveButton.disabled = false;
-    saveButton.textContent = "Save note";
+    saveButton.textContent = embeddedCopy.save;
   }
 }
 
@@ -287,8 +281,8 @@ export function onDeleteAnnotationElementClick() {
   hideAnnotatePopover();
   state.editAnnotationPopoverDom.style.display = "none";
   const description = annotation.data?.notes
-    ? "This also removes the private note attached to this highlight from every synced browser."
-    : "This removes the highlight from every synced browser. This action cannot be undone.";
+    ? embeddedCopy.deleteWithNote
+    : embeddedCopy.deleteDescription;
   state.deleteDialogRoot.getElementById(
     "notelix-delete-description",
   ).textContent = description;
@@ -312,7 +306,7 @@ async function performDeleteAnnotation() {
     "notelix-delete-error",
   );
   confirmButton.disabled = true;
-  confirmButton.textContent = "Deleting…";
+  confirmButton.textContent = embeddedCopy.deleting;
   errorElement.textContent = "";
   try {
     await deleteAnnotation({ url: getNormalizedUrl(), uid: annotationId });
@@ -321,11 +315,10 @@ async function performDeleteAnnotation() {
     delete state.annotations[annotationId];
     hideDeleteDialog();
   } catch {
-    errorElement.textContent =
-      "The highlight could not be deleted. Check your connection and try again.";
+    errorElement.textContent = embeddedCopy.deleteError;
   } finally {
     confirmButton.disabled = false;
-    confirmButton.textContent = "Delete highlight";
+    confirmButton.textContent = embeddedCopy.delete;
   }
 }
 

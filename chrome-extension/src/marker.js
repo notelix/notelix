@@ -8,6 +8,7 @@ import {
 import { pickBlackOrWhiteForeground } from "./utils/colors";
 import commentsSvg from "./icons/comments.svg";
 import { isTrustedUserInteraction } from "./trustedUserInteraction";
+import { embeddedCopy } from "./embeddedLocale";
 
 const inlineNoteHostStyles = `
   :host {
@@ -53,16 +54,16 @@ function paintNotes(context) {
   const annotation = state.annotations[context.serializedRange.uid];
   if (annotation.data.notes) {
     const firstHighlightElement = Array.from(
-      document.getElementsByTagName("web-marker-highlight")
+      document.getElementsByTagName("web-marker-highlight"),
     ).filter(
-      (x) => x.getAttribute("highlight-id") === context.serializedRange.uid
+      (x) => x.getAttribute("highlight-id") === context.serializedRange.uid,
     )[0];
 
     const inlineNotesRootElement = document.createElement("span");
     inlineNotesRootElement.id = "notes-" + context.serializedRange.uid;
     inlineNotesRootElement.className =
       "web-marker-black-listed-element notelix-notes-inline";
-    inlineNotesRootElement.setAttribute("aria-label", "Edit Notelix note");
+    inlineNotesRootElement.setAttribute("aria-label", embeddedCopy.editNote);
     const shadowRoot = inlineNotesRootElement.attachShadow({ mode: "closed" });
     const shadowStyle = document.createElement("style");
     shadowStyle.textContent = `
@@ -87,14 +88,17 @@ function paintNotes(context) {
         z-index: 0; left: 6px;
       }
       .expanded {
-        pointer-events: none; position: fixed; left: 0; width: 100vw;
-        padding: 20px; box-sizing: border-box; text-align: center;
+        box-sizing: border-box; pointer-events: none; position: absolute;
+        left: 0; max-width: calc(100vw - 24px); width: 320px;
         z-index: 2147483647;
       }
       .expanded > div {
-        padding: 20px; backdrop-filter: blur(5px);
-        background-color: #FFFFFFBB; box-shadow: 0 0 4px #00000055;
-        border-radius: 4px; font: 16px sans-serif; color: black;
+        background: rgba(255, 255, 255, .98); border: 1px solid #ddd;
+        border-radius: 6px; box-shadow: 0 3px 12px rgba(0, 0, 0, .16);
+        color: #222; font: 13px/1.6 -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        overflow-wrap: anywhere; padding: 8px 10px; text-align: left;
+        white-space: pre-wrap;
       }
     `;
     const commentsElement = document.createElement("span");
@@ -106,23 +110,23 @@ function paintNotes(context) {
     inlineNotesTextElement.className = "text";
     inlineNotesTextElement.innerText = annotation.data.notes.replace(
       /\n/g,
-      " "
+      " ",
     );
     inlineNotesTextElement.style.setProperty(
       "background",
       annotation.data.color,
-      "important"
+      "important",
     );
     inlineNotesTextElement.style.setProperty("max-width", "300px", "important");
     inlineNotesTextElement.style.color = pickBlackOrWhiteForeground(
-      annotation.data.color
+      annotation.data.color,
     );
     const inlineNotesCaretElement = document.createElement("span");
     inlineNotesCaretElement.className = "caret";
     inlineNotesCaretElement.style.setProperty(
       "background",
       annotation.data.color,
-      "important"
+      "important",
     );
     const expandedNotesElement = document.createElement("div");
     expandedNotesElement.className = "expanded";
@@ -133,18 +137,35 @@ function paintNotes(context) {
       shadowStyle,
       commentsElement,
       inlineNotesTextElement,
-      inlineNotesCaretElement
+      inlineNotesCaretElement,
     );
 
     inlineNotesRootElement.addEventListener("mouseover", () => {
       const clientRect = inlineNotesTextElement.getBoundingClientRect();
       if (clientRect.top >= document.documentElement.clientHeight / 2) {
-        expandedNotesElement.style.removeProperty("bottom");
-        expandedNotesElement.style.top = "0px";
-      } else {
         expandedNotesElement.style.removeProperty("top");
-        expandedNotesElement.style.bottom = "0px";
+        expandedNotesElement.style.bottom = "30px";
+      } else {
+        expandedNotesElement.style.removeProperty("bottom");
+        expandedNotesElement.style.top = "30px";
       }
+      const hostRect = inlineNotesRootElement.getBoundingClientRect();
+      const tooltipWidth = Math.min(
+        320,
+        document.documentElement.clientWidth - 24,
+      );
+      const left = Math.max(
+        12 - hostRect.left,
+        Math.min(
+          0,
+          document.documentElement.clientWidth -
+            12 -
+            hostRect.left -
+            tooltipWidth,
+        ),
+      );
+      expandedNotesElement.style.left = `${left}px`;
+      expandedNotesElement.style.width = `${tooltipWidth}px`;
       shadowRoot.appendChild(expandedNotesElement);
     });
     inlineNotesRootElement.addEventListener("mouseleave", () => {
@@ -185,8 +206,8 @@ export const marker = new Marker({
         state.selectedAnnotationId = context.serializedRange.uid;
         const range = marker.deserializeRange(
           convertAnnotationToSerializedRange(
-            state.annotations[state.selectedAnnotationId]
-          )
+            state.annotations[state.selectedAnnotationId],
+          ),
         );
         updatePopoverPosOnHighlightSelect(range.getBoundingClientRect());
         showEditAnnotationPopover();
@@ -195,7 +216,7 @@ export const marker = new Marker({
     onHighlightHoverStateChange: (context, element, hovering) => {
       if (hovering) {
         const inlineNotesElement = document.getElementById(
-          "notes-" + context.serializedRange.uid
+          "notes-" + context.serializedRange.uid,
         );
         if (inlineNotesElement) {
           inlineNotesElement.style.zIndex = "100";
@@ -204,7 +225,7 @@ export const marker = new Marker({
           state.annotations[context.serializedRange.uid].data.color + "44";
       } else {
         const inlineNotesElement = document.getElementById(
-          "notes-" + context.serializedRange.uid
+          "notes-" + context.serializedRange.uid,
         );
         if (inlineNotesElement) {
           inlineNotesElement.style.zIndex = "";

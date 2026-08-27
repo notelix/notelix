@@ -89,6 +89,7 @@ describe('Product website', () => {
     );
 
     expect(headers.has('content-security-policy')).toBe(false);
+    expect(headers.get('cache-control')).toBe('no-cache');
     expect(headers.get('cross-origin-resource-policy')).toBe('cross-origin');
     expect(headers.get('access-control-allow-origin')).toBe('*');
 

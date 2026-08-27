@@ -56,6 +56,9 @@ export function setStaticAssetHeaders(
     response.setHeader('Cache-Control', 'no-cache');
   }
   if (normalizedFilePath.endsWith('/embedded/content-script.dist.js')) {
+    // Integrators load this stable URL directly, so every page load must
+    // revalidate it instead of keeping an obsolete embedded client for an hour.
+    response.setHeader('Cache-Control', 'no-cache');
     response.removeHeader('Content-Security-Policy');
     response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     response.setHeader('Access-Control-Allow-Origin', '*');

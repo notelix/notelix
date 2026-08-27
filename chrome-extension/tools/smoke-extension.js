@@ -265,7 +265,7 @@ const server = http.createServer(async (request, response) => {
   }
 
   response.writeHead(200, { "Content-Type": "text/html" });
-  response.end(`<!doctype html>
+  response.end(`<!doctype html><html lang="zh-CN">
     <title>Notelix smoke</title>
     <style>
       .notelix-notes-inline {
@@ -336,6 +336,35 @@ async function assertNoHorizontalOverflow(page) {
     dimensions.scrollWidth <= dimensions.clientWidth + 1,
     `horizontal overflow: ${JSON.stringify(dimensions)}`,
   );
+}
+
+async function accessibilityBoundsByName(page, name) {
+  const client = await page.createCDPSession();
+  try {
+    const { nodes } = await client.send("Accessibility.getFullAXTree");
+    const matchingNodes = nodes.filter(
+      (node) => node.name?.value === name && node.backendDOMNodeId,
+    );
+    const bounds = [];
+    for (const node of matchingNodes) {
+      try {
+        const { model } = await client.send("DOM.getBoxModel", {
+          backendNodeId: node.backendDOMNodeId,
+        });
+        const xs = model.border.filter((_, index) => index % 2 === 0);
+        const ys = model.border.filter((_, index) => index % 2 === 1);
+        bounds.push({
+          height: Math.max(...ys) - Math.min(...ys),
+          width: Math.max(...xs) - Math.min(...xs),
+        });
+      } catch {
+        // Ignore accessibility-only nodes that do not have a layout box.
+      }
+    }
+    return bounds;
+  } finally {
+    await client.detach();
+  }
 }
 
 async function main() {
@@ -660,6 +689,44 @@ async function main() {
       padding: "0px",
       width: 38,
     });
+    const embeddedControlStyle = await contentPage.evaluate(() => {
+      const annotate = document.getElementById("notelix-annotate-popover");
+      const edit = document.getElementById("notelix-edit-annotation-popover");
+      const buttons = [...edit.querySelectorAll("button")];
+      return {
+        annotateBackground: getComputedStyle(annotate).backgroundColor,
+        annotateLabel: annotate.getAttribute("aria-label"),
+        annotateText: annotate.innerText.trim(),
+        buttonLabels: buttons.map((button) =>
+          button.getAttribute("aria-label"),
+        ),
+        buttonOrder: buttons.map((button) => button.id),
+        editBackground: getComputedStyle(edit).backgroundColor,
+        editText: edit.innerText.trim(),
+      };
+    });
+    assert.deepEqual(embeddedControlStyle, {
+      annotateBackground: "rgba(255, 255, 255, 0.96)",
+      annotateLabel: "选择高亮颜色",
+      annotateText: "",
+      buttonLabels: ["删除高亮", "编辑笔记"],
+      buttonOrder: ["notelix-button-trash", "notelix-button-notes"],
+      editBackground: "rgba(255, 255, 255, 0.96)",
+      editText: "",
+    });
+    await contentPage.hover("#notes-smoke-annotation");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const inlineNoteTextBounds = await accessibilityBoundsByName(
+      contentPage,
+      privateNote,
+    );
+    assert.ok(inlineNoteTextBounds.length >= 1);
+    assert.ok(
+      inlineNoteTextBounds.every(({ width }) => width <= 322),
+      `inline note preview is too wide: ${JSON.stringify(inlineNoteTextBounds)}`,
+    );
+    await capture(contentPage, "embedded-content-note-preview");
+    await contentPage.mouse.move(0, 0);
     await capture(contentPage, "embedded-content-note");
 
     const syntheticHighlightDisplay = await contentPage.evaluate(async () => {
@@ -735,6 +802,7 @@ async function main() {
           document.getElementById("notelix-edit-annotation-popover"),
         ).display === "flex",
     );
+    await capture(contentPage, "embedded-content-actions");
     const trustedDialogs = [];
     const trustedDialogHandler = async (dialog) => {
       trustedDialogs.push(dialog.type());
@@ -762,6 +830,15 @@ async function main() {
       shadowRoot: null,
       ariaHidden: "false",
     });
+    const editorAccessibility = JSON.stringify(
+      await contentPage.accessibility.snapshot({ interestingOnly: false }),
+    );
+    assert.equal(editorAccessibility.includes("编辑笔记"), true);
+    assert.equal(editorAccessibility.includes("笔记内容"), true);
+    assert.equal(
+      editorAccessibility.includes("Add context to this highlight"),
+      false,
+    );
     await contentPage.keyboard.press("Escape");
     await contentPage.waitForFunction(
       () =>
