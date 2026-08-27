@@ -33,10 +33,10 @@ const inlineNoteHostStyles = `
     overflow: visible !important;
     padding: 0 !important;
     position: relative !important;
-    top: auto !important;
+    top: -1px !important;
     transform: none !important;
     transition: filter 0.15s ease-in-out !important;
-    vertical-align: -2px !important;
+    vertical-align: text-top !important;
     width: 16px !important;
     z-index: 2 !important;
   }
@@ -90,16 +90,19 @@ function paintNotes(context) {
     shadowStyle.textContent = `
       ${inlineNoteHostStyles}
       .comments-svg {
-        align-items: center; background: rgba(255, 255, 255, .98);
-        border: 1px solid rgba(0, 0, 0, .14); border-radius: 4px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, .14); box-sizing: border-box;
+        align-items: center; background: rgba(255, 255, 255, .84);
+        border: 1px solid rgba(0, 0, 0, .28); border-radius: 4px;
+        box-shadow: none; box-sizing: border-box;
         display: inline-flex; height: 16px; justify-content: center; width: 16px;
       }
       .comments-svg svg {
-        box-sizing: content-box; height: 10px; padding: 0;
-        transition: transform 0.2s ease-in-out; width: 10px;
+        box-sizing: content-box; fill: #111 !important; height: 11px;
+        padding: 0; width: 11px;
       }
-      .comments-svg:hover svg { transform: scale(1.15); }
+      :host(:hover) .comments-svg { background: rgba(255, 255, 255, .98); }
+      :host(:focus-visible) .comments-svg {
+        outline: 2px solid #111; outline-offset: 2px;
+      }
       .expanded {
         box-sizing: border-box; pointer-events: none; position: absolute;
         left: 0; max-width: calc(100vw - 24px); width: 320px;
@@ -117,14 +120,12 @@ function paintNotes(context) {
         background: rgba(37, 37, 37, .98); border-color: #555; color: #f5f5f5;
       }
       :host(.dark-reader-enabled) .comments-svg {
-        background: rgba(37, 37, 37, .98); border-color: #555;
+        background: rgba(255, 255, 255, .84); border-color: rgba(0, 0, 0, .28);
       }
     `;
     const commentsElement = document.createElement("span");
     commentsElement.className = "comments-svg";
     commentsElement.innerHTML = commentsSvg;
-    commentsElement.getElementsByTagName("svg")[0].style.fill =
-      annotation.data.color;
     const expandedNotesElement = document.createElement("div");
     expandedNotesElement.className = "expanded";
     const expandedNotesTextElement = document.createElement("div");

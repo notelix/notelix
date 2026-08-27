@@ -766,6 +766,7 @@ async function main() {
           marginLeft: style.marginLeft,
           padding: style.padding,
           position: style.position,
+          top: style.top,
           verticalAlign: style.verticalAlign,
           width: rect.width,
         };
@@ -781,7 +782,8 @@ async function main() {
       marginLeft: "3px",
       padding: "0px",
       position: "relative",
-      verticalAlign: "-2px",
+      top: "-1px",
+      verticalAlign: "text-top",
       width: 16,
     });
     const embeddedControlStyle = await contentPage.evaluate(() => {
