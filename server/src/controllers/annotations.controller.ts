@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   GoneException,
   NotFoundException,
+  PayloadTooLargeException,
   Post,
   Req,
   ServiceUnavailableException,
@@ -29,6 +30,8 @@ import {
   SearchAnnotationsDto,
 } from '../dto/annotations.dto';
 import { AnnotationSearchSyncService } from '../services/annotationSearchSync';
+import { readBoundedIntegerEnvironment } from '../../runtime-config';
+import { requestBodyLimitBytes } from '../application';
 
 const annotationColumnSql = {
   id: 'id',
@@ -41,6 +44,29 @@ const annotationColumnSql = {
 const defaultAnnotationDiffPageSize = 250;
 const defaultAnnotationSnapshotPageSize = 100;
 const annotationSnapshotTtlSeconds = 15 * 60;
+const annotationResponseEnvelopeReserveBytes = 64 * 1024;
+const annotationResponseLimitBytes = readBoundedIntegerEnvironment(
+  'ANNOTATION_RESPONSE_LIMIT_BYTES',
+  32 * 1024 * 1024,
+  128 * 1024,
+  256 * 1024 * 1024,
+);
+if (
+  annotationResponseLimitBytes <=
+  requestBodyLimitBytes + annotationResponseEnvelopeReserveBytes
+) {
+  throw new Error(
+    'ANNOTATION_RESPONSE_LIMIT_BYTES must exceed REQUEST_BODY_LIMIT_BYTES by at least 65536 bytes',
+  );
+}
+const annotationResponseItemBudgetBytes =
+  annotationResponseLimitBytes - annotationResponseEnvelopeReserveBytes;
+const maximumAnnotationPageSize = Math.max(
+  1,
+  Math.floor(
+    annotationResponseItemBudgetBytes / (requestBodyLimitBytes + 1024),
+  ),
+);
 
 function getAnnotationColumnSql(column: string): string {
   const sql = annotationColumnSql[column];
@@ -63,6 +89,54 @@ async function lockAnnotation(
 function assertAgentDataOrigin(request: Request): void {
   if (!isAgentControlOriginAllowed(request.headers.origin)) {
     throw new ForbiddenException('origin is not allowed to access the agent');
+  }
+}
+
+function boundedPage<T>(rows: T[], requestedLimit: number) {
+  const list: T[] = [];
+  let bytes = 0;
+  for (const row of rows) {
+    if (list.length >= requestedLimit) {
+      break;
+    }
+    const rowBytes = Buffer.byteLength(JSON.stringify(row), 'utf8') + 1;
+    if (rowBytes > annotationResponseItemBudgetBytes && list.length === 0) {
+      throw new PayloadTooLargeException(
+        'one annotation exceeds the configured response limit',
+      );
+    }
+    if (bytes + rowBytes > annotationResponseItemBudgetBytes) {
+      break;
+    }
+    list.push(row);
+    bytes += rowBytes;
+  }
+  return { list, hasMore: rows.length > list.length };
+}
+
+async function assertSqlResultIsBounded(
+  manager: EntityManager,
+  sql: string,
+  values: unknown[],
+): Promise<void> {
+  const result = await manager.query(
+    `
+      SELECT COALESCE(
+        SUM(octet_length(to_jsonb("annotation_result")::text) + 1),
+        0
+      )::text AS "bytes"
+      FROM (${sql}) AS "annotation_result"
+    `,
+    values,
+  );
+  const serializedBytes = result[0]?.bytes;
+  if (typeof serializedBytes !== 'string' || !/^\d+$/.test(serializedBytes)) {
+    throw new Error('annotation response size query returned an invalid value');
+  }
+  if (BigInt(serializedBytes) > BigInt(annotationResponseItemBudgetBytes)) {
+    throw new PayloadTooLargeException(
+      'annotation response exceeds the configured limit',
+    );
   }
 }
 
@@ -152,14 +226,25 @@ export class AnnotationsController {
   @Post('/queryByUrl')
   async QueryByUrl(@Body() request: QueryAnnotationsByUrlDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
-    const list = await Annotation.find({
-      where: {
-        user: { id: user.id },
-        url: request.url,
-      },
-    });
+    return AppDataSource.transaction('REPEATABLE READ', async (manager) => {
+      await assertSqlResultIsBounded(
+        manager,
+        `
+          SELECT "id", "uid", "url", "host", "title", "data"
+          FROM "annotation"
+          WHERE "userId" = $1 AND "url" = $2
+        `,
+        [user.id, request.url],
+      );
+      const list = await manager.getRepository(Annotation).find({
+        where: {
+          user: { id: user.id },
+          url: request.url,
+        },
+      });
 
-    return { list: list.map(Annotation.Neat) };
+      return { list: list.map(Annotation.Neat) };
+    });
   }
 
   @Post('/list')
@@ -167,6 +252,16 @@ export class AnnotationsController {
     const user = await this.authenticationService.getAuthenticatedUser();
 
     return AppDataSource.transaction('REPEATABLE READ', async (manager) => {
+      await assertSqlResultIsBounded(
+        manager,
+        `
+          SELECT "id", "uid", "url", "title", "host", "data",
+                 "created_at", "updated_at"
+          FROM "annotation"
+          WHERE "userId" = $1
+        `,
+        [user.id],
+      );
       const list = await manager.getRepository(Annotation).find({
         where: { user: { id: user.id } },
       });
@@ -187,7 +282,10 @@ export class AnnotationsController {
         'snapshotId and afterId must either both be present or both be absent',
       );
     }
-    const limit = request.limit ?? defaultAnnotationSnapshotPageSize;
+    const limit = Math.min(
+      request.limit ?? defaultAnnotationSnapshotPageSize,
+      maximumAnnotationPageSize,
+    );
 
     return AppDataSource.transaction(async (manager) => {
       await manager.query(
@@ -278,8 +376,8 @@ export class AnnotationsController {
         `,
         [snapshotId, afterId, limit + 1],
       );
-      const hasMore = rows.length > limit;
-      const list = hasMore ? rows.slice(0, limit) : rows;
+      const page = boundedPage<any>(rows, limit);
+      const list = page.list;
       const nextAfterId = list.at(-1)?.id ?? afterId;
 
       return {
@@ -287,7 +385,7 @@ export class AnnotationsController {
         annotationChangeHistoryLatestId: Number(snapshots[0].watermark),
         snapshotId,
         nextAfterId,
-        hasMore,
+        hasMore: page.hasMore,
       };
     });
   }
@@ -296,7 +394,10 @@ export class AnnotationsController {
   async ListDiff(@Body() request: ListDiffDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();
     const sinceId = request.sinceId;
-    const limit = request.limit ?? defaultAnnotationDiffPageSize;
+    const limit = Math.min(
+      request.limit ?? defaultAnnotationDiffPageSize,
+      maximumAnnotationPageSize,
+    );
 
     return AppDataSource.transaction('REPEATABLE READ', async (manager) => {
       const historyRepository = manager.getRepository(AnnotationChangeHistory);
@@ -318,10 +419,9 @@ export class AnnotationsController {
         order: { id: 'ASC' },
         take: limit + 1,
       });
-      const hasMore = rows.length > limit;
-      const diff = hasMore ? rows.slice(0, limit) : rows;
+      const page = boundedPage<any>(rows, limit);
 
-      return { ok: true, diff, hasMore };
+      return { ok: true, diff: page.list, hasMore: page.hasMore };
     });
   }
 
@@ -370,6 +470,7 @@ export class AnnotationsController {
     }
     const selectors = { ...requestedSelectors };
     const groupBy = request.groupBy || '';
+    const groupBySql = groupBy ? getAnnotationColumnSql(groupBy) : null;
     selectors['userId'] = userId;
 
     const selectorsKeyAndValues = Object.entries(selectors);
@@ -380,19 +481,15 @@ export class AnnotationsController {
       .join(' AND ');
     const values = selectorsKeyAndValues.map((entry) => entry[1]);
 
-    if (groupBy) {
-      const groupBySql = getAnnotationColumnSql(groupBy);
-      const sqlQuery = `select count(1) as count, ${groupBySql} from annotation where ${whereSql} GROUP BY ${groupBySql}`;
-
-      const list = await AppDataSource.manager.query(sqlQuery, values);
-
-      return { list };
-    } else {
-      const sqlQuery = `select * from annotation where ${whereSql}`;
-
-      const list = await AppDataSource.manager.query(sqlQuery, values);
-
-      return { list };
-    }
+    return AppDataSource.transaction('REPEATABLE READ', async (manager) => {
+      let sqlQuery: string;
+      if (groupBySql) {
+        sqlQuery = `select count(1) as count, ${groupBySql} from annotation where ${whereSql} GROUP BY ${groupBySql}`;
+      } else {
+        sqlQuery = `select * from annotation where ${whereSql}`;
+      }
+      await assertSqlResultIsBounded(manager, sqlQuery, values);
+      return { list: await manager.query(sqlQuery, values) };
+    });
   }
 }

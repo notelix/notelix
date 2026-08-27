@@ -196,6 +196,15 @@ so clients are tracked separately; do not enable it for untrusted proxies.
 JSON and URL-encoded request bodies are limited to 1 MiB by default.
 `REQUEST_BODY_LIMIT_BYTES` accepts values from 1024 through 16777216; larger
 requests receive `413 Payload Too Large` before authentication or persistence.
+Annotation responses have a separate 32 MiB budget. Snapshot and diff APIs
+shorten a page and preserve `hasMore` when its serialized rows approach
+`ANNOTATION_RESPONSE_LIMIT_BYTES`; this keeps valid large annotations below the
+agent's receiver limit without skipping cursor progress. Unpaged legacy list,
+URL query, and find requests measure their result inside a repeatable-read
+transaction and return `413` before materializing an oversized response. The
+budget accepts 131072 through 268435456 bytes and must exceed
+`REQUEST_BODY_LIMIT_BYTES` by at least 65536 bytes. Keep it below the receiving
+agent's `AGENT_SYNC_MAX_RESPONSE_BYTES` setting.
 
 `GET /meta/health` is a process liveness check. `GET /meta/ready` checks both
 PostgreSQL and Meilisearch and returns `503` when either dependency is down.

@@ -133,6 +133,7 @@ npm run test:compose
 export NODE_ENV=test
 export STATIC_TOKEN_AUTO_PROVISION=true
 export STATIC_TOKEN_AUTO_PROVISION_LIMIT=1
+export ANNOTATION_RESPONSE_LIMIT_BYTES=2200000
 export PORT="${integration_server_port}"
 export DB_HOST=127.0.0.1
 export DB_PORT="${integration_db_port}"

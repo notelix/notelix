@@ -117,6 +117,11 @@ assert.equal(
 for (const stack of stacks) {
   assert.equal(
     configs[stack].services.backend.environment
+      .ANNOTATION_RESPONSE_LIMIT_BYTES,
+    '33554432',
+  );
+  assert.equal(
+    configs[stack].services.backend.environment
       .STATIC_TOKEN_AUTO_PROVISION_LIMIT,
     '1000',
   );

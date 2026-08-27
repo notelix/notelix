@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import { isAgentControlOriginAllowed, isRunModeAgent } from './agentControl';
 import { readBoundedIntegerEnvironment } from '../runtime-config';
 
-const requestBodyLimitBytes = readBoundedIntegerEnvironment(
+export const requestBodyLimitBytes = readBoundedIntegerEnvironment(
   'REQUEST_BODY_LIMIT_BYTES',
   1024 * 1024,
   1024,

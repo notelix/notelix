@@ -12,6 +12,7 @@ const validEnvironment = {
   MEILISEARCH_TASK_TIMEOUT_MS: '30000',
   RATE_LIMIT_TTL_MS: '60000',
   REQUEST_BODY_LIMIT_BYTES: '1048576',
+  ANNOTATION_RESPONSE_LIMIT_BYTES: '33554432',
   TRUST_PROXY_HOPS: '',
   RUN_MODE: 'SERVER',
   JWT_EXPIRES_IN: '30d',
@@ -37,8 +38,7 @@ const cases = [
   {
     name: 'database query timeout',
     environment: { DB_QUERY_TIMEOUT_MS: '0' },
-    message:
-      'DB_QUERY_TIMEOUT_MS must be an integer between 100 and 3600000',
+    message: 'DB_QUERY_TIMEOUT_MS must be an integer between 100 and 3600000',
   },
   {
     name: 'database migration lock timeout',
@@ -74,6 +74,12 @@ const cases = [
     environment: { REQUEST_BODY_LIMIT_BYTES: '1e6' },
     message:
       'REQUEST_BODY_LIMIT_BYTES must be an integer between 1024 and 16777216',
+  },
+  {
+    name: 'annotation response budget',
+    environment: { ANNOTATION_RESPONSE_LIMIT_BYTES: '1114112' },
+    message:
+      'ANNOTATION_RESPONSE_LIMIT_BYTES must exceed REQUEST_BODY_LIMIT_BYTES by at least 65536 bytes',
   },
   {
     name: 'trusted proxy hops',

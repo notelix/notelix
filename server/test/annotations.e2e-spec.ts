@@ -40,7 +40,6 @@ describe('Annotations API durability', () => {
     query: jest.Mock;
     transaction: jest.Mock;
   };
-  let databaseQuery: jest.SpyInstance;
 
   const user = {
     id: 9,
@@ -83,9 +82,6 @@ describe('Annotations API durability', () => {
     jest
       .spyOn(AppDataSource, 'transaction')
       .mockImplementation(manager.transaction);
-    databaseQuery = jest
-      .spyOn(AppDataSource.manager, 'query')
-      .mockResolvedValue([]);
     jest.spyOn(Logger.prototype, 'error').mockImplementation();
     const moduleRef = await Test.createTestingModule({
       controllers: [AnnotationsController],
@@ -259,6 +255,7 @@ describe('Annotations API durability', () => {
       data: {},
     });
     annotationRepository.find.mockResolvedValue([annotation]);
+    manager.query.mockResolvedValue([{ bytes: '512' }]);
     const getLatestId = jest
       .spyOn(AnnotationChangeHistory, 'getLatestIdForUser')
       .mockResolvedValue(41);
@@ -378,7 +375,7 @@ describe('Annotations API durability', () => {
     expect(historyRepository.findOne).toHaveBeenCalled();
     expect(historyRepository.find).toHaveBeenCalled();
     expect(historyRepository.find).toHaveBeenCalledWith(
-      expect.objectContaining({ take: 251 }),
+      expect.objectContaining({ take: 32 }),
     );
   });
 
@@ -413,7 +410,9 @@ describe('Annotations API durability', () => {
   });
 
   it('uses allowlisted columns and forces the authenticated user scope', async () => {
-    databaseQuery.mockResolvedValue([{ count: '1', title: 'A title' }]);
+    manager.query
+      .mockResolvedValueOnce([{ bytes: '64' }])
+      .mockResolvedValueOnce([{ count: '1', title: 'A title' }]);
 
     const response = await request(app.getHttpServer())
       .post('/annotations/find')
@@ -421,7 +420,7 @@ describe('Annotations API durability', () => {
       .expect(201);
 
     expect(response.body.list).toEqual([{ count: '1', title: 'A title' }]);
-    expect(databaseQuery).toHaveBeenCalledWith(
+    expect(manager.query).toHaveBeenLastCalledWith(
       'select count(1) as count, title from annotation where host=$1 AND "userId"=$2 GROUP BY title',
       ['example.com', 9],
     );
@@ -433,7 +432,9 @@ describe('Annotations API durability', () => {
     const search = jest
       .spyOn(meilisearchClient, 'queryAnnotations')
       .mockResolvedValue({ hits: [{ id: 12 }] } as any);
-    databaseQuery.mockResolvedValue([{ id: 12, uid: 'agent-annotation' }]);
+    manager.query
+      .mockResolvedValueOnce([{ bytes: '64' }])
+      .mockResolvedValueOnce([{ id: 12, uid: 'agent-annotation' }]);
 
     const trustedSearch = await request(app.getHttpServer())
       .post('/annotations/search')
@@ -451,7 +452,7 @@ describe('Annotations API durability', () => {
     expect(trustedFind.body.list).toEqual([
       { id: 12, uid: 'agent-annotation' },
     ]);
-    expect(databaseQuery).toHaveBeenCalledWith(
+    expect(manager.query).toHaveBeenLastCalledWith(
       'select * from annotation where uid=$1 AND "userId"=$2',
       ['agent-annotation', 0],
     );
@@ -475,8 +476,22 @@ describe('Annotations API durability', () => {
       .expect(403);
 
     expect(search).not.toHaveBeenCalled();
-    expect(databaseQuery).not.toHaveBeenCalled();
+    expect(manager.transaction).not.toHaveBeenCalled();
     expect(authenticationService.getAuthenticatedUser).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized unpaged query results before materializing them', async () => {
+    manager.query.mockResolvedValueOnce([{ bytes: '33488897' }]);
+
+    const response = await request(app.getHttpServer())
+      .post('/annotations/find')
+      .send({ selectors: {} })
+      .expect(413);
+
+    expect(response.body.message).toBe(
+      'annotation response exceeds the configured limit',
+    );
+    expect(manager.query).toHaveBeenCalledTimes(1);
   });
 
   it('rejects arbitrary selector and grouping identifiers', async () => {
@@ -490,7 +505,7 @@ describe('Annotations API durability', () => {
       .send({ selectors: {}, groupBy: 'title; SELECT pg_sleep(10)' })
       .expect(400);
 
-    expect(databaseQuery).not.toHaveBeenCalled();
+    expect(manager.transaction).not.toHaveBeenCalled();
   });
 
   it('returns a safe retryable error while annotation search is unavailable', async () => {

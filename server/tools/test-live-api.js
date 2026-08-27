@@ -839,6 +839,109 @@ async function main() {
   await assertAnnotationHistoryIsProtected(username);
   await waitForSearch(headers, 'searchable text', 0);
 
+  const responseBudget = Number(
+    process.env.ANNOTATION_RESPONSE_LIMIT_BYTES || 32 * 1024 * 1024,
+  );
+  const boundedResponseUrl = 'https://example.com/bounded-response';
+  const boundedResponseHost = 'bounded-response.example';
+  const boundedResponseUids = Array.from(
+    { length: 3 },
+    (_, index) => `bounded-response-${index}`,
+  );
+  const largeAnnotationText = 'x'.repeat(850000);
+  for (const boundedUid of boundedResponseUids) {
+    const response = await request(
+      '/annotations/save',
+      {
+        uid: boundedUid,
+        url: boundedResponseUrl,
+        host: boundedResponseHost,
+        title: boundedUid,
+        data: { text: largeAnnotationText },
+      },
+      headers,
+    );
+    assert.strictEqual(response.status, 201, JSON.stringify(response.body));
+  }
+
+  for (const [path, body] of [
+    ['/annotations/list', {}],
+    ['/annotations/queryByUrl', { url: boundedResponseUrl }],
+    ['/annotations/find', { selectors: { host: boundedResponseHost } }],
+  ]) {
+    const response = await request(path, body, headers);
+    assert.strictEqual(response.status, 413, JSON.stringify(response.body));
+  }
+
+  const snapshotUids = [];
+  let boundedSnapshot = await request(
+    '/annotations/listPage',
+    { limit: 250 },
+    headers,
+  );
+  while (true) {
+    assert.strictEqual(
+      boundedSnapshot.status,
+      201,
+      JSON.stringify(boundedSnapshot.body),
+    );
+    assert.ok(
+      Buffer.byteLength(JSON.stringify(boundedSnapshot.body)) < responseBudget,
+    );
+    assert.ok(boundedSnapshot.body.list.length <= 2);
+    snapshotUids.push(
+      ...boundedSnapshot.body.list.map((annotation) => annotation.uid),
+    );
+    if (!boundedSnapshot.body.hasMore) {
+      break;
+    }
+    boundedSnapshot = await request(
+      '/annotations/listPage',
+      {
+        snapshotId: boundedSnapshot.body.snapshotId,
+        afterId: boundedSnapshot.body.nextAfterId,
+        limit: 250,
+      },
+      headers,
+    );
+  }
+  assert.deepStrictEqual(snapshotUids.sort(), boundedResponseUids);
+
+  const boundedDiffUids = new Set();
+  let boundedDiffCursor = 0;
+  let boundedDiffHasMore = true;
+  while (boundedDiffHasMore) {
+    const response = await request(
+      '/annotations/listDiff',
+      { sinceId: boundedDiffCursor, limit: 500 },
+      headers,
+    );
+    assert.strictEqual(response.status, 201, JSON.stringify(response.body));
+    assert.strictEqual(response.body.ok, true);
+    assert.ok(
+      Buffer.byteLength(JSON.stringify(response.body)) < responseBudget,
+    );
+    assert.ok(response.body.diff.length > 0);
+    assert.ok(response.body.diff.length <= 2);
+    for (const entry of response.body.diff) {
+      if (boundedResponseUids.includes(entry.uid)) {
+        boundedDiffUids.add(entry.uid);
+      }
+    }
+    boundedDiffCursor = response.body.diff.at(-1).id;
+    boundedDiffHasMore = response.body.hasMore;
+  }
+  assert.deepStrictEqual([...boundedDiffUids].sort(), boundedResponseUids);
+
+  for (const boundedUid of boundedResponseUids) {
+    const response = await request(
+      '/annotations/delete',
+      { uid: boundedUid },
+      headers,
+    );
+    assert.strictEqual(response.status, 201, JSON.stringify(response.body));
+  }
+
   let rateLimited = false;
   for (let attempt = 0; attempt < 15; attempt += 1) {
     const response = await request('/users/login', {
