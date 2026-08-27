@@ -79,7 +79,7 @@ VALUES (
   1,
   1,
   'legacy-uid',
-  '{"id":1,"uid":"legacy-uid","user":{"id":1,"name":"legacy-user","password":"legacy-hash","client_side_encryption":"legacy-encryption-metadata"}}',
+  '{"id":1,"uid":"legacy-uid","textAfter":"\udc61","emoji":"\ud83d\ude00","literal":"\\udc61","user":{"id":1,"name":"legacy-user","password":"legacy-hash","client_side_encryption":"legacy-encryption-metadata"}}',
   1
 );
 INSERT INTO "static_token" ("staticToken", "userId")

@@ -107,7 +107,15 @@ async function main() {
       'SELECT "data" FROM "annotation_change_history"',
     );
     assert.deepStrictEqual(historyPayload.rows, [
-      { data: { id: 1, uid: 'legacy-uid' } },
+      {
+        data: {
+          emoji: '😀',
+          id: 1,
+          literal: '\\udc61',
+          textAfter: '�',
+          uid: 'legacy-uid',
+        },
+      },
     ]);
     assert.strictEqual(
       JSON.stringify(historyPayload.rows).includes('legacy-hash'),
