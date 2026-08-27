@@ -1173,9 +1173,20 @@ async function main() {
     const sharedNote = "shared demo note survives every device";
     await embeddedPage.keyboard.type(sharedNote);
     const sharedNoteSave = embeddedPage.waitForResponse(
-      (response) =>
-        response.url().endsWith("/annotations/save") &&
-        response.request().method() === "POST",
+      (response) => {
+        if (
+          !response.url().endsWith("/annotations/save") ||
+          response.request().method() !== "POST"
+        ) {
+          return false;
+        }
+        try {
+          const payload = JSON.parse(response.request().postData() || "{}");
+          return payload.data?.notes === sharedNote;
+        } catch {
+          return false;
+        }
+      },
     );
     await embeddedPage.keyboard.press("Tab");
     await embeddedPage.keyboard.press("Tab");
