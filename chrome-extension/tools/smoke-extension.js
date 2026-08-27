@@ -784,6 +784,11 @@ async function main() {
         .getElementById("notelix-delete-backdrop")
         .classList.contains("notelix-dialog-visible"),
     );
+    await contentPage.waitForFunction(() =>
+      document
+        .getElementById("notelix-delete-backdrop")
+        .matches(":focus-within"),
+    );
     assert.equal(
       await contentPage.$eval(
         "#notelix-delete-backdrop",
