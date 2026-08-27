@@ -6,6 +6,7 @@ import {
   AgentSyncController,
   createAgentSyncSourceIdentity,
   normalizeAgentSyncAnnotation,
+  normalizeAgentSyncUrl,
   parseAgentSyncState,
   parseSyncCursor,
 } from '../src/controllers/agentSyncController';
@@ -32,6 +33,7 @@ describe('Agent control API', () => {
     process.env.AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE;
   const originalStatePath = process.env.AGENT_SYNC_STATE_PATH;
   const originalAgentControlOrigins = process.env.AGENT_CONTROL_ORIGINS;
+  const originalSyncUrlOverride = process.env.AGENT_SYNC_URL_OVERRIDE;
   const temporaryDirectories: string[] = [];
 
   const validConfig = {
@@ -144,6 +146,11 @@ describe('Agent control API', () => {
     } else {
       process.env.AGENT_CONTROL_ORIGINS = originalAgentControlOrigins;
     }
+    if (originalSyncUrlOverride === undefined) {
+      delete process.env.AGENT_SYNC_URL_OVERRIDE;
+    } else {
+      process.env.AGENT_SYNC_URL_OVERRIDE = originalSyncUrlOverride;
+    }
     await app.close();
     for (const directory of temporaryDirectories.splice(0)) {
       fs.rmSync(directory, { recursive: true, force: true });
@@ -237,6 +244,37 @@ describe('Agent control API', () => {
         },
       })
       .expect(400);
+  });
+
+  it('pins sync requests to an unambiguous HTTP(S) base URL', async () => {
+    expect(normalizeAgentSyncUrl('https://NOTELIX.example/api')).toBe(
+      'https://notelix.example/api',
+    );
+    expect(normalizeAgentSyncUrl('http://127.0.0.1:18555')).toBe(
+      'http://127.0.0.1:18555/',
+    );
+    for (const invalid of [
+      'file:///data/token',
+      'https://user:password@notelix.example',
+      'https://notelix.example?destination=other',
+      'https://notelix.example/#other',
+    ]) {
+      expect(() => normalizeAgentSyncUrl(invalid)).toThrow('agent sync URL');
+    }
+  });
+
+  it('rejects an unsafe environment URL override before enabling sync', async () => {
+    process.env.RUN_MODE = 'AGENT';
+    process.env.AGENT_SYNC_URL_OVERRIDE =
+      'https://user:password@notelix.example';
+
+    await request(app.getHttpServer())
+      .post('/agentsync/set')
+      .set('Origin', 'chrome-extension://extension-id')
+      .send({ config: validConfig })
+      .expect(400);
+
+    expect(app.get(AgentSyncController).config.enabled).toBe(false);
   });
 
   it('applies annotation-only history snapshots without a user object', async () => {
@@ -499,7 +537,10 @@ describe('Agent control API', () => {
 
     expect(fetchRequest).toHaveBeenCalledWith(
       'https://notelix.example/annotations/listDiff',
-      expect.objectContaining({ body: JSON.stringify({ sinceId: 0 }) }),
+      expect.objectContaining({
+        body: JSON.stringify({ sinceId: 0 }),
+        redirect: 'error',
+      }),
     );
     expect(readPersistedCursor()).toBe(0);
   });

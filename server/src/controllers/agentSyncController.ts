@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -144,6 +145,33 @@ function digest(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+export function normalizeAgentSyncUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch (_error) {
+    throw new BadRequestException(
+      'agent sync URL must be an absolute HTTP(S) URL',
+    );
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new BadRequestException(
+      'agent sync URL must be an absolute HTTP(S) URL',
+    );
+  }
+  if (url.username || url.password) {
+    throw new BadRequestException(
+      'agent sync URL must not contain credentials',
+    );
+  }
+  if (url.search || url.hash) {
+    throw new BadRequestException(
+      'agent sync URL must not contain a query or fragment',
+    );
+  }
+  return url.toString();
+}
+
 function getTokenIdentity(token: string): Record<string, unknown> {
   try {
     const parts = token.split('.');
@@ -180,7 +208,7 @@ export function createAgentSyncSourceIdentity(config: {
 }): string {
   return digest(
     JSON.stringify({
-      url: new URL(config.url).toString(),
+      url: normalizeAgentSyncUrl(config.url),
       token: getTokenIdentity(config.token),
       encryptionKeyDigest: digest(config.clientSideEncryptionKey || ''),
     }),
@@ -491,6 +519,7 @@ export class AgentSyncController
     if (urlOverride) {
       nextConfig.url = urlOverride;
     }
+    nextConfig.url = normalizeAgentSyncUrl(nextConfig.url);
     nextConfig.sourceIdentity = createAgentSyncSourceIdentity(nextConfig);
 
     const persistedState = this.loadAgentSyncState();
@@ -571,6 +600,7 @@ export class AgentSyncController
           ...(body ? { 'Content-Type': 'application/json' } : {}),
         },
         method: 'POST',
+        redirect: 'error',
         body: body ? JSON.stringify(body) : undefined,
         signal: requestController.signal,
       });

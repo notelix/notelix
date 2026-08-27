@@ -324,7 +324,9 @@ source change aborts and fences any in-flight work before the new source syncs.
 Remote annotation payloads are validated against the database field limits and
 canonical timestamp format before mutation. Unknown entity fields are discarded,
 deletes are idempotent, and a malformed or superseded change cannot advance the
-cursor.
+cursor. Sync base URLs must be unambiguous HTTP(S) URLs without embedded
+credentials, query strings, or fragments. Requests do not follow redirects, so
+tokens and sync responses remain pinned to the configured destination.
 
 ```
 curl 'http://127.0.0.1:18565/agentsync/set' \
