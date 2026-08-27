@@ -199,6 +199,38 @@ export function getTextBoundingBoxes(range) {
 }
 
 /**
+ * Returns the focus rectangle from a range's ordered text rectangles.
+ *
+ * @param {Array<DOMRect>} textBoxes
+ * @param {boolean} selectionIsBackwards
+ * @return {DOMRect|null}
+ */
+export function focusRectFromTextBoxes(
+  textBoxes,
+  selectionIsBackwards = false,
+) {
+  if (textBoxes.length === 0) {
+    return null;
+  }
+
+  return selectionIsBackwards ? textBoxes[0] : textBoxes[textBoxes.length - 1];
+}
+
+/**
+ * Returns the rectangle containing the focus endpoint of a text range.
+ *
+ * @param {Range} range
+ * @param {boolean} selectionIsBackwards
+ * @return {DOMRect|null}
+ */
+export function rangeFocusRect(range, selectionIsBackwards = false) {
+  return focusRectFromTextBoxes(
+    getTextBoundingBoxes(range),
+    selectionIsBackwards,
+  );
+}
+
+/**
  * Returns the rectangle, in viewport coordinates, for the line of text
  * containing the focus point of a Selection.
  *
@@ -211,14 +243,8 @@ export function selectionFocusRect(selection) {
   if (selection.isCollapsed) {
     return null;
   }
-  const textBoxes = getTextBoundingBoxes(selection.getRangeAt(0));
-  if (textBoxes.length === 0) {
-    return null;
-  }
-
-  if (isSelectionBackwards(selection)) {
-    return textBoxes[0];
-  } else {
-    return textBoxes[textBoxes.length - 1];
-  }
+  return rangeFocusRect(
+    selection.getRangeAt(0),
+    isSelectionBackwards(selection),
+  );
 }

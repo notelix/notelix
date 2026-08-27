@@ -1,7 +1,4 @@
-import {
-  calculatePopoverPlacement,
-  pointerAnchorRect,
-} from "./popoverPlacement";
+import { calculatePopoverPlacement } from "./popoverPlacement";
 
 describe("popover placement", () => {
   it("aligns the end of a popover with the selection focus", () => {
@@ -65,21 +62,5 @@ describe("popover placement", () => {
         viewportWidth: 360,
       }).left,
     ).toBe(12);
-  });
-
-  it("uses pointer coordinates instead of a multi-line highlight box", () => {
-    expect(
-      pointerAnchorRect(
-        { clientX: 245, clientY: 180 },
-        { bottom: 500, left: 20, right: 700, top: 40 },
-      ),
-    ).toEqual({
-      bottom: 180,
-      height: 0,
-      left: 245,
-      right: 245,
-      top: 180,
-      width: 0,
-    });
   });
 });

@@ -9,7 +9,8 @@ import commentsSvg from "./icons/comments.svg";
 import { isTrustedUserInteraction } from "./trustedUserInteraction";
 import { embeddedCopy } from "./embeddedLocale";
 import { isEmbeddedDarkTheme } from "./integration/dark-reader";
-import { placePopover, pointerAnchorRect } from "./utils/popoverPlacement";
+import { rangeFocusRect } from "./selection-observer";
+import { placePopover } from "./utils/popoverPlacement";
 
 const inlineNoteHostStyles = `
   :host {
@@ -189,13 +190,24 @@ export const marker = new Marker({
       if (!isTrustedUserInteraction(event)) {
         return;
       }
-      const clickedAnchor = pointerAnchorRect(
-        event,
-        element.getBoundingClientRect(),
-      );
       setTimeout(() => {
         state.selectedAnnotationId = context.serializedRange.uid;
-        updatePopoverPlacementOnHighlightSelect(clickedAnchor);
+        let endpointRect = null;
+        try {
+          endpointRect = rangeFocusRect(
+            context.marker.deserializeRange(context.serializedRange),
+          );
+        } catch (e) {}
+        if (!endpointRect) {
+          const highlightElements = context.marker.resolveHighlightElements(
+            context.serializedRange.uid,
+          );
+          endpointRect =
+            highlightElements[
+              highlightElements.length - 1
+            ]?.getBoundingClientRect() || element.getBoundingClientRect();
+        }
+        updatePopoverPlacementOnHighlightSelect(endpointRect);
         showEditAnnotationPopover();
       });
     },

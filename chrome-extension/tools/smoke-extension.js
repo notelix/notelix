@@ -1171,13 +1171,21 @@ async function main() {
     );
     await embeddedPage.mouse.click(colorPosition.x, colorPosition.y);
     await embeddedPage.waitForSelector("web-marker-highlight");
-    const highlightPosition = await embeddedPage.$eval(
+    const highlightGeometry = await embeddedPage.$$eval(
       "web-marker-highlight",
-      (element) => {
-        const bounds = element.getBoundingClientRect();
+      (elements) => {
+        const firstBounds = elements[0].getBoundingClientRect();
+        const endpointBounds =
+          elements[elements.length - 1].getBoundingClientRect();
         return {
-          x: bounds.x + bounds.width / 2,
-          y: bounds.y + bounds.height / 2,
+          click: {
+            x: firstBounds.left + Math.min(4, firstBounds.width / 4),
+            y: firstBounds.top + firstBounds.height / 2,
+          },
+          endpoint: {
+            bottom: endpointBounds.bottom,
+            right: endpointBounds.right,
+          },
         };
       },
     );
@@ -1189,7 +1197,10 @@ async function main() {
         return { height: bounds.height, top: bounds.top };
       },
     );
-    await embeddedPage.mouse.click(highlightPosition.x, highlightPosition.y);
+    await embeddedPage.mouse.click(
+      highlightGeometry.click.x,
+      highlightGeometry.click.y,
+    );
     await embeddedPage.waitForFunction(
       () =>
         getComputedStyle(
@@ -1209,13 +1220,20 @@ async function main() {
     );
     assert.equal(actionPopoverPlacement.placement, "below");
     assert.ok(
-      Math.abs(actionPopoverPlacement.right - highlightPosition.x) <= 1,
-      "the highlight action popover should align with the click position",
+      Math.abs(
+        actionPopoverPlacement.right - highlightGeometry.endpoint.right,
+      ) <= 1,
+      "the highlight action popover should align with the highlight endpoint",
     );
     assert.ok(
-      actionPopoverPlacement.top - highlightPosition.y >= 8 &&
-        actionPopoverPlacement.top - highlightPosition.y <= 11,
-      "the highlight action popover should remain close to the click position",
+      actionPopoverPlacement.top - highlightGeometry.endpoint.bottom >= 8 &&
+        actionPopoverPlacement.top - highlightGeometry.endpoint.bottom <= 11,
+      "the highlight action popover should remain close to the highlight endpoint",
+    );
+    assert.ok(
+      Math.abs(highlightGeometry.endpoint.right - highlightGeometry.click.x) >
+        20,
+      "the smoke test should click far enough from the endpoint to catch pointer anchoring",
     );
     await embeddedPage.click("#notelix-button-notes");
     await embeddedPage.waitForFunction(() =>

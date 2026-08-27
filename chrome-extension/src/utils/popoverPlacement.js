@@ -22,20 +22,6 @@ function normalizeRect(rect) {
   };
 }
 
-export function pointerAnchorRect(event, fallbackRect) {
-  if (Number.isFinite(event?.clientX) && Number.isFinite(event?.clientY)) {
-    return {
-      bottom: event.clientY,
-      height: 0,
-      left: event.clientX,
-      right: event.clientX,
-      top: event.clientY,
-      width: 0,
-    };
-  }
-  return normalizeRect(fallbackRect);
-}
-
 export function calculatePopoverPlacement({
   alignment = "center",
   anchorRect,
