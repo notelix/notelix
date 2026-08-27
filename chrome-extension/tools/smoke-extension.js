@@ -1226,8 +1226,8 @@ async function main() {
       "the highlight action popover should align with the highlight endpoint",
     );
     assert.ok(
-      actionPopoverPlacement.top - highlightGeometry.endpoint.bottom >= 8 &&
-        actionPopoverPlacement.top - highlightGeometry.endpoint.bottom <= 11,
+      actionPopoverPlacement.top - highlightGeometry.endpoint.bottom >= 4 &&
+        actionPopoverPlacement.top - highlightGeometry.endpoint.bottom <= 6,
       "the highlight action popover should remain close to the highlight endpoint",
     );
     assert.ok(

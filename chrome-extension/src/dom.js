@@ -404,7 +404,7 @@ export function updatePopoverPlacementOnHighlightSelect(rect) {
   state.popoverPlacement = {
     alignment: isMobileOrTablet ? "viewport-center" : "end",
     anchorRect: rect,
-    gap: isMobileOrTablet ? 30 : 10,
+    gap: isMobileOrTablet ? 25 : 5,
     preferredSide: "below",
   };
   placeCurrentPopover(state.editAnnotationPopoverDom, "flex");
