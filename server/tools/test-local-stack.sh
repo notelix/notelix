@@ -102,7 +102,7 @@ assert_listen_failure_exits() {
         echo "Port-collision startup exited with ${startup_failure_exit_code}, expected 1" >&2
         return 1
       fi
-      if ! rg --quiet 'Application startup failed' \
+      if ! grep -q 'Application startup failed' \
         "${integration_startup_failure_log}"; then
         echo "Port-collision startup did not log its fatal error" >&2
         return 1
