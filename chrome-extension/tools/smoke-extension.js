@@ -778,6 +778,42 @@ async function main() {
           document.getElementById("notelix-edit-annotation-popover"),
         ).display === "flex",
     );
+    await contentPage.click("#notelix-button-notes");
+    await contentPage.waitForFunction(() =>
+      document
+        .getElementById("notelix-notes-backdrop")
+        .matches(":focus-within"),
+    );
+    const updatedPrivateNote = `${privateNote} updated`;
+    await contentPage.keyboard.down("Control");
+    await contentPage.keyboard.press("A");
+    await contentPage.keyboard.up("Control");
+    await contentPage.keyboard.type(updatedPrivateNote);
+    await contentPage.keyboard.press("Tab");
+    await contentPage.keyboard.press("Tab");
+    await contentPage.keyboard.press("Enter");
+    await contentPage.waitForFunction(
+      () =>
+        document
+          .getElementById("notelix-notes-backdrop")
+          .getAttribute("aria-hidden") === "true",
+    );
+    const noteSaveRequest = annotationRequests.find(
+      (request) =>
+        request.url === "/annotations/save" &&
+        request.body?.uid === "smoke-annotation",
+    );
+    assert.equal(noteSaveRequest.body.id, undefined);
+    assert.equal(noteSaveRequest.body.data.notes, updatedPrivateNote);
+    await contentPage.click(
+      'web-marker-highlight[highlight-id="smoke-annotation"]',
+    );
+    await contentPage.waitForFunction(
+      () =>
+        getComputedStyle(
+          document.getElementById("notelix-edit-annotation-popover"),
+        ).display === "flex",
+    );
     await contentPage.click("#notelix-button-trash");
     await contentPage.waitForFunction(() =>
       document

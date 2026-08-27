@@ -153,6 +153,7 @@ describe('Annotations API durability', () => {
     await request(app.getHttpServer())
       .post('/annotations/save')
       .send({
+        id: 66106,
         uid: 'annotation-uid',
         url: 'https://example.com',
         data: { text: 'important text' },

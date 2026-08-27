@@ -11,6 +11,15 @@ import {
 } from 'class-validator';
 
 export class SaveAnnotationDto {
+  // Older extension and embedded builds post annotations returned by the API
+  // back to /save, including this server-owned identifier. Persistence still
+  // resolves the annotation exclusively by authenticated user + uid.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(Number.MAX_SAFE_INTEGER)
+  id?: number;
+
   @IsString()
   @MinLength(1)
   @MaxLength(64)

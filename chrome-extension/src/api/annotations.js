@@ -8,20 +8,27 @@ const saveAnnotation = (annotation) => {
     getEndpoint("annotations/save").then(async (endpoint) => {
       const key = await getKey();
       const parsedKey = key ? CryptoJS.enc.Hex.parse(key) : null;
+      const payload = {
+        uid: annotation.uid,
+        ...(annotation.url === undefined ? {} : { url: annotation.url }),
+        ...(annotation.host === undefined ? {} : { host: annotation.host }),
+        ...(annotation.title === undefined ? {} : { title: annotation.title }),
+        ...(annotation.data === undefined ? {} : { data: annotation.data }),
+      };
 
-      annotation = await encryptFields({
+      const encryptedAnnotation = await encryptFields({
         key: parsedKey,
-        object: annotation,
+        object: payload,
         fields: ["url", "host", "title"],
       });
-      annotation.data = await encryptFields({
+      encryptedAnnotation.data = await encryptFields({
         key: parsedKey,
-        object: annotation.data,
+        object: encryptedAnnotation.data,
         fields: ["text", "textAfter", "textBefore", "notes"],
-        iv: annotation.uid,
+        iv: encryptedAnnotation.uid,
       });
 
-      return client.post(endpoint, annotation, { headers: headers });
+      return client.post(endpoint, encryptedAnnotation, { headers: headers });
     })
   );
 };
