@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsInt,
   IsObject,
@@ -42,6 +43,15 @@ export class SaveAnnotationDto {
 
   @IsOptional()
   @IsObject()
+  @Transform(({ value }) => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value))
+      return value;
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[k] = typeof v === 'string' ? v.replace(/<[^>]*>/g, '') : v;
+    }
+    return result;
+  })
   data?: Record<string, unknown>;
 }
 
