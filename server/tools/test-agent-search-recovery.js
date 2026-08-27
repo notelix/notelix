@@ -192,6 +192,43 @@ async function assertAgentCorsIsolation() {
   );
 }
 
+async function assertAgentEndpointIsolation() {
+  const trustedOrigin = 'chrome-extension://integration-test';
+  const untrustedOrigin = 'chrome-extension://untrusted-extension';
+  for (const [path, body] of [
+    ['/annotations/search', { q: marker }],
+    ['/annotations/find', { selectors: { uid: annotationUid } }],
+  ]) {
+    const rejected = await request(path, body, { Origin: untrustedOrigin });
+    assert.strictEqual(rejected.status, 403, JSON.stringify(rejected.body));
+    assert.strictEqual(
+      rejected.body?.message,
+      'origin is not allowed to access the agent',
+    );
+  }
+
+  const trustedSearch = await request(
+    '/annotations/search',
+    { q: marker },
+    { Origin: trustedOrigin },
+  );
+  assert.strictEqual(
+    trustedSearch.status,
+    201,
+    JSON.stringify(trustedSearch.body),
+  );
+  assert.ok(trustedSearch.body.results.hits.some((hit) => hit.text === marker));
+
+  const trustedFind = await request(
+    '/annotations/find',
+    { selectors: { uid: annotationUid } },
+    { Origin: trustedOrigin },
+  );
+  assert.strictEqual(trustedFind.status, 201, JSON.stringify(trustedFind.body));
+  assert.strictEqual(trustedFind.body.list.length, 1);
+  assert.strictEqual(trustedFind.body.list[0].uid, annotationUid);
+}
+
 async function main() {
   if (mode === 'prepare') {
     await seedAnnotation();
@@ -202,8 +239,9 @@ async function main() {
   if (mode === 'verify-startup') {
     await waitForRecoveredSearch();
     await assertAgentCorsIsolation();
+    await assertAgentEndpointIsolation();
     console.log(
-      'Agent CORS isolation and startup search rebuild tests passed.',
+      'Agent endpoint isolation and startup search rebuild tests passed.',
     );
     return;
   }

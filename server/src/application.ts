@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
-import { isAgentControlOriginAllowed } from './agentControl';
+import { isAgentControlOriginAllowed, isRunModeAgent } from './agentControl';
 import { readBoundedIntegerEnvironment } from '../runtime-config';
 
 const requestBodyLimitBytes = readBoundedIntegerEnvironment(
@@ -54,7 +54,7 @@ export function configureApplication(app: NestExpressApplication): void {
   });
   app.use(helmet());
   app.useGlobalPipes(createValidationPipe());
-  if (process.env.RUN_MODE === 'AGENT' && !process.env.CORS_ORIGINS) {
+  if (isRunModeAgent()) {
     app.enableCors({
       origin: (origin, callback) =>
         callback(null, isAgentControlOriginAllowed(origin)),

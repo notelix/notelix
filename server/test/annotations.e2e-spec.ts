@@ -12,6 +12,8 @@ import { AnnotationSearchSyncService } from '../src/services/annotationSearchSyn
 import { meilisearchClient } from '../src/meilisearch';
 
 describe('Annotations API durability', () => {
+  const originalRunMode = process.env.RUN_MODE;
+  const originalAgentControlOrigins = process.env.AGENT_CONTROL_ORIGINS;
   let app: INestApplication;
   let authenticationService: { getAuthenticatedUser: jest.Mock };
   let historyService: {
@@ -110,6 +112,16 @@ describe('Annotations API durability', () => {
 
   afterEach(async () => {
     jest.restoreAllMocks();
+    if (originalRunMode === undefined) {
+      delete process.env.RUN_MODE;
+    } else {
+      process.env.RUN_MODE = originalRunMode;
+    }
+    if (originalAgentControlOrigins === undefined) {
+      delete process.env.AGENT_CONTROL_ORIGINS;
+    } else {
+      process.env.AGENT_CONTROL_ORIGINS = originalAgentControlOrigins;
+    }
     await app.close();
   });
 
@@ -413,6 +425,58 @@ describe('Annotations API durability', () => {
       'select count(1) as count, title from annotation where host=$1 AND "userId"=$2 GROUP BY title',
       ['example.com', 9],
     );
+  });
+
+  it('authorizes agent search and find at the endpoint boundary', async () => {
+    process.env.RUN_MODE = 'AGENT';
+    process.env.AGENT_CONTROL_ORIGINS = 'chrome-extension://trusted-extension';
+    const search = jest
+      .spyOn(meilisearchClient, 'queryAnnotations')
+      .mockResolvedValue({ hits: [{ id: 12 }] } as any);
+    databaseQuery.mockResolvedValue([{ id: 12, uid: 'agent-annotation' }]);
+
+    const trustedSearch = await request(app.getHttpServer())
+      .post('/annotations/search')
+      .set('Origin', 'chrome-extension://trusted-extension')
+      .send({ q: 'private text' })
+      .expect(201);
+    expect(trustedSearch.body.results.hits).toEqual([{ id: 12 }]);
+    expect(search).toHaveBeenCalledWith('private text', 0);
+
+    const trustedFind = await request(app.getHttpServer())
+      .post('/annotations/find')
+      .set('Origin', 'chrome-extension://trusted-extension')
+      .send({ selectors: { uid: 'agent-annotation' } })
+      .expect(201);
+    expect(trustedFind.body.list).toEqual([
+      { id: 12, uid: 'agent-annotation' },
+    ]);
+    expect(databaseQuery).toHaveBeenCalledWith(
+      'select * from annotation where uid=$1 AND "userId"=$2',
+      ['agent-annotation', 0],
+    );
+    expect(authenticationService.getAuthenticatedUser).not.toHaveBeenCalled();
+  });
+
+  it('rejects untrusted extension origins before querying decrypted agent data', async () => {
+    process.env.RUN_MODE = 'AGENT';
+    process.env.AGENT_CONTROL_ORIGINS = 'chrome-extension://trusted-extension';
+    const search = jest.spyOn(meilisearchClient, 'queryAnnotations');
+
+    await request(app.getHttpServer())
+      .post('/annotations/search')
+      .set('Origin', 'chrome-extension://untrusted-extension')
+      .send({ q: 'private text' })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post('/annotations/find')
+      .set('Origin', 'chrome-extension://untrusted-extension')
+      .send({ selectors: {} })
+      .expect(403);
+
+    expect(search).not.toHaveBeenCalled();
+    expect(databaseQuery).not.toHaveBeenCalled();
+    expect(authenticationService.getAuthenticatedUser).not.toHaveBeenCalled();
   });
 
   it('rejects arbitrary selector and grouping identifiers', async () => {

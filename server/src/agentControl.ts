@@ -10,6 +10,12 @@ function configuredAgentControlOrigins(
     .filter(Boolean);
 }
 
+export function isRunModeAgent(
+  environment: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return environment.RUN_MODE === 'AGENT';
+}
+
 export function validateAgentControlOrigins(
   runMode: string,
   environment: NodeJS.ProcessEnv = process.env,

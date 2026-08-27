@@ -161,6 +161,11 @@ recovery. Test containers and data are removed when the test finishes.
 npm run test:integration
 ```
 
+If Chrome and the extension development dependencies are available, set
+`CHROME_PATH` while running the integration suite. It will additionally load an
+untrusted extension with localhost host permission and verify that the agent
+rejects its decrypted search and find requests at the endpoint boundary.
+
 The backend also supports host-side development against containers or other
 service instances through `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_DATABASE`,
 `MEILISEARCH_HOST`, `MEILISEARCH_ANNOTATIONS_INDEX`, and `PORT`.
@@ -256,6 +261,12 @@ After loading Notelix, copy its extension ID from `chrome://extensions` and set
 `AGENT_CONTROL_ORIGINS=chrome-extension://<extension-id>` in `.env.agent`.
 Comma-separate entries only when the same agent must serve multiple trusted
 Notelix extension installations.
+
+Agent mode enforces this allowlist both in CORS and inside the decrypted search
+and find endpoints. A generic `CORS_ORIGINS` setting cannot broaden agent
+access. Requests without an Origin header remain available to local command-line
+tools, so keep the supported agent listener bound to loopback and treat local
+host access as trusted.
 
 ```
 docker build . -f ./Dockerfile.agent -t notelix:agent

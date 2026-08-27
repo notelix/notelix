@@ -20,7 +20,7 @@ import { decryptFields } from '../encryption';
 import * as CryptoJS from 'crypto-js';
 import { meilisearchClient } from '../meilisearch';
 import { SetAgentSyncDto } from '../dto/agent.dto';
-import { isAgentControlOriginAllowed } from '../agentControl';
+import { isAgentControlOriginAllowed, isRunModeAgent } from '../agentControl';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -178,10 +178,6 @@ function assertSyncCursor(value: unknown, field: string): number {
     throw new Error(`${field} must be a non-negative safe integer`);
   }
   return value as number;
-}
-
-export function isRunModeAgent() {
-  return process.env.RUN_MODE === 'AGENT';
 }
 
 function assertRunModeAgent() {

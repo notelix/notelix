@@ -2,11 +2,14 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   GoneException,
   NotFoundException,
   Post,
+  Req,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthenticationService } from '../authenticators/authentication.service';
 import { Annotation } from '../models/annotation.entity';
 import { EntityManager, MoreThan } from 'typeorm';
@@ -14,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { AnnotationChangeHistory } from '../models/annotationChangeHistory.entity';
 import AnnotationChangeHistoryService from '../services/annotationChangeHistory';
 import { meilisearchClient } from '../meilisearch';
-import { isRunModeAgent } from './agentSyncController';
+import { isAgentControlOriginAllowed, isRunModeAgent } from '../agentControl';
 import { AppDataSource } from '../database';
 import {
   DeleteAnnotationDto,
@@ -55,6 +58,12 @@ async function lockAnnotation(
   await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
     `notelix-annotation:${userId}:${uid}`,
   ]);
+}
+
+function assertAgentDataOrigin(request: Request): void {
+  if (!isAgentControlOriginAllowed(request.headers.origin)) {
+    throw new ForbiddenException('origin is not allowed to access the agent');
+  }
 }
 
 @Controller('annotations')
@@ -317,9 +326,14 @@ export class AnnotationsController {
   }
 
   @Post('/search')
-  async Search(@Body() request: SearchAnnotationsDto): Promise<any> {
+  async Search(
+    @Req() httpRequest: Request,
+    @Body() request: SearchAnnotationsDto,
+  ): Promise<any> {
     let userId = 0;
-    if (!isRunModeAgent()) {
+    if (isRunModeAgent()) {
+      assertAgentDataOrigin(httpRequest);
+    } else {
       const user = await this.authenticationService.getAuthenticatedUser();
       userId = user.id;
     }
@@ -336,9 +350,14 @@ export class AnnotationsController {
   }
 
   @Post('/find')
-  async Find(@Body() request: FindAnnotationsDto): Promise<any> {
+  async Find(
+    @Req() httpRequest: Request,
+    @Body() request: FindAnnotationsDto,
+  ): Promise<any> {
     let userId = 0;
-    if (!isRunModeAgent()) {
+    if (isRunModeAgent()) {
+      assertAgentDataOrigin(httpRequest);
+    } else {
       const user = await this.authenticationService.getAuthenticatedUser();
       userId = user.id;
     }
