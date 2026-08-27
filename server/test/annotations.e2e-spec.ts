@@ -233,7 +233,10 @@ describe('Annotations API durability', () => {
     });
     await request(app.getHttpServer())
       .post('/annotations/delete')
-      .send({ uid: 'annotation-uid' })
+      .send({
+        uid: 'annotation-uid',
+        url: 'https://legacy-embedded-client.example/article',
+      })
       .expect(201);
 
     expect(
@@ -556,6 +559,11 @@ describe('Annotations API durability', () => {
     await request(app.getHttpServer())
       .post('/annotations/listDiff')
       .send({ sinceId: 0, limit: 501 })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/annotations/delete')
+      .send({ uid: 'annotation-uid', unexpected: true })
       .expect(400);
 
     expect(manager.transaction).not.toHaveBeenCalled();

@@ -9,6 +9,36 @@ import { pickBlackOrWhiteForeground } from "./utils/colors";
 import commentsSvg from "./icons/comments.svg";
 import { isTrustedUserInteraction } from "./trustedUserInteraction";
 
+const inlineNoteHostStyles = `
+  :host {
+    all: initial !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
+    display: inline-block !important;
+    filter: brightness(1) !important;
+    font-size: medium !important;
+    height: 26px !important;
+    line-height: normal !important;
+    margin: calc(1em + 10px) 0 0 !important;
+    max-height: 26px !important;
+    max-width: 38px !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    position: relative !important;
+    transform: none !important;
+    transition: filter 0.15s ease-in-out !important;
+    vertical-align: baseline !important;
+    width: 38px !important;
+  }
+  :host(:hover) { filter: brightness(1.05) !important; z-index: 100 !important; }
+`;
+
 function convertAnnotationToSerializedRange(annotation) {
   return {
     uid: annotation.uid,
@@ -36,6 +66,7 @@ function paintNotes(context) {
     const shadowRoot = inlineNotesRootElement.attachShadow({ mode: "closed" });
     const shadowStyle = document.createElement("style");
     shadowStyle.textContent = `
+      ${inlineNoteHostStyles}
       .comments-svg { display: inline-block; width: 38px; height: 26px; }
       .comments-svg svg {
         position: relative; top: 2px; box-sizing: content-box; width: 1em;

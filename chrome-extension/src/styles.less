@@ -413,32 +413,25 @@
 }
 
 .notelix-notes-inline {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(31, 33, 48, 0.13);
-  border-radius: 9px;
-  box-shadow: 0 8px 22px rgba(20, 22, 35, 0.1);
-  color: #2c3040;
+  all: initial;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  box-sizing: border-box;
   cursor: pointer;
   display: inline-block;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  font-size: 11px;
-  line-height: 1.45;
-  margin-top: calc(1em + 10px);
-  padding: 7px 9px;
+  height: 26px;
+  margin: calc(1em + 10px) 0 0;
+  max-height: 26px;
+  max-width: 38px;
+  overflow: visible;
+  padding: 0;
   position: relative;
-  transition:
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+  transition: filter 0.15s ease-in-out;
+  width: 38px;
 
   &:hover {
-    box-shadow: 0 12px 28px rgba(20, 22, 35, 0.15);
-    transform: translateY(-1px);
+    filter: brightness(1.05);
     z-index: 100;
   }
 }

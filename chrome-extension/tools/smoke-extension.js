@@ -265,7 +265,21 @@ const server = http.createServer(async (request, response) => {
   }
 
   response.writeHead(200, { "Content-Type": "text/html" });
-  response.end("<!doctype html><title>Notelix smoke</title><p>annotate me</p>");
+  response.end(`<!doctype html>
+    <title>Notelix smoke</title>
+    <style>
+      .notelix-notes-inline {
+        background: white !important;
+        border: 8px solid red !important;
+        box-shadow: 0 0 0 20px red !important;
+        display: block !important;
+        height: 160px !important;
+        margin: 40px !important;
+        padding: 30px !important;
+        width: 70px !important;
+      }
+    </style>
+    <p>annotate me</p>`);
 });
 
 async function listen() {
@@ -621,6 +635,32 @@ async function main() {
       hostInnerText: "",
       shadowRoot: null,
     });
+    const inlineNoteGeometry = await contentPage.$eval(
+      "#notes-smoke-annotation",
+      (host) => {
+        const style = getComputedStyle(host);
+        const rect = host.getBoundingClientRect();
+        return {
+          backgroundColor: style.backgroundColor,
+          borderWidth: style.borderWidth,
+          boxShadow: style.boxShadow,
+          display: style.display,
+          height: rect.height,
+          padding: style.padding,
+          width: rect.width,
+        };
+      },
+    );
+    assert.deepEqual(inlineNoteGeometry, {
+      backgroundColor: "rgba(0, 0, 0, 0)",
+      borderWidth: "0px",
+      boxShadow: "none",
+      display: "inline-block",
+      height: 26,
+      padding: "0px",
+      width: 38,
+    });
+    await capture(contentPage, "embedded-content-note");
 
     const syntheticHighlightDisplay = await contentPage.evaluate(async () => {
       document
@@ -751,7 +791,22 @@ async function main() {
       ),
       null,
     );
-    await contentPage.keyboard.press("Escape");
+    await contentPage.keyboard.press("Tab");
+    await contentPage.keyboard.press("Enter");
+    await contentPage.waitForFunction(
+      () =>
+        !document.querySelector(
+          'web-marker-highlight[highlight-id="smoke-annotation"]',
+        ),
+    );
+    const deleteRequest = annotationRequests.find(
+      (request) => request.url === "/annotations/delete",
+    );
+    assert.deepEqual(deleteRequest, {
+      method: "POST",
+      url: "/annotations/delete",
+      body: { uid: "smoke-annotation" },
+    });
     contentPage.off("dialog", trustedDialogHandler);
     assert.deepEqual(trustedDialogs, []);
     assert.deepEqual(contentErrors, []);

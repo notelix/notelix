@@ -26,13 +26,12 @@ const saveAnnotation = (annotation) => {
   );
 };
 
-const deleteAnnotation = ({ url, uid }) => {
+const deleteAnnotation = ({ uid }) => {
   return wrapRequestApiRequireLoggedIn(({ headers }) =>
     getEndpoint("annotations/delete").then((endpoint) =>
       client.post(
         endpoint,
         {
-          url,
           uid,
         },
         { headers: headers }
