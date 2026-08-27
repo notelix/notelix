@@ -1276,5 +1276,12 @@ async function main() {
 
 main().catch((error) => {
   console.error(error);
+  if (process.env.GITHUB_ACTIONS === "true") {
+    const details = (error?.stack || String(error))
+      .replace(/%/g, "%25")
+      .replace(/\r/g, "%0D")
+      .replace(/\n/g, "%0A");
+    console.error(`::error title=Chrome extension smoke failed::${details}`);
+  }
   process.exitCode = 1;
 });
