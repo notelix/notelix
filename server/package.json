@@ -38,7 +38,7 @@
     "crypto-js": "^4.2.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
-    "meilisearch": "0.56.0",
+    "meilisearch": "0.60.0",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",

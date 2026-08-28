@@ -3833,10 +3833,10 @@ media-typer@^1.1.0:
   resolved "https://registry.yarnpkg.com/media-typer/-/media-typer-1.1.1.tgz#6f035400dfe3ab9d5607bc77546ce30cc2f9c6b8"
   integrity sha512-yz3xRaG20c6/BOzvYoDaGtPmGscs7YivItZEEqe6GbwNfHuxu9YNmvnEkMzKldAGY4/80pRcQRZSEnhquk9XuQ==
 
-meilisearch@0.56.0:
-  version "0.56.0"
-  resolved "https://registry.yarnpkg.com/meilisearch/-/meilisearch-0.56.0.tgz#e2d6e34d7ce73fae9665a262640ab2c678ad11f4"
-  integrity sha512-kBXba8DcSrLWHYqopCm2JL90oBy97VdIfHkP1ii7/eHufeEEEk9Zu5Vv/IFQpNzmhEpWszVFVlGvZoI6QJeGzA==
+meilisearch@0.60.0:
+  version "0.60.0"
+  resolved "https://registry.yarnpkg.com/meilisearch/-/meilisearch-0.60.0.tgz#53b9f9741f66f3337121f809423d28af341f0bbe"
+  integrity sha512-z32KgxE6/7hRzbVfzUgzlmNl2OS7TwGE6wSWs2tVEuAY9DWrX6zAmt0s7wTyelH36orIaZ3/t1mQsCsExGtVDQ==
 
 memfs@^3.4.1:
   version "3.6.0"
