@@ -120,13 +120,10 @@ async function assertSqlResultIsBounded(
   values: unknown[],
 ): Promise<void> {
   const result = await manager.query(
-    `
-      SELECT COALESCE(
-        SUM(octet_length(to_jsonb("annotation_result")::text) + 1),
-        0
-      )::text AS "bytes"
-      FROM (${sql}) AS "annotation_result"
-    `,
+    'SELECT COALESCE(SUM(octet_length(to_jsonb("annotation_result")::text) + 1), 0)::text AS "bytes"' +
+      ' FROM (' +
+      sql +
+      ') AS "annotation_result"',
     values,
   );
   const serializedBytes = result[0]?.bytes;
@@ -488,9 +485,15 @@ export class AnnotationsController {
     return AppDataSource.transaction('REPEATABLE READ', async (manager) => {
       let sqlQuery: string;
       if (groupBySql) {
-        sqlQuery = `select count(1) as count, ${groupBySql} from annotation where ${whereSql} GROUP BY ${groupBySql}`;
+        sqlQuery =
+          'select count(1) as count, ' +
+          groupBySql +
+          ' from annotation where ' +
+          whereSql +
+          ' GROUP BY ' +
+          groupBySql;
       } else {
-        sqlQuery = `select * from annotation where ${whereSql}`;
+        sqlQuery = 'select * from annotation where ' + whereSql;
       }
       await assertSqlResultIsBounded(manager, sqlQuery, values);
       return { list: await manager.query(sqlQuery, values) };
