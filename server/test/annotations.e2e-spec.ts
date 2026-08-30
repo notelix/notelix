@@ -4,7 +4,6 @@ import * as request from 'supertest';
 import { AuthenticationService } from '../src/authenticators/authentication.service';
 import { AnnotationsController } from '../src/controllers/annotations.controller';
 import { Annotation } from '../src/models/annotation.entity';
-import { AnnotationChangeHistory } from '../src/models/annotationChangeHistory.entity';
 import AnnotationChangeHistoryService from '../src/services/annotationChangeHistory';
 import { AppDataSource } from '../src/database';
 import { createValidationPipe } from '../src/application';
@@ -19,7 +18,6 @@ describe('Annotations API durability', () => {
   let historyService: {
     createAnnotationChangeHistoryForSave: jest.Mock;
     createAnnotationChangeHistoryForDelete: jest.Mock;
-    getCachedAnnotationChangeHistoryLatestId: jest.Mock;
   };
   let searchSyncService: {
     enqueue: jest.Mock;
@@ -27,7 +25,6 @@ describe('Annotations API durability', () => {
   };
   let annotationRepository: {
     findOne: jest.Mock;
-    find: jest.Mock;
     save: jest.Mock;
     remove: jest.Mock;
   };
@@ -53,7 +50,6 @@ describe('Annotations API durability', () => {
     historyService = {
       createAnnotationChangeHistoryForSave: jest.fn(),
       createAnnotationChangeHistoryForDelete: jest.fn(),
-      getCachedAnnotationChangeHistoryLatestId: jest.fn(),
     };
     searchSyncService = {
       enqueue: jest.fn().mockResolvedValue(undefined),
@@ -61,7 +57,6 @@ describe('Annotations API durability', () => {
     };
     annotationRepository = {
       findOne: jest.fn(),
-      find: jest.fn(),
       save: jest.fn(),
       remove: jest.fn(),
     };
@@ -153,7 +148,6 @@ describe('Annotations API durability', () => {
     await request(app.getHttpServer())
       .post('/annotations/save')
       .send({
-        id: 66106,
         uid: 'annotation-uid',
         url: 'https://example.com',
         data: { text: 'important text' },
@@ -176,6 +170,19 @@ describe('Annotations API durability', () => {
       historyService.createAnnotationChangeHistoryForSave,
     ).toHaveBeenCalledWith(expect.objectContaining({ id: 12 }), manager);
     expect(searchSyncService.enqueue).toHaveBeenCalledWith(12, manager);
+  });
+
+  it('rejects fields outside the current annotation request contracts', async () => {
+    await request(app.getHttpServer())
+      .post('/annotations/save')
+      .send({ id: 12, uid: 'annotation-uid', data: {} })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/annotations/delete')
+      .send({ uid: 'annotation-uid', url: 'https://example.com' })
+      .expect(400);
+
+    expect(manager.transaction).not.toHaveBeenCalled();
   });
 
   it('does not acknowledge or enqueue a save when history persistence fails', async () => {
@@ -234,10 +241,7 @@ describe('Annotations API durability', () => {
     });
     await request(app.getHttpServer())
       .post('/annotations/delete')
-      .send({
-        uid: 'annotation-uid',
-        url: 'https://legacy-embedded-client.example/article',
-      })
+      .send({ uid: 'annotation-uid' })
       .expect(201);
 
     expect(
@@ -249,36 +253,6 @@ describe('Annotations API durability', () => {
     );
     expect(searchSyncService.enqueue).toHaveBeenCalledWith(12, manager);
     expect(searchSyncService.wake).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns a full snapshot and watermark from one repeatable-read transaction', async () => {
-    const annotation = Object.assign(new Annotation(), {
-      id: 12,
-      uid: 'annotation-uid',
-      user,
-      data: {},
-    });
-    annotationRepository.find.mockResolvedValue([annotation]);
-    manager.query.mockResolvedValue([{ bytes: '512' }]);
-    const getLatestId = jest
-      .spyOn(AnnotationChangeHistory, 'getLatestIdForUser')
-      .mockResolvedValue(41);
-
-    const response = await request(app.getHttpServer())
-      .post('/annotations/list')
-      .send({})
-      .expect(201);
-
-    expect(response.body.annotationChangeHistoryLatestId).toBe(41);
-    expect(response.body.list).toHaveLength(1);
-    expect(manager.transaction).toHaveBeenCalledWith(
-      'REPEATABLE READ',
-      expect.any(Function),
-    );
-    expect(annotationRepository.find).toHaveBeenCalledWith({
-      where: { user: { id: 9 } },
-    });
-    expect(getLatestId).toHaveBeenCalledWith(user, manager);
   });
 
   it('materializes and reuses bounded full-snapshot pages', async () => {
@@ -355,8 +329,7 @@ describe('Annotations API durability', () => {
     expect(manager.transaction).not.toHaveBeenCalled();
   });
 
-  it('queries committed history even when a replica-local watermark is stale', async () => {
-    historyService.getCachedAnnotationChangeHistoryLatestId.mockReturnValue(41);
+  it('queries committed history from the requested cursor', async () => {
     historyRepository.findOne.mockResolvedValue({ id: 41 });
     historyRepository.find.mockResolvedValue([
       { id: 42, kind: 1, uid: 'annotation-uid' },

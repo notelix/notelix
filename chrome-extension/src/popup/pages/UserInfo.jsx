@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../../consts";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
 import { trySetAgentSyncParams } from "../../api/agent";
-import { clearEncryptionKey, clearLegacyPassword } from "../../encryption";
+import { clearEncryptionKey } from "../../encryption";
 import { clearUser, getServer, getUser } from "../../storage";
 import { ConfirmDialog } from "../../ui/ConfirmDialog";
 import { Icon } from "../../ui/Icon";
@@ -49,7 +49,6 @@ export const UserInfo = () => {
     setError("");
     try {
       await clearEncryptionKey();
-      await clearLegacyPassword();
       await clearUser();
       sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);
       await trySetAgentSyncParams();

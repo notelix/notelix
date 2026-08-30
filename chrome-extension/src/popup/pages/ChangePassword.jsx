@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  clearEncryptionKey,
-  clearLegacyPassword,
-  getKey,
-} from "../../encryption";
+import { clearEncryptionKey, getKey } from "../../encryption";
 import { makePasswordChangeClientSideEncryptionParams } from "../../encryption/utils";
 import { changePassword } from "../../api/user";
 import { sendChromeCommandToEveryTab } from "../../utils/chromeCommand";
@@ -48,7 +44,6 @@ export const ChangePassword = () => {
         newPassword,
       });
       await clearEncryptionKey();
-      await clearLegacyPassword();
       await clearUser();
       await resetAgentData().catch(() => undefined);
       sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);

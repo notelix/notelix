@@ -216,27 +216,8 @@ node ./tools/test-database-connect-timeout.js
 DB_POOL_MAX=2 \
   DB_POOL_ACQUIRE_TIMEOUT_MS=200 \
   DB_QUERY_TIMEOUT_MS=200 \
-  node ./tools/test-database-operation-timeouts.js
-node ./tools/test-migration-lock-timeout.js
-node ./tools/test-migration-lock-live.js
+node ./tools/test-database-operation-timeouts.js
 node ./tools/test-meili-reindex-atomic.js
-npm run migration:run:compiled &
-integration_migration_pid_one=$!
-npm run migration:run:compiled &
-integration_migration_pid_two=$!
-wait "${integration_migration_pid_one}"
-wait "${integration_migration_pid_two}"
-npm run migration:run:compiled
-
-export DB_DATABASE=notelix_legacy_integration
-node ./tools/ensure-pg-db.js
-"${integration_compose[@]}" exec --no-TTY postgres \
-  psql --set ON_ERROR_STOP=1 --username postgres --dbname "${DB_DATABASE}" \
-  <"${integration_server_dir}/test/fixtures/legacy-schema.sql"
-npm run migration:run:compiled
-node ./tools/assert-legacy-migration.js
-
-export DB_DATABASE=notelix_integration
 DB_POOL_ACQUIRE_TIMEOUT_MS=1000 DB_QUERY_TIMEOUT_MS=5000 \
   node ./dist/main.js >"${integration_server_log}" 2>&1 &
 integration_server_pid=$!

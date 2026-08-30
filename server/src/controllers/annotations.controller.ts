@@ -247,31 +247,6 @@ export class AnnotationsController {
     });
   }
 
-  @Post('/list')
-  async List(): Promise<any> {
-    const user = await this.authenticationService.getAuthenticatedUser();
-
-    return AppDataSource.transaction('REPEATABLE READ', async (manager) => {
-      await assertSqlResultIsBounded(
-        manager,
-        `
-          SELECT "id", "uid", "url", "title", "host", "data",
-                 "created_at", "updated_at"
-          FROM "annotation"
-          WHERE "userId" = $1
-        `,
-        [user.id],
-      );
-      const list = await manager.getRepository(Annotation).find({
-        where: { user: { id: user.id } },
-      });
-      const annotationChangeHistoryLatestId =
-        await AnnotationChangeHistory.getLatestIdForUser(user, manager);
-
-      return { list, annotationChangeHistoryLatestId };
-    });
-  }
-
   @Post('/listPage')
   async ListPage(@Body() request: ListSnapshotPageDto): Promise<any> {
     const user = await this.authenticationService.getAuthenticatedUser();

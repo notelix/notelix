@@ -8,7 +8,6 @@ import {
   normalizeAgentSyncAnnotation,
   normalizeAgentSyncUrl,
   parseAgentSyncState,
-  parseSyncCursor,
 } from '../src/controllers/agentSyncController';
 import { meilisearchClient } from '../src/meilisearch';
 import { Annotation } from '../src/models/annotation.entity';
@@ -85,7 +84,7 @@ describe('Agent control API', () => {
     const state = parseAgentSyncState(
       fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
     );
-    return state?.version === 1 ? state.cursor : null;
+    return state?.kind === 'cursor' ? state.cursor : null;
   }
 
   beforeEach(async () => {
@@ -415,18 +414,6 @@ describe('Agent control API', () => {
     expect(persist).not.toHaveBeenCalled();
   });
 
-  it('parses only non-negative safe integer sync cursors', () => {
-    expect(parseSyncCursor('0\n')).toBe(0);
-    expect(parseSyncCursor(Number.MAX_SAFE_INTEGER.toString())).toBe(
-      Number.MAX_SAFE_INTEGER,
-    );
-    expect(parseSyncCursor('')).toBeNull();
-    expect(parseSyncCursor('-1')).toBeNull();
-    expect(parseSyncCursor('1.5')).toBeNull();
-    expect(parseSyncCursor('9007199254740992')).toBeNull();
-    expect(parseSyncCursor('partial-write')).toBeNull();
-  });
-
   it('derives stable non-secret identities for refreshed user tokens', () => {
     const firstToken = unsignedJwt(
       { iss: 'notelix', id: 7, tokenVersion: 2, iat: 1, exp: 2 },
@@ -496,22 +483,17 @@ describe('Agent control API', () => {
 
     (controller as any).saveAnnotationChangeHistoryLatestId(0, sourceIdentity);
     expect(parseAgentSyncState(fs.readFileSync(statePath, 'utf8'))).toEqual({
-      version: 1,
+      kind: 'cursor',
       sourceIdentity,
       cursor: 0,
     });
-    expect(
-      (controller as any).getAnnotationChangeHistoryLatestId(sourceIdentity),
-    ).toBe(0);
 
     (controller as any).saveAnnotationChangeHistoryLatestId(41, sourceIdentity);
     expect(readPersistedCursor()).toBe(41);
     expect(fs.readdirSync(directory)).toEqual(['cursor']);
 
     fs.writeFileSync(statePath, 'partial-write', 'utf8');
-    expect(
-      (controller as any).getAnnotationChangeHistoryLatestId(sourceIdentity),
-    ).toBeNull();
+    expect(parseAgentSyncState(fs.readFileSync(statePath, 'utf8'))).toBeNull();
   });
 
   it('treats a persisted zero cursor as initialized incremental state', async () => {
@@ -661,10 +643,10 @@ describe('Agent control API', () => {
     expect(resetData).toHaveBeenCalledTimes(1);
   });
 
-  it('invalidates a legacy cursor that has no source identity', async () => {
+  it('invalidates malformed persisted sync state', async () => {
     process.env.RUN_MODE = 'AGENT';
     const statePath = process.env.AGENT_SYNC_STATE_PATH;
-    fs.writeFileSync(statePath, '41\n', 'utf8');
+    fs.writeFileSync(statePath, '{"kind":"cursor","cursor":41}\n', 'utf8');
 
     await request(app.getHttpServer())
       .post('/agentsync/set')
@@ -842,7 +824,7 @@ describe('Agent control API', () => {
         fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
       ),
     ).toEqual({
-      version: 2,
+      kind: 'snapshot',
       sourceIdentity: firstController.config.sourceIdentity,
       snapshotId,
       afterId: 1,
@@ -929,7 +911,7 @@ describe('Agent control API', () => {
         fs.readFileSync(process.env.AGENT_SYNC_STATE_PATH, 'utf8'),
       ),
     ).toEqual({
-      version: 2,
+      kind: 'snapshot',
       sourceIdentity: controller.config.sourceIdentity,
       snapshotId,
       afterId: 1,
@@ -988,32 +970,22 @@ describe('Agent control API', () => {
     expect(readPersistedCursor()).toBe(8);
   });
 
-  it('falls back to the legacy full-list endpoint for older servers', async () => {
+  it('requires the current paged snapshot endpoint', async () => {
     const controller = new AgentSyncController();
     configureController(controller);
     jest.spyOn(controller as any, 'resetData').mockResolvedValue(undefined);
     const fetchRequest = jest
       .spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response('not found', { status: 404 }))
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            list: [],
-            annotationChangeHistoryLatestId: 0,
-          }),
-          { status: 200 },
-        ),
-      );
+      .mockResolvedValueOnce(new Response('not found', { status: 404 }));
 
-    await (controller as any).sync();
+    await expect((controller as any).sync()).rejects.toThrow(
+      'annotation snapshot request failed with status 404',
+    );
 
+    expect(fetchRequest).toHaveBeenCalledTimes(1);
     expect(fetchRequest.mock.calls[0][0]).toBe(
       'https://notelix.example/annotations/listPage',
     );
-    expect(fetchRequest.mock.calls[1][0]).toBe(
-      'https://notelix.example/annotations/list',
-    );
-    expect(readPersistedCursor()).toBe(0);
   });
 
   it('preserves local data when a full snapshot request fails', async () => {
@@ -1051,10 +1023,10 @@ describe('Agent control API', () => {
 
     await expect(
       (controller as any).requestJson(
-        'annotation list request',
-        '/annotations/list',
+        'annotation snapshot request',
+        '/annotations/listPage',
       ),
-    ).rejects.toThrow('annotation list request timed out after 100ms');
+    ).rejects.toThrow('annotation snapshot request timed out after 100ms');
   });
 
   it('rejects an oversized sync response while streaming it', async () => {
@@ -1070,10 +1042,12 @@ describe('Agent control API', () => {
 
     await expect(
       (controller as any).requestJson(
-        'annotation list request',
-        '/annotations/list',
+        'annotation snapshot request',
+        '/annotations/listPage',
       ),
-    ).rejects.toThrow('annotation list request response exceeded 1024 bytes');
+    ).rejects.toThrow(
+      'annotation snapshot request response exceeded 1024 bytes',
+    );
   });
 
   it('aborts an active sync request during shutdown', async () => {
@@ -1092,11 +1066,11 @@ describe('Agent control API', () => {
     );
 
     const requestPromise = (controller as any).requestJson(
-      'annotation list request',
-      '/annotations/list',
+      'annotation snapshot request',
+      '/annotations/listPage',
     );
     const rejection = expect(requestPromise).rejects.toThrow(
-      'annotation list request aborted during shutdown',
+      'annotation snapshot request aborted during shutdown',
     );
     await controller.onApplicationShutdown();
     await rejection;

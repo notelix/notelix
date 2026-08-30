@@ -35,8 +35,6 @@ const defaultSyncRequestTimeoutMs = 30000;
 const defaultSyncMaxResponseBytes = 64 * 1024 * 1024;
 const defaultSyncMaxDiffPagesPerCycle = 10;
 const defaultSyncMaxSnapshotPagesPerCycle = 10;
-const syncCursorStateVersion = 1;
-const syncSnapshotStateVersion = 2;
 const snapshotIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const maximumAnnotationId = 2147483647;
@@ -44,13 +42,13 @@ const maximumAnnotationUidLength = 64;
 const maximumAnnotationTextFieldLength = 32768;
 
 interface AgentSyncCursorState {
-  version: typeof syncCursorStateVersion;
+  kind: 'cursor';
   sourceIdentity: string;
   cursor: number;
 }
 
 interface AgentSyncSnapshotState {
-  version: typeof syncSnapshotStateVersion;
+  kind: 'snapshot';
   sourceIdentity: string;
   snapshotId: string;
   afterId: number;
@@ -89,22 +87,10 @@ function getSyncStatePath(): string {
   );
 }
 
-export function parseSyncCursor(value: string): number | null {
-  const normalized = value.trim();
-  if (!/^\d+$/.test(normalized)) {
-    return null;
-  }
-  const cursor = Number(normalized);
-  if (!Number.isSafeInteger(cursor) || cursor < 0) {
-    return null;
-  }
-  return cursor;
-}
-
 export function parseAgentSyncState(value: string): AgentSyncState | null {
   try {
     const state = JSON.parse(value) as {
-      version?: unknown;
+      kind?: unknown;
       sourceIdentity?: unknown;
       cursor?: unknown;
       snapshotId?: unknown;
@@ -118,14 +104,14 @@ export function parseAgentSyncState(value: string): AgentSyncState | null {
       return null;
     }
     if (
-      state.version === syncCursorStateVersion &&
+      state.kind === 'cursor' &&
       Number.isSafeInteger(state.cursor) &&
       (state.cursor as number) >= 0
     ) {
       return state as AgentSyncCursorState;
     }
     if (
-      state.version === syncSnapshotStateVersion &&
+      state.kind === 'snapshot' &&
       typeof state.snapshotId === 'string' &&
       snapshotIdPattern.test(state.snapshotId) &&
       Number.isSafeInteger(state.afterId) &&
@@ -179,18 +165,17 @@ function getTokenIdentity(token: string): Record<string, unknown> {
       const payload = JSON.parse(
         Buffer.from(parts[1], 'base64url').toString('utf8'),
       );
-      const tokenVersion = payload.tokenVersion ?? 0;
       if (
         Number.isSafeInteger(payload.id) &&
         payload.id > 0 &&
-        Number.isSafeInteger(tokenVersion) &&
-        tokenVersion >= 0
+        Number.isSafeInteger(payload.tokenVersion) &&
+        payload.tokenVersion >= 0
       ) {
         return {
           kind: 'jwt',
           issuer: typeof payload.iss === 'string' ? payload.iss : '',
           userId: payload.id,
-          tokenVersion,
+          tokenVersion: payload.tokenVersion,
         };
       }
     }
@@ -692,7 +677,7 @@ export class AgentSyncController
     await ensureAgentAnnotationSearchIndexReady();
     this.assertCurrentSync(generation, sourceIdentity);
     const syncState = this.getAgentSyncState(sourceIdentity);
-    if (syncState?.version === syncSnapshotStateVersion) {
+    if (syncState?.kind === 'snapshot') {
       this.logger.debug(
         `Resuming snapshot ${syncState.snapshotId} after annotation ${syncState.afterId}`,
       );
@@ -901,53 +886,8 @@ export class AgentSyncController
         this.clearAgentSyncState();
         return;
       }
-      if (error instanceof SyncRequestError && error.status === 404) {
-        this.clearAgentSyncState();
-        this.logger.warn(
-          'Source does not support paged snapshots; using the legacy list endpoint',
-        );
-        await this.syncLegacyFullSnapshot(generation, sourceIdentity);
-        return;
-      }
       throw error;
     }
-  }
-
-  private async syncLegacyFullSnapshot(
-    generation: number,
-    sourceIdentity: string,
-  ): Promise<void> {
-    const data = await this.requestJson(
-      'annotation list request',
-      '/annotations/list',
-      undefined,
-      generation,
-    );
-    this.assertCurrentSync(generation, sourceIdentity);
-    if (!data || !Array.isArray(data.list)) {
-      throw new Error('annotation list response must contain a list');
-    }
-    const historyId = assertSyncCursor(
-      data.annotationChangeHistoryLatestId,
-      'annotationChangeHistoryLatestId',
-    );
-    const annotations = await Promise.all(
-      data.list.map((annotation) => this.decryptAnnotation(annotation)),
-    );
-    this.assertCurrentSync(generation, sourceIdentity);
-    await this.resetData();
-    this.assertCurrentSync(generation, sourceIdentity);
-    this.logger.log(
-      `Persisting ${annotations.length} synchronized annotations`,
-    );
-    for (const annotation of annotations) {
-      this.assertCurrentSync(generation, sourceIdentity);
-      await Annotation.agentSyncPersist(annotation);
-      this.assertCurrentSync(generation, sourceIdentity);
-      await meilisearchClient.IndexAnnotation(annotation);
-      this.assertCurrentSync(generation, sourceIdentity);
-    }
-    this.saveAnnotationChangeHistoryLatestId(historyId, sourceIdentity);
   }
 
   private async resetData() {
@@ -980,14 +920,14 @@ export class AgentSyncController
     const existingState = this.loadAgentSyncState();
     if (
       existingState?.sourceIdentity === sourceIdentity &&
-      existingState.version === syncCursorStateVersion &&
+      existingState.kind === 'cursor' &&
       existingState.cursor > cursor
     ) {
       return;
     }
 
     this.writeAgentSyncState({
-      version: syncCursorStateVersion,
+      kind: 'cursor',
       sourceIdentity,
       cursor,
     });
@@ -1000,7 +940,7 @@ export class AgentSyncController
     watermark: number,
   ): void {
     const state: AgentSyncSnapshotState = {
-      version: syncSnapshotStateVersion,
+      kind: 'snapshot',
       sourceIdentity,
       snapshotId,
       afterId: assertSyncCursor(afterId, 'annotation snapshot afterId'),
@@ -1046,21 +986,11 @@ export class AgentSyncController
     });
     const state = parseAgentSyncState(serialized);
     if (state === null) {
-      const legacyCursor = parseSyncCursor(serialized);
-      const reason =
-        legacyCursor === null ? 'invalid' : 'not bound to a sync source';
       this.logger.warn(
-        `Agent sync state is ${reason}; scheduling a full re-list`,
+        'Agent sync state is invalid; scheduling a full re-list',
       );
     }
     return state;
-  }
-
-  private getAnnotationChangeHistoryLatestId(
-    sourceIdentity: string,
-  ): number | null {
-    const state = this.getAgentSyncState(sourceIdentity);
-    return state?.version === syncCursorStateVersion ? state.cursor : null;
   }
 
   private getAgentSyncState(sourceIdentity: string): AgentSyncState | null {

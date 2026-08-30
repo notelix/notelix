@@ -21,7 +21,7 @@ services:
       - ./.env.dev:/app/.env
       - data:/data
   postgres:
-    image: "postgres:14.24-alpine"
+    image: "postgres:17.11-alpine"
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
@@ -41,7 +41,7 @@ services:
       MEILI_ENV: development
       MEILI_NO_ANALYTICS: "true"
     volumes:
-      - meili-v1:/meili_data
+      - meili-data:/meili_data
     ports:
       - "127.0.0.1:18557:7700"
     healthcheck:
@@ -56,4 +56,4 @@ services:
 volumes:
   postgres-data:
   data:
-  meili-v1:
+  meili-data:

@@ -28,6 +28,7 @@ import {
 } from '../runtime-config';
 import { validateAgentControlOrigins } from './agentControl';
 import { PostgresThrottlerStorage } from './services/postgresThrottlerStorage';
+import { ensureCurrentSchema } from './databaseSchema';
 
 const httpPort = readPortEnvironment('PORT', 3000);
 const runMode = readEnvironmentChoice('RUN_MODE', 'SERVER', [
@@ -89,6 +90,7 @@ export async function bootstrapSQL() {
   if (!AppDataSource.isInitialized) {
     await AppDataSource.initialize();
   }
+  await ensureCurrentSchema(AppDataSource);
 }
 
 async function bootstrap() {

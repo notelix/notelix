@@ -6,10 +6,8 @@ import {
   storeEncryptionKey,
 } from ".";
 import { makePasswordChangeClientSideEncryptionParams } from "./utils";
-import {
-  NotelixChromeStorageKey,
-  NotelixEncryptionKeyStorageKey,
-} from "../popup/consts";
+import { NotelixEncryptionKeyStorageKey } from "../popup/consts";
+import { setServer, setUser } from "../storage";
 
 function storageArea(initialValue = {}) {
   let value = { ...initialValue };
@@ -58,29 +56,9 @@ describe("client-side encryption key storage", () => {
     expect(JSON.stringify(chrome.storage.sync.value())).not.toContain(password);
   });
 
-  it("migrates and removes a legacy synced password", async () => {
-    chrome.storage.sync = storageArea({
-      [NotelixChromeStorageKey]: {
-        notelixUser: { client_side_encryption: encryptedConfig },
-        notelixPassword: password,
-      },
-    });
-
-    await expect(getKey()).resolves.toBe(key);
-    expect(chrome.storage.local.value()).toMatchObject({
-      [NotelixEncryptionKeyStorageKey]: key,
-    });
-    expect(chrome.storage.sync.value()[NotelixChromeStorageKey]).not.toHaveProperty(
-      "notelixPassword"
-    );
-  });
-
   it("fails closed when encryption is enabled but no key is available", async () => {
-    chrome.storage.sync = storageArea({
-      [NotelixChromeStorageKey]: {
-        notelixUser: { client_side_encryption: encryptedConfig },
-      },
-    });
+    await setServer("https://example.test");
+    await setUser({ client_side_encryption: encryptedConfig });
 
     await expect(getKey()).rejects.toThrow("log in again");
   });

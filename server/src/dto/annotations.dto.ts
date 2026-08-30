@@ -11,15 +11,6 @@ import {
 } from 'class-validator';
 
 export class SaveAnnotationDto {
-  // Older extension and embedded builds post annotations returned by the API
-  // back to /save, including this server-owned identifier. Persistence still
-  // resolves the annotation exclusively by authenticated user + uid.
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(Number.MAX_SAFE_INTEGER)
-  id?: number;
-
   @IsString()
   @MinLength(1)
   @MaxLength(64)
@@ -50,14 +41,6 @@ export class DeleteAnnotationDto {
   @MinLength(1)
   @MaxLength(64)
   uid: string;
-
-  // Older extension and embedded builds included the page URL in delete
-  // requests. Deletion is still authorized exclusively by user + uid, but
-  // accepting this ignored field keeps those deployed clients compatible.
-  @IsOptional()
-  @IsString()
-  @MaxLength(32768)
-  url?: string;
 }
 
 export class QueryAnnotationsByUrlDto {

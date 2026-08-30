@@ -307,6 +307,22 @@ async function clearRequestRateLimits() {
   }
 }
 
+async function clearAnnotationSnapshots() {
+  const client = new Client({
+    user: ormconfig.username,
+    host: ormconfig.host,
+    database: ormconfig.database,
+    password: ormconfig.password,
+    port: ormconfig.port,
+  });
+  await client.connect();
+  try {
+    await client.query('DELETE FROM "annotation_sync_snapshot"');
+  } finally {
+    await client.end();
+  }
+}
+
 async function assertHistoryIdAllocationWaitsForUserLock(username, headers) {
   const connection = {
     user: ormconfig.username,
@@ -916,7 +932,7 @@ async function main() {
   const syncReadUrl = secondaryServerUrl || serverUrl;
   const fullSnapshot = await requestAt(
     syncReadUrl,
-    '/annotations/list',
+    '/annotations/listPage',
     {},
     headers,
   );
@@ -926,6 +942,7 @@ async function main() {
     JSON.stringify(fullSnapshot.body),
   );
   assert.strictEqual(fullSnapshot.body.list.length, 1);
+  assert.strictEqual(fullSnapshot.body.hasMore, false);
   assert.strictEqual(fullSnapshot.body.list[0].uid, uid);
   assert.strictEqual(
     Number.isInteger(fullSnapshot.body.annotationChangeHistoryLatestId),
@@ -1038,8 +1055,11 @@ async function main() {
     assert.strictEqual(response.status, 201, JSON.stringify(response.body));
   }
 
+  assert.strictEqual(
+    (await request('/annotations/list', {}, headers)).status,
+    404,
+  );
   for (const [path, body] of [
-    ['/annotations/list', {}],
     ['/annotations/queryByUrl', { url: boundedResponseUrl }],
     ['/annotations/find', { selectors: { host: boundedResponseHost } }],
   ]) {
@@ -1047,6 +1067,7 @@ async function main() {
     assert.strictEqual(response.status, 413, JSON.stringify(response.body));
   }
 
+  await clearAnnotationSnapshots();
   const snapshotUids = [];
   let boundedSnapshot = await request(
     '/annotations/listPage',

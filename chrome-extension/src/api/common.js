@@ -6,7 +6,6 @@ import { sendChromeCommandToEveryTab } from "../utils/chromeCommand";
 import { COMMAND_REFRESH_ANNOTATIONS } from "../consts";
 import {
   clearEncryptionKey,
-  clearLegacyPassword,
   clientSideEncryptionEnabled,
 } from "../encryption";
 import {
@@ -84,7 +83,6 @@ export function onRequestError(err) {
         });
 
         await clearEncryptionKey();
-        await clearLegacyPassword();
         await clearUser();
         await resetAgentData().catch(() => undefined);
         sendChromeCommandToEveryTab(COMMAND_REFRESH_ANNOTATIONS);

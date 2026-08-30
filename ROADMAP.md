@@ -1,7 +1,5 @@
 * [ ] better user experience: direct users to install the agent when client-side encryption is enabled
 * [ ] automated data backup script
-* [ ] pagination support in /list and /listDiff
-* [ ] AnnotationHistory garbage collection
 * [ ] convert to TypeScript
 
 * [ ] chrome web store

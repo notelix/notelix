@@ -4,7 +4,6 @@ const path = require('path');
 
 const serverEntryPoint = path.join(__dirname, '..', 'dist', 'main.js');
 const reindexEntryPoint = path.join(__dirname, 'meili-reindex.js');
-const migrationEntryPoint = path.join(__dirname, 'run-migrations.js');
 const validEnvironment = {
   ...process.env,
   DB_PORT: '5432',
@@ -41,13 +40,6 @@ const cases = [
     name: 'database query timeout',
     environment: { DB_QUERY_TIMEOUT_MS: '0' },
     message: 'DB_QUERY_TIMEOUT_MS must be an integer between 100 and 3600000',
-  },
-  {
-    name: 'database migration lock timeout',
-    entryPoint: migrationEntryPoint,
-    environment: { DB_MIGRATION_LOCK_TIMEOUT_MS: '999' },
-    message:
-      'DB_MIGRATION_LOCK_TIMEOUT_MS must be an integer between 1000 and 3600000',
   },
   {
     name: 'HTTP port',

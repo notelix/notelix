@@ -53,20 +53,19 @@ describe('JWT sessions', () => {
     );
   });
 
-  it('keeps pre-migration tokens valid until the user version changes', async () => {
+  it('rejects tokens without the current token-version claim', async () => {
     const user = makeUser(0);
-    jest.spyOn(User, 'findOne').mockResolvedValue(user);
-    const legacyToken = jwt.sign({ id: user.id }, keyPair.privateKey, {
+    const findOne = jest.spyOn(User, 'findOne').mockResolvedValue(user);
+    const incompleteToken = jwt.sign({ id: user.id }, keyPair.privateKey, {
       algorithm: 'RS256',
       issuer: 'notelix',
       expiresIn: '1h',
     });
 
-    await expect(jwtService.getUserFromToken(legacyToken)).resolves.toBe(user);
-    user.tokenVersion = 1;
-    await expect(jwtService.getUserFromToken(legacyToken)).rejects.toThrow(
-      'jwt has been revoked',
+    await expect(jwtService.getUserFromToken(incompleteToken)).rejects.toThrow(
+      'jwt payload contains an invalid token version',
     );
+    expect(findOne).not.toHaveBeenCalled();
   });
 
   it('classifies invalid tokens without querying user storage', async () => {

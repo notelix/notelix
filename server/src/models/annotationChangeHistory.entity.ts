@@ -3,7 +3,6 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  EntityManager,
   Index,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -40,22 +39,4 @@ export class AnnotationChangeHistory extends BaseEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updated_at: Date;
-
-  public static async getLatestIdForUser(
-    user: User,
-    manager?: EntityManager,
-  ): Promise<number> {
-    const repository = manager
-      ? manager.getRepository(AnnotationChangeHistory)
-      : AnnotationChangeHistory.getRepository();
-    const result = await repository
-      .createQueryBuilder('history')
-      .where('history."userId" = :userId', { userId: user.id })
-      .select('MAX(history.id)', 'max')
-      .getRawOne<{ max: string | null }>();
-    if (!result?.max) {
-      return 0;
-    }
-    return Number(result.max);
-  }
 }

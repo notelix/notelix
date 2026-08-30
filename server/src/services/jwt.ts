@@ -75,7 +75,7 @@ export default class JwtService implements OnModuleInit {
 
   signForUser(user: User): string {
     return jwt.sign(
-      { id: user.id, tokenVersion: user.tokenVersion ?? 0 },
+      { id: user.id, tokenVersion: user.tokenVersion },
       this.getPrivateKey(),
       JwtParams,
     );
@@ -101,7 +101,7 @@ export default class JwtService implements OnModuleInit {
         'jwt payload does not contain a user id',
       );
     }
-    const tokenVersion = decoded.tokenVersion ?? 0;
+    const tokenVersion = decoded.tokenVersion;
     if (!Number.isInteger(tokenVersion) || tokenVersion < 0) {
       throw new InvalidAuthenticationCredentialError(
         'jwt payload contains an invalid token version',
@@ -114,7 +114,7 @@ export default class JwtService implements OnModuleInit {
         'jwt user no longer exists',
       );
     }
-    if ((user.tokenVersion ?? 0) !== tokenVersion) {
+    if (user.tokenVersion !== tokenVersion) {
       throw new InvalidAuthenticationCredentialError('jwt has been revoked');
     }
     return user;

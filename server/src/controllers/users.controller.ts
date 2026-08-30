@@ -145,7 +145,7 @@ export class UsersController {
 
       user.password = newPasswordHash;
       user.client_side_encryption = newClientSideEncryptionParams;
-      user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+      user.tokenVersion += 1;
       await repository.save(user);
       return userResponse(user);
     });

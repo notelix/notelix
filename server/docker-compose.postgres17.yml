@@ -1,8 +1,0 @@
-services:
-  postgres:
-    image: "postgres:17.11-alpine"
-    volumes:
-      - postgres-data-v17:/var/lib/postgresql/data
-
-volumes:
-  postgres-data-v17:

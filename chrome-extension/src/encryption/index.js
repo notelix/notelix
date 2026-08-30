@@ -2,14 +2,12 @@ import AES from "crypto-js/aes";
 import CryptoJS from "crypto-js";
 import {
   clearEncryptionKey,
-  clearLegacyPassword,
   getEncryptionKey,
-  getLegacyPassword,
   getUser,
   setEncryptionKey,
 } from "../storage";
 
-export { clearEncryptionKey, clearLegacyPassword } from "../storage";
+export { clearEncryptionKey } from "../storage";
 
 const emptyIV = { words: [0, 0, 0, 0], sigBytes: 16 };
 
@@ -40,22 +38,11 @@ export async function getKey() {
     return localKey;
   }
 
-  const legacyPassword = await getLegacyPassword();
-  if (legacyPassword) {
-    const key = decryptKey(encryptedConfig, legacyPassword);
-    await setEncryptionKey(key);
-    await clearLegacyPassword();
-    return key;
-  }
-
   throw new Error("client-side encryption key is unavailable; log in again");
 }
 
 export function ensureLocalEncryptionKey(user, password) {
-  return storeEncryptionKey(user, password).then(async (key) => {
-    await clearLegacyPassword();
-    return key;
-  });
+  return storeEncryptionKey(user, password);
 }
 
 export function clientSideEncryptionEnabled() {

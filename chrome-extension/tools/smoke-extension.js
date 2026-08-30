@@ -512,8 +512,6 @@ async function main() {
       };
     });
     assert.equal(initialStorage.local["notelix-auth"], undefined);
-    assert.equal(initialStorage.sync.notelix.notelixUser, undefined);
-    assert.equal(initialStorage.sync.notelix.notelixPassword, undefined);
     await popup.click('a[href="#/signup"]');
     await popup.waitForFunction(() =>
       document
@@ -547,8 +545,6 @@ async function main() {
       "smoke-jwt",
     );
     assert.equal(authenticatedStorage.local["notelix-auth"].server, baseUrl);
-    assert.equal(authenticatedStorage.sync.notelix.notelixUser, undefined);
-    assert.equal(authenticatedStorage.sync.notelix.notelixPassword, undefined);
     assert.equal(
       JSON.stringify(authenticatedStorage).includes("smoke-password"),
       false,

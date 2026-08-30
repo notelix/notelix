@@ -331,7 +331,7 @@ async function performDeleteAnnotation() {
   confirmButton.textContent = embeddedCopy.deleting;
   errorElement.textContent = "";
   try {
-    await deleteAnnotation({ url: getNormalizedUrl(), uid: annotationId });
+    await deleteAnnotation({ uid: annotationId });
     if (annotation.data?.notes) clearInlineNotes(annotationId);
     marker.unpaint(convertAnnotationToSerializedRange(annotation));
     delete state.annotations[annotationId];

@@ -82,22 +82,8 @@ export async function getUser() {
     }
 
     await clearLocalCredentials();
-    return null;
   }
-
-  const syncedConfig = await getSyncedConfig();
-  const legacyUser = syncedConfig.notelixUser;
-  if (!legacyUser) {
-    return null;
-  }
-
-  await setUser(legacyUser);
-  delete syncedConfig.notelixUser;
-  if (!legacyUser.client_side_encryption) {
-    delete syncedConfig.notelixPassword;
-  }
-  await setSyncedConfig(syncedConfig);
-  return legacyUser;
+  return null;
 }
 
 export function setUser(user) {
@@ -114,10 +100,6 @@ export function setUser(user) {
 
 export async function clearUser() {
   await storageRemove(chrome.storage.local, NotelixAuthStorageKey);
-  const syncedConfig = await getSyncedConfig();
-  delete syncedConfig.notelixUser;
-  delete syncedConfig.notelixPassword;
-  await setSyncedConfig(syncedConfig);
 }
 
 export async function getServer() {
@@ -130,8 +112,6 @@ export async function setServer(server) {
   const normalizedServer = normalizeServer(server);
   if (normalizeServer(syncedConfig.notelixServer) !== normalizedServer) {
     await clearLocalCredentials();
-    delete syncedConfig.notelixUser;
-    delete syncedConfig.notelixPassword;
   }
   syncedConfig.notelixServer = normalizedServer;
   await setSyncedConfig(syncedConfig);
@@ -141,21 +121,7 @@ export async function clearServer() {
   const syncedConfig = await getSyncedConfig();
   await clearLocalCredentials();
   delete syncedConfig.notelixServer;
-  delete syncedConfig.notelixUser;
-  delete syncedConfig.notelixPassword;
   await setSyncedConfig(syncedConfig);
-}
-
-export async function getLegacyPassword() {
-  return (await getSyncedConfig()).notelixPassword || null;
-}
-
-export async function clearLegacyPassword() {
-  const syncedConfig = await getSyncedConfig();
-  if ("notelixPassword" in syncedConfig) {
-    delete syncedConfig.notelixPassword;
-    await setSyncedConfig(syncedConfig);
-  }
 }
 
 export function getEncryptionKey() {

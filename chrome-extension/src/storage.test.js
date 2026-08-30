@@ -58,32 +58,6 @@ describe("extension storage", () => {
     );
   });
 
-  it("moves legacy authentication out of synced storage", async () => {
-    const user = { id: 1, jwt: "legacy-jwt", client_side_encryption: "" };
-    chrome.storage.sync = storageArea({
-      [NotelixChromeStorageKey]: {
-        notelixServer: "https://example.test",
-        notelixUser: user,
-        notelixPassword: "legacy-password",
-      },
-    });
-
-    await expect(getUser()).resolves.toEqual(user);
-    await expect(getServer()).resolves.toBe("https://example.test");
-    expect(chrome.storage.local.value()).toEqual({
-      [NotelixAuthStorageKey]: {
-        version: 1,
-        server: "https://example.test",
-        user,
-      },
-    });
-    expect(chrome.storage.sync.value()).toEqual({
-      [NotelixChromeStorageKey]: {
-        notelixServer: "https://example.test",
-      },
-    });
-  });
-
   it("invalidates local credentials when a synced server changes", async () => {
     await setServer("https://first.example");
     await setUser({ id: 1, jwt: "first-server-jwt" });

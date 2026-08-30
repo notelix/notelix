@@ -36,7 +36,7 @@ WORKDIR /app
 COPY --from=production-dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node server/package.json server/ormconfig.js server/runtime-config.js ./
-COPY --chown=node:node server/tools/ensure-pg-db.js server/tools/meili-reindex.js server/tools/run-migrations.js server/tools/start-production.sh ./tools/
+COPY --chown=node:node server/tools/ensure-pg-db.js server/tools/meili-reindex.js server/tools/start-production.sh ./tools/
 COPY --chown=node:node server/public ./public
 COPY --from=extension-build --chown=node:node /extension/dist/content-script.dist.js ./public/embedded/content-script.dist.js
 

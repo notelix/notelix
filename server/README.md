@@ -54,9 +54,8 @@ docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod d
 
 Once running, `/` serves the responsive Notelix product site, `/privacy`
 serves the plain-language privacy overview, and `/embedded/` serves the
-interactive highlighting playground. API endpoints remain available at their
-existing paths. Static HTML is revalidated on each request while versioned
-container assets receive a one-hour browser cache.
+interactive highlighting playground. Static HTML is revalidated on each
+request while versioned container assets receive a one-hour browser cache.
 
 The playground uses local, reload-only storage unless
 `EMBEDDED_DEMO_STATIC_TOKEN` is set to a dedicated value generated with
@@ -76,50 +75,21 @@ Each Compose project has an isolated default network. This prevents production,
 development, and agent containers running on the same host from resolving one
 another's `postgres`, `meilisearch`, or `backend` service aliases.
 
-When upgrading an existing deployment, `docker compose up -d` recreates its
-containers on the new project-scoped network. It also changes a previously
-public production port to loopback unless `NOTELIX_BIND_ADDRESS` is set. After
-upgrading every local Notelix stack, inspect the old `notelix` network and
-remove it only when no containers remain attached.
-
-The persistent stacks are pinned to PostgreSQL 14.24 so an image update cannot
-silently perform a major-version upgrade against an existing volume.
-PostgreSQL 14 reaches end of life in November 2026. New deployments should use
-the PostgreSQL 17 override, and existing deployments should follow the migration
-procedure below.
-
-```bash
-docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
-  --env-file .env.prod -p notelix-prod up -d
-```
+The persistent stacks use PostgreSQL 17.11. Notelix has one current database
+schema and no schema upgrade path. On first start, an empty database is
+initialized directly to that schema. A populated database with a missing,
+different, or incomplete schema is rejected with an instruction to start from
+an empty database. Reset data whenever the schema contract changes.
 
 The production and agent stacks require `MEILI_MASTER_KEY` and run
 Meilisearch in authenticated production mode. The backend and search service
 use this value for authenticated requests over their Docker network;
 Meilisearch is not published to the host in the production stack.
 
-## upgrading the search service from Meilisearch 0.x
-
-Meilisearch data files are not compatible across these versions. Notelix uses
-Postgres as the source of truth and treats Meilisearch as a rebuildable search
-index. The current compose files therefore use a new `meili-v1` volume and
-leave the old `meili` volume untouched for recovery.
-
-After the first start on Meilisearch 1.x, rebuild the index:
-
-```bash
-docker-compose -f docker-compose.prod.yml --env-file .env.prod -p notelix-prod exec backend npm run meili:reindex
-```
-
-Verify searches before removing any old Meilisearch volume. For users with
-client-side encryption, restart the local agent. It rebuilds a missing index
-from its decrypted PostgreSQL copy before resuming from its persisted sync
-cursor; the server cannot rebuild those encrypted search documents.
-
 # rebuild Meilisearch index
 
-Run this after restoring or migrating Postgres without the matching Meilisearch
-volume. It builds a temporary index and atomically swaps it into service only
+Run this after restoring Postgres without the matching Meilisearch volume. It
+builds a temporary index and atomically swaps it into service only
 after every batch succeeds. A failed rebuild leaves the active index untouched.
 Run it during a quiet period or briefly pause writes so changes made during the
 database scan cannot be missed by the replacement index:
@@ -146,8 +116,8 @@ Normal API saves and deletes enqueue a coalescing search-index update in the
 same PostgreSQL transaction as the annotation and its sync history. A
 replica-safe background worker retries failed Meilisearch batches with leased,
 revision-guarded claims, so a search outage or process restart cannot silently
-lose a later update. Existing annotations are queued when the migration runs.
-`SEARCH_SYNC_BATCH_SIZE`, `SEARCH_SYNC_INTERVAL_MS`, `SEARCH_SYNC_LEASE_MS`,
+lose a later update. `SEARCH_SYNC_BATCH_SIZE`, `SEARCH_SYNC_INTERVAL_MS`,
+`SEARCH_SYNC_LEASE_MS`,
 `SEARCH_SYNC_RETRY_BASE_MS`, `SEARCH_SYNC_RETRY_MAX_MS`, and
 `SEARCH_SYNC_SCHEMA_INTERVAL_MS` tune the defaults shown in
 `.env.prod.example`. The worker also recreates the index schema and requeues
@@ -224,9 +194,9 @@ requests receive `413 Payload Too Large` before authentication or persistence.
 Annotation responses have a separate 32 MiB budget. Snapshot and diff APIs
 shorten a page and preserve `hasMore` when its serialized rows approach
 `ANNOTATION_RESPONSE_LIMIT_BYTES`; this keeps valid large annotations below the
-agent's receiver limit without skipping cursor progress. Unpaged legacy list,
-URL query, and find requests measure their result inside a repeatable-read
-transaction and return `413` before materializing an oversized response. The
+agent's receiver limit without skipping cursor progress. URL query and find
+requests measure their result inside a repeatable-read transaction and return
+`413` before materializing an oversized response. The
 budget accepts 131072 through 268435456 bytes and must exceed
 `REQUEST_BODY_LIMIT_BYTES` by at least 65536 bytes. Keep it below the receiving
 agent's `AGENT_SYNC_MAX_RESPONSE_BYTES` setting.
@@ -240,8 +210,9 @@ Container health checks use the readiness endpoint. Dependency checks are
 bounded to two seconds by default; `READINESS_TIMEOUT_MS` can set a value from
 100 to 30000 milliseconds.
 
-The production entrypoint performs database bootstrap and migrations, then
-replaces itself with the Node process. This lets `SIGTERM` reach Nest directly
+The production entrypoint performs database bootstrap, then replaces itself
+with the Node process. The application initializes an empty schema or validates
+the exact current schema before serving. This lets `SIGTERM` reach Nest directly
 so rolling deployments run request-abort, search-worker, and database shutdown
 hooks before the container exits. The supported production and agent Compose
 stacks allow two minutes before escalating to `SIGKILL`, which accommodates the
@@ -267,21 +238,17 @@ Authentication rejects invalid or revoked credentials with `401`, including a
 client-clear signal. Database and other authentication-backend failures instead
 return `503` with `retryable: true`, so a transient outage does not log clients
 out or discard their local client-side encryption keys.
-Migration runners wait up to two minutes for the singleton advisory lock;
-`DB_MIGRATION_LOCK_TIMEOUT_MS` accepts 1000 to 3600000 milliseconds. Exceeding
-the deadline fails startup so the container restart policy can retry instead of
-leaving a backend permanently stuck before it serves traffic.
+Initial schema creation is serialized across replicas with a PostgreSQL
+advisory lock.
 
 Meilisearch HTTP requests are bounded to 10 seconds by default;
 `MEILISEARCH_REQUEST_TIMEOUT_MS` accepts values from 100 to 600000
 milliseconds. Meilisearch update tasks are bounded to 30 seconds by default.
 `MEILISEARCH_TASK_TIMEOUT_MS` accepts values from 100 to 600000 milliseconds.
 
-Static access tokens are stored as one-way SHA-256 digests; raw tokens and
-token-derived guest names are removed by the authentication migration. Existing
-tokens continue to work after migration. Generate them with a cryptographically
-secure source such as `openssl rand -hex 32`, transmit them only over HTTPS, and
-never commit them or share one token between users.
+Static access tokens are stored only as one-way SHA-256 digests. Generate them
+with a cryptographically secure source such as `openssl rand -hex 32`, transmit
+them only over HTTPS, and never commit them or share one token between users.
 
 Unknown static tokens are rejected by default, while already-registered tokens
 continue to authenticate. Production provisioning requires an external
@@ -298,14 +265,13 @@ Provisioning is coordinated across replicas and stops after
 `STATIC_TOKEN_AUTO_PROVISION_LIMIT` accounts (1000 by default), preventing
 concurrent requests from exceeding the account cap without allowing unrelated
 enrollments to build a lock queue. The limit accepts values from 1 through
-1000000 and includes existing static-token accounts. Upgrading with provisioning
-disabled does not invalidate any existing token.
+1000000 and includes registered static-token accounts. Registered tokens
+authenticate independently of whether new provisioning is enabled.
 
-Annotation synchronization history contains annotation-only snapshots. The
-history security migration removes legacy embedded user objects, including
-password hashes and client-side encryption metadata, from existing rows.
-History retention is bounded per user after every save or deletion. By default,
-the newest 10000 entries are retained within a 64 MiB serialized-payload budget;
+Annotation synchronization history contains annotation-only snapshots and no
+user credentials or encryption metadata. History retention is bounded per user
+after every save or deletion. By default, the newest 10000 entries are retained
+within a 64 MiB serialized-payload budget;
 the newest entry is always kept so every accepted write remains sync-visible.
 `ANNOTATION_HISTORY_MAX_ENTRIES_PER_USER` accepts 1 through 1000000, and
 `ANNOTATION_HISTORY_MAX_PAYLOAD_BYTES_PER_USER` accepts 1048576 through
@@ -353,15 +319,15 @@ drains up to 10 pages per cycle; `AGENT_SYNC_MAX_DIFF_PAGES_PER_CYCLE` supports
 values from 1 to 100 so large backlogs make bounded progress without starving
 other work. Full re-lists use expiring, repeatable-read snapshot sessions with
 pages of at most 100 annotations, keeping responses bounded without missing
-writes that commit between pages. Older servers fall back to the legacy list
-endpoint. The agent atomically checkpoints each completed snapshot page and
-drains at most 10 per cycle; `AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE` supports
-values from 1 to 100, allowing large or interrupted snapshots to resume without
-replaying page one or exhausting the API rate limit.
+writes that commit between pages. The agent atomically checkpoints each
+completed snapshot page and drains at most 10 per cycle;
+`AGENT_SYNC_MAX_SNAPSHOT_PAGES_PER_CYCLE` supports values from 1 to 100,
+allowing large or interrupted snapshots to resume without replaying page one or
+exhausting the API rate limit.
 The agent aborts an active request during shutdown and atomically persists its
 sync cursor. The state is bound to a one-way identity of the server, user,
 token version, and client-side encryption key; no credential is persisted.
-Missing, legacy, invalid, or mismatched state causes a safe full re-list, and a
+Missing, invalid, or mismatched state causes a safe full re-list, and a
 source change aborts and fences any in-flight work before the new source syncs.
 Remote annotation payloads are validated against the database field limits and
 canonical timestamp format before mutation. Unknown entity fields are discarded,
@@ -387,43 +353,6 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod \
 ```
 
 Copy backups to encrypted off-site storage and regularly test that PostgreSQL
-can read them. A backup is not verified until a restore has succeeded.
-
-## upgrading PostgreSQL 14 to PostgreSQL 17
-
-The override uses a separate `postgres-data-v17` volume. It does not overwrite
-the PostgreSQL 14 volume, which makes rollback possible until the migration has
-been validated. Plan a maintenance window and first create and copy a backup as
-described above.
-
-Verify the dump and stop the old stack without deleting its volumes:
-
-```bash
-docker compose -f docker-compose.prod.yml --env-file .env.prod \
-  -p notelix-prod exec -T postgres pg_restore --list \
-  < backups/notelix-TIMESTAMP.dump >/dev/null
-docker compose -f docker-compose.prod.yml --env-file .env.prod \
-  -p notelix-prod down
-```
-
-Start only PostgreSQL 17, restore the dump, and then start the complete stack:
-
-```bash
-docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
-  --env-file .env.prod -p notelix-prod up -d postgres
-docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
-  --env-file .env.prod -p notelix-prod exec -T postgres \
-  createdb --username postgres notelix
-docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
-  --env-file .env.prod -p notelix-prod exec -T postgres \
-  pg_restore --username postgres --dbname notelix --no-owner \
-  < backups/notelix-TIMESTAMP.dump
-docker compose -f docker-compose.prod.yml -f docker-compose.postgres17.yml \
-  --env-file .env.prod -p notelix-prod up -d
-```
-
-Run the application checks and exercise login, writes, sync, and search before
-removing the old volume. Keep `docker-compose.postgres17.yml` in every future
-Compose command for this deployment. The same override works with the agent and
-development Compose files; use the corresponding environment file and project
-name when migrating those stacks.
+can read them. A backup is not verified until a restore has succeeded. Restore
+only backups created with the exact current Notelix schema revision; other
+schemas are intentionally unsupported.
