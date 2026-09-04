@@ -1,4 +1,4 @@
-FROM node:26.7.0-alpine3.24 AS extension-build
+FROM node:26.8.1-alpine3.24 AS extension-build
 
 WORKDIR /extension
 
@@ -9,7 +9,7 @@ COPY chrome-extension/babel.config.js chrome-extension/webpack.config.js chrome-
 COPY chrome-extension/src ./src
 RUN npx --yes yarn@1.22.22 build:content-script
 
-FROM node:26.7.0-alpine3.24 AS build
+FROM node:26.8.1-alpine3.24 AS build
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ COPY server/nest-cli.json server/tsconfig.json server/tsconfig.build.json server
 COPY server/src ./src
 RUN npx --yes yarn@1.22.22 build
 
-FROM node:26.7.0-alpine3.24 AS production-dependencies
+FROM node:26.8.1-alpine3.24 AS production-dependencies
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ COPY server/package.json server/yarn.lock ./
 RUN npx --yes yarn@1.22.22 install --frozen-lockfile --non-interactive --production \
   && npx --yes yarn@1.22.22 cache clean
 
-FROM node:26.7.0-alpine3.24 AS runtime
+FROM node:26.8.1-alpine3.24 AS runtime
 
 ENV NODE_ENV=production
 WORKDIR /app
