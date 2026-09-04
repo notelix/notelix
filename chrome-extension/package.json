@@ -37,7 +37,7 @@
     "babel-jest": "^30.4.1",
     "babel-loader": "^10.1.1",
     "css-loader": "^7.1.4",
-    "jest": "^30.4.2",
+    "jest": "^30.5.0",
     "less": "^4.9.0",
     "less-loader": "^13.0.0",
     "puppeteer-core": "^25.9.0",
