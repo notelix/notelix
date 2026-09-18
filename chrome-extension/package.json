@@ -16,7 +16,7 @@
     "test": "jest --runInBand"
   },
   "dependencies": {
-    "@notelix/web-marker": "^2.0.10",
+    "@notelix/web-marker": "^2.0.11",
     "@babel/runtime": "^8.0.0",
     "classnames": "^2.5.1",
     "core-js": "^3.36.0",

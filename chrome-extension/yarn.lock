@@ -1318,12 +1318,10 @@
   dependencies:
     "@tybys/wasm-util" "^0.10.3"
 
-"@notelix/web-marker@^2.0.10":
-  version "2.0.10"
-  resolved "https://registry.yarnpkg.com/@notelix/web-marker/-/web-marker-2.0.10.tgz#a3d008d4fbf146d64a6e937fc73d351123cff5ea"
-  integrity sha512-u8KQ3Ds3kXrRHeKQXc5i+wLnegwdg3kr1bXkk+jOUWc0YWN91S0vCuGnpGbD22DmVCRI9AmcwDJvP9aUHwcbNQ==
-  dependencies:
-    uuid "^8.3.2"
+"@notelix/web-marker@^2.0.11":
+  version "2.0.11"
+  resolved "https://registry.yarnpkg.com/@notelix/web-marker/-/web-marker-2.0.11.tgz#1ea42a88770d804b785dca9ff241cae9348da2eb"
+  integrity sha512-BYBrmC0lDDpqYib4g5CyY3DFwGyXN3m/dwox+gVHpsEofFCBZ+TvoOjMnPrTD9Bi/yFF4YcIw5Bnf/IvYQFBnA==
 
 "@pkgjs/parseargs@^0.11.0":
   version "0.11.0"
@@ -4021,7 +4019,7 @@ util-deprecate@^1.0.2:
   resolved "https://registry.yarnpkg.com/util-deprecate/-/util-deprecate-1.0.2.tgz#450d4dc9fa70de732762fbd2d4a28981419a0ccf"
   integrity sha1-RQ1Nyfpw3nMnYvvS1KKJgUGaDM8=
 
-uuid@^11.1.1, uuid@^8.3.2:
+uuid@^11.1.1:
   version "11.1.1"
   resolved "https://registry.yarnpkg.com/uuid/-/uuid-11.1.1.tgz#f6d81d2e1c65d00762e5e29b16c5d2d995e208ad"
   integrity sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ==
